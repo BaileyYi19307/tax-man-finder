@@ -31,6 +31,10 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    "api.apps.ApiConfig",
+    "users.apps.UsersConfig",
+    "accountants.apps.AccountantsConfig",
+    "bookings.apps.BookingsConfig", 
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -72,16 +76,26 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "postgres",
-        "USER":"masteruser",
-        "PASSWORD":'mastermasteruser19307',
-        "HOST":"tax-man-finder-db.c4poqiei0o9a.us-east-1.rds.amazonaws.com", 
-        "PORT":"5432", 
+import os
+
+if os.getenv("ENV") == "production":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": "postgres",
+            "USER":"masteruser",
+            "PASSWORD":'mastermasteruser19307',
+            "HOST":"tax-man-finder-db.c4poqiei0o9a.us-east-1.rds.amazonaws.com", 
+            "PORT":"5432", 
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR/"db.sqlite3",
+        }
+    }
 
 
 # Password validation
