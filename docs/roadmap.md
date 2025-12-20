@@ -1,6 +1,17 @@
 ## Phase 1: Core marketplace functionaties
 - User signup (client vs accountant)
     - Create users app to define user model + role
+    - Unauthenticated
+    - Creates a user
+    - Has to -> 
+        1) validate input
+        2) hash passwords
+        3) set roles correctly 
+
+- Login
+    - vertifies credentials
+    - establishes authentication state 
+        - Use modern token-based authentication system 
 - Accountant Profile creation 
     - create accountants app for accountant-specific profile + listing 
 - Service listing model 
