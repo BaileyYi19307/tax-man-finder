@@ -29,3 +29,19 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields =["id", "email", "password","is_accountant"]
 
+
+class SignupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields=["email","password"]
+        #remove password from being included in the response
+        extra_kwargs = {"password": {'write_only':True}}
+
+    def create(self,validated_data):
+        #pop the password from validated data
+        password = validated_data.pop("password")
+        #create user with the data
+        user = User(**validated_data)
+        user.set_password(password)
+        user.save()
+        return 
