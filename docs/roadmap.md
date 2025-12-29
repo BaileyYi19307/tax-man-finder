@@ -14,8 +14,14 @@
         - Use modern token-based authentication system 
 - Accountant Profile creation 
     - create accountants app for accountant-specific profile + listing 
+    - When a user registers -> if they select create accountant, should create an accountant profile for them (frontend should send request)
 - Service listing model 
+    - Creating service 
+    - Updating service
+    - Deleting service 
 - Public browsing of accountants
+
+
 
 
 ## Phase 2: Booking and Messaging
