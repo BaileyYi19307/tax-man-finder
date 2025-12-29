@@ -10,7 +10,7 @@ class AccountantProfile(models.Model):
                                 on_delete=models.CASCADE,
                                 related_name="accountant_profile")
 
-    years_experience = models.IntegerField()
+    years_experience = models.IntegerField(default=0)
     credentials = models.CharField()
     bio = models.CharField()
 
