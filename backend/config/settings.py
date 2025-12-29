@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "api.apps.ApiConfig",
     "users.apps.UsersConfig",
+    "services.apps.ServicesConfig",
     "accountants.apps.AccountantsConfig",
     "bookings.apps.BookingsConfig", 
     "django.contrib.admin",
