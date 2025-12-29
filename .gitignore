@@ -154,3 +154,10 @@ db.sqlite3
 #OS
 .DS_Store
 
+# Python
+__pycache__/
+*.pyc
+
+# Django / local dev
+db.sqlite3
+*.sqlite3

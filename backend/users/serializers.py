@@ -1,6 +1,7 @@
 
 from rest_framework import serializers
 from users.models import User
+from django.contrib.auth import authenticate
 
 #ModelSerializer classes are shortcut for creating
 #serializer classses -> automatically determined set of fields
@@ -40,8 +41,29 @@ class SignupSerializer(serializers.ModelSerializer):
     def create(self,validated_data):
         #pop the password from validated data
         password = validated_data.pop("password")
+        email = validated_data["email"]
         #create user with the data
-        user = User(**validated_data)
+        user = User(username=email,email=email)
         user.set_password(password)
         user.save()
-        return 
+        return user
+
+class LoginSerializer(serializers.Serializer):
+    email=serializers.EmailField()
+    password=serializers.CharField(write_only=True)
+
+    def validate(self,data):
+        """
+        Check that the user exists based on email and password
+        """
+
+        email=data['email']
+        password=data['password']
+
+        user = authenticate(username=email, password=password)
+
+        if not user:
+            raise serializers.ValidationError("Invalid Credentials")
+        
+        data['user']=user
+        return data
