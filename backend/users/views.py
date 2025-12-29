@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 
 
 from users.models import User
-from users.serializers import UserSerializer
+from users.serializers import SignupSerializer, LoginSerializer
 
 
 # @api_view(["GET", "POST"])
@@ -27,14 +27,40 @@ from users.serializers import UserSerializer
 #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+
+from django.contrib.auth import authenticate
+
 #Allows user to signup
 class SignUp(APIView):
     permission_classes=[AllowAny]
 
     def post(self, request):
         #instantiate serializer 
-        serializer = UserSerializer(data=request.data)
+        serializer = SignupSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
             return Response(serializer.data,status=status.HTTP_201_CREATED)
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+
+class Login(APIView):
+    permission_classes=[AllowAny]
+    
+    def post(self,request):
+        print("The request is", request.data)
+       
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = serializer.validated_data['user']
+
+        return Response(
+        {
+            "message": "login successful",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "is_accountant": user.is_accountant,
+            }
+        },
+        status=status.HTTP_200_OK
+        )
