@@ -12,6 +12,10 @@
     - create User(is_accountant=True)
     - create AccountantProfile(user=user)
 
+- create a User
+- create a default AccountantProfile 
+
+
 
 What properties should a User have?
 - 
