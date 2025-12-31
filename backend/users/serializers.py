@@ -2,6 +2,7 @@
 from rest_framework import serializers
 from users.models import User
 from django.contrib.auth import authenticate
+from accountants.models import AccountantProfile
 
 #ModelSerializer classes are shortcut for creating
 #serializer classses -> automatically determined set of fields
@@ -34,7 +35,7 @@ class UserSerializer(serializers.ModelSerializer):
 class SignupSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields=["email","password"]
+        fields=["email","password","is_accountant","id"]
         #remove password from being included in the response
         extra_kwargs = {"password": {'write_only':True}}
 
@@ -42,10 +43,18 @@ class SignupSerializer(serializers.ModelSerializer):
         #pop the password from validated data
         password = validated_data.pop("password")
         email = validated_data["email"]
+        is_accountant = validated_data['is_accountant']
         #create user with the data
-        user = User(username=email,email=email)
+        user = User(username=email,email=email,is_accountant= is_accountant)
+
         user.set_password(password)
         user.save()
+
+        if user.is_accountant:
+            print("Creating an accountant profile now")
+            AccountantProfile.objects.create(user=user)
+
+        # user["id"]=user.id
         return user
 
 class LoginSerializer(serializers.Serializer):
