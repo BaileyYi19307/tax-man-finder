@@ -3,7 +3,7 @@ from users.models import User
 from django.utils import timezone
 from django.urls import reverse
 from rest_framework.test import APIClient
-from .models import Booking
+from .models import Booking,BookingStatusOptions
 
 
 # Create your tests here.
@@ -54,6 +54,11 @@ class BookingTests(TestCase):
             ).exists()
         )
 
+        #check to see that the status at default is pending 
+        booking = Booking.objects.get(accountant=accountant_user, user=client_user, name="Tax consultation")
+        self.assertEqual(booking.status, BookingStatusOptions.PENDING)
+
+
 
     def test_create_booking_requires_auth(self):
         """Check to see that only logged-in uers should be allowed to create a booking"""
@@ -63,4 +68,8 @@ class BookingTests(TestCase):
         """
             Does not allow two users to book the same accountant at the same time 
         """
+
+        #if a booking has already been created, then want to make sure that accountant can't be double booked during that time?
+
+        
         pass
