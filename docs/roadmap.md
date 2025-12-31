@@ -8,12 +8,22 @@
         2) hash passwords
         3) set roles correctly 
 
+- When accountant user signs up 
+    - create User(is_accountant=True)
+    - create AccountantProfile(user=user)
+
+
+
 - Login
     - vertifies credentials
     - establishes authentication state 
         - Use modern token-based authentication system 
 - Accountant Profile creation 
     - create accountants app for accountant-specific profile + listing 
+    - Accountant profile is only complete when 
+        - Profile info has been filled out 
+        - Has atleast one service 
+        - Else, incomplete 
 - Service listing model 
 - Public browsing of accountants
 
@@ -21,6 +31,7 @@
 ## Phase 2: Booking and Messaging
 - Booking requests
     - Need a bookings app for booking logic 
+    - 
 - Messaging between users
 - Availability management
 
