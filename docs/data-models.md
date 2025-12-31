@@ -18,3 +18,9 @@
 - title
 - description
 - price
+
+# Booking
+- date 
+- accountant 
+- user 
+- status: 
