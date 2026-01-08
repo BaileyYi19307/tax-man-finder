@@ -31,6 +31,9 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    "chats.apps.ChatsConfig",
+    "daphne",
+    "channels",
     "rest_framework",
     "rest_framework_simplejwt",
     "api.apps.ApiConfig",
@@ -46,6 +49,16 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
 ]
 
+ASGI_APPLICATION = "config.asgi.application"
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts":[("127.0.0.1", 6379)],
+        }
+    }
+}
+
 REST_FRAMEWORK = {
     # Use Django's standard `django.contrib.auth` permissions,
     # or allow read-only access for unauthenticated users.
@@ -58,6 +71,8 @@ REST_FRAMEWORK = {
 }
 
 AUTH_USER_MODEL="users.User"
+
+
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
