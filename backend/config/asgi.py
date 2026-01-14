@@ -28,6 +28,8 @@ django_asgi_app = get_asgi_application()
 #connection will be given to the AuthMiddlewareStack
         #AuthMiddlewareStack -> populates scope with reference to currently authenticated user
                             #-> connection then given to URLRouter
+
+#will route to different things depending on the type key of the scope
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
     "websocket":AllowedHostsOriginValidator(
