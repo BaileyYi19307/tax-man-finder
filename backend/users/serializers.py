@@ -33,7 +33,7 @@ class UserSerializer(serializers.ModelSerializer):
 class SignupSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields=["email","password","is_accountant","id"]
+        fields=["email","password","id"]
         #remove password from being included in the response
         extra_kwargs = {"password": {'write_only':True}}
         #field may be used when updating or creating an instance, but is not included when serializing the representation
