@@ -37,10 +37,10 @@ class SignUp(APIView):
     def post(self, request):
         #instantiate serializer 
         serializer = SignupSerializer(data=request.data)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            return Response(serializer.data,status=status.HTTP_201_CREATED)
-        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        return Response({"id":user.id, "email":user.email, "message":"Registration successful. Please verify your email."}, status=status.HTTP_201_CREATED)
 
 class Login(APIView):
     permission_classes=[AllowAny]
