@@ -8,8 +8,6 @@ from accountants.models import AccountantProfile
 #serializer classses -> automatically determined set of fields
 # simple default implementations for create() and update() methods
 
-
-
 # class UserSerializer(serializers.Serializer):
 #     id = serializers.IntegerField(read_only=True)
 #     email = serializers.CharField()
@@ -29,7 +27,7 @@ from accountants.models import AccountantProfile
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields =["id", "email", "password","is_accountant"]
+        fields =["id", "email"]
 
 
 class SignupSerializer(serializers.ModelSerializer):
@@ -38,23 +36,19 @@ class SignupSerializer(serializers.ModelSerializer):
         fields=["email","password","is_accountant","id"]
         #remove password from being included in the response
         extra_kwargs = {"password": {'write_only':True}}
+        #field may be used when updating or creating an instance, but is not included when serializing the representation
 
     def create(self,validated_data):
         #pop the password from validated data
         password = validated_data.pop("password")
-        email = validated_data["email"]
-        is_accountant = validated_data['is_accountant']
-        #create user with the data
-        user = User(username=email,email=email,is_accountant= is_accountant)
 
-        user.set_password(password)
-        user.save()
-
+        #create a user
+        user = User.objects.create_user(password = password,is_verified=False, is_accountant=False,**validated_data)
+   
         if user.is_accountant:
             print("Creating an accountant profile now")
             AccountantProfile.objects.create(user=user)
 
-        # user["id"]=user.id
         return user
 
 class LoginSerializer(serializers.Serializer):
