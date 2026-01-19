@@ -15,6 +15,7 @@ class SignupTest(TestCase):
         data = {
             "email": "newuser@email.com",
             "password": "StrongPassword123!",
+            "role":"client"
         }
 
         response = self.client.post(self.signup_url, data, format="json")
@@ -49,7 +50,9 @@ class SignupTest(TestCase):
         data = {
             "email": "secure@email.com",
             "password": "SuperSecret123!",
+            "role": "client",
         }
+
 
         response = self.client.post(self.signup_url, data, format="json")
 
@@ -78,7 +81,9 @@ class SignupTest(TestCase):
         data = {
             "email": "unverified@email.com",
             "password": "TestPassword123!",
+            "role": "client",
         }
+
 
         signup_response = self.client.post(self.signup_url, data, format="json")
         self.assertEqual(signup_response.status_code, 201)
@@ -171,6 +176,55 @@ class LoginTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["email"], "bailey@email.com")
       
+
+class RolePermissionTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.password = "testpassword123"
+
+        self.accountant = User.objects.create_user(
+            email="accountant@gmail.com",
+            password=self.password,
+            is_accountant=True,
+            is_verified=True,
+        )
+
+        self.client_user = User.objects.create_user(
+            email="client@email.com",
+            password=self.password,
+            is_accountant=False,
+            is_verified=True,
+        )
+
+        self.accountant_dashboard=reverse("accountant-dashboard")
+        self.client_dashboard=reverse('client-dashboard')
+
+    def authenticate(self,user):
+        self.client.force_authenticate(user=user)
+
+    def test_accountant_can_access_accountant_dashboard(self):
+        self.authenticate(self.accountant)
+        response = self.client.get(self.accountant_dashboard)
+        self.assertEqual(response.status_code, 200)
+
+    def test_accountant_can_access_client_dashboard(self):
+        self.authenticate(self.accountant)
+        response = self.client.get(self.client_dashboard)
+        self.assertEqual(response.status_code, 200)
+
+    def test_client_can_access_client_dashboard(self):
+        self.authenticate(self.client_user)
+        response = self.client.get(self.client_dashboard)
+        self.assertEqual(response.status_code, 200)
+
+    def test_client_cannot_access_accountant_dashboard(self):
+        self.authenticate(self.client_user)
+        response = self.client.get(self.accountant_dashboard)
+        self.assertEqual(response.status_code, 403)
+
+    def test_unauthenticated_user_gets_401(self):
+        response = self.client.get(self.accountant_dashboard)
+        self.assertEqual(response.status_code, 401)
 
 # #test an accountant profile is created when a user signs up as an accountant
 # #i.e. a request is sent with data that includes is_accountant = true 

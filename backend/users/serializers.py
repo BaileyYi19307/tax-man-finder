@@ -31,9 +31,11 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class SignupSerializer(serializers.ModelSerializer):
+    role = serializers.ChoiceField(choices=["accountant", "client"])
+
     class Meta:
         model = User
-        fields=["email","password","id"]
+        fields=["email","password","role","id"]
         #remove password from being included in the response
         extra_kwargs = {"password": {'write_only':True}}
         #field may be used when updating or creating an instance, but is not included when serializing the representation
@@ -41,11 +43,13 @@ class SignupSerializer(serializers.ModelSerializer):
     def create(self,validated_data):
         #pop the password from validated data
         password = validated_data.pop("password")
+        role = validated_data.pop("role")
+
 
         #create a user
-        user = User.objects.create_user(password = password,is_verified=False, is_accountant=False,**validated_data)
+        user = User.objects.create_user(password = password,is_verified=False,is_accountant=(role == "accountant"),**validated_data)
    
-        if user.is_accountant:
+        if role=="accountant":
             print("Creating an accountant profile now")
             AccountantProfile.objects.create(user=user)
 
