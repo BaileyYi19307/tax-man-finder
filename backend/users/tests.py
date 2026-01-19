@@ -6,6 +6,96 @@ from .models import User
 
 
 
+class SignupTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.signup_url = reverse("signup")
+
+    def test_signup_success(self):
+        data = {
+            "email": "newuser@email.com",
+            "password": "StrongPassword123!",
+        }
+
+        response = self.client.post(self.signup_url, data, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        self.assertIn("id", response.data)
+        self.assertEqual(response.data["email"], data["email"])
+        self.assertIn("message", response.data)
+
+        #check to see user exists in DB
+        self.assertTrue(User.objects.filter(email=data["email"]).exists())
+
+        user = User.objects.get(email=data["email"])
+        self.assertFalse(user.is_verified)
+
+    def test_signup_duplicate_email_fails(self):
+        User.objects.create_user(
+            email="dupe@email.com",
+            password="password123",
+        )
+
+        data = {
+            "email": "dupe@email.com",
+            "password": "AnotherPassword123!",
+        }
+
+        response = self.client.post(self.signup_url, data, format="json")
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_signup_password_not_returned(self):
+        data = {
+            "email": "secure@email.com",
+            "password": "SuperSecret123!",
+        }
+
+        response = self.client.post(self.signup_url, data, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        self.assertNotIn("password", response.data)
+
+    def test_signup_missing_password_fails(self):
+        data = {
+            "email": "nopassword@email.com",
+        }
+
+        response = self.client.post(self.signup_url, data, format="json")
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_signup_missing_email_fails(self):
+        data = {
+            "password": "NoEmail123!",
+        }
+
+        response = self.client.post(self.signup_url, data, format="json")
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_signup_user_cannot_login_until_verified(self):
+        data = {
+            "email": "unverified@email.com",
+            "password": "TestPassword123!",
+        }
+
+        signup_response = self.client.post(self.signup_url, data, format="json")
+        self.assertEqual(signup_response.status_code, 201)
+
+        login_url = reverse("login")
+        login_response = self.client.post(
+            login_url,
+            {
+                "email": data["email"],
+                "password": data["password"],
+            },
+            format="json",
+        )
+
+        self.assertEqual(login_response.status_code, 400)
+
+
 class LoginTest(TestCase):
     def setUp(self):
         #create a user
