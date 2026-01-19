@@ -21,7 +21,7 @@
 
 # Booking
 - date 
-- accountant 
+- accountant
 - user 
 - status: 
 
