@@ -13,6 +13,13 @@
     - create AccountantProfile(user=user)
 
 
+What properties should a User have?
+- 
+
+1) Create a custom user model 
+
+- Security, token JWT? 
+
 
 - Login
     - vertifies credentials
