@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
+from users.permissions import IsAccountant
 
 from users.models import User
 from .serializers import MeSerializer
@@ -77,3 +78,24 @@ class MeView(APIView):
     def get(self,request):
         serializer = MeSerializer(request.user)
         return Response(serializer.data)
+
+
+
+class AccountantDashboard(APIView):
+    permission_classes = [IsAuthenticated, IsAccountant]
+
+    def get(self, request):
+        return Response({
+            "role": "accountant",
+            "message": "Welcome to the accountant dashboard"
+        })
+    
+
+class ClientDashboard(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response({
+            "role": "client",
+            "message": "Welcome to the client dashboard"
+        })
