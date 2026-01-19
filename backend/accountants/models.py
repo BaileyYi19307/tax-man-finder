@@ -11,7 +11,7 @@ class AccountantProfile(models.Model):
                                 related_name="accountant_profile")
 
     years_experience = models.IntegerField(default=0)
-    credentials = models.CharField(blank=True, default="")
+    credentials = models.TextField(blank=True, default="")
     bio = models.CharField(blank=True, default="")
     profile_complete = models.BooleanField(default=False)
 
