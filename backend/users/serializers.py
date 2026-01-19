@@ -53,7 +53,7 @@ class SignupSerializer(serializers.ModelSerializer):
 
 class LoginSerializer(serializers.Serializer):
     email=serializers.EmailField()
-    password=serializers.CharField(write_only=True)
+    password=serializers.CharField(write_only=True,trim_whitespace=False)
 
     def validate(self,data):
         """
@@ -63,10 +63,19 @@ class LoginSerializer(serializers.Serializer):
         email=data['email']
         password=data['password']
 
-        user = authenticate(username=email, password=password)
+        user = authenticate(email=email, password=password)
 
-        if not user:
-            raise serializers.ValidationError("Invalid Credentials")
-        
+        if user is None: 
+            raise serializers.ValidationError({"detail": "Invalid credentials"})
+        if not user.is_active:
+            raise serializers.ValidationError({"detail": "Account is disabled"})
+        if not user.is_verified:
+            raise serializers.ValidationError({"detail": "Email is not verified"})
         data['user']=user
         return data
+
+
+class MeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "email"]
