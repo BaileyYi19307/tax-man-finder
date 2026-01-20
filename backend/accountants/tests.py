@@ -13,7 +13,6 @@ class ProfileStatusTest(TestCase):
 
         #make a user
         cls.user = User.objects.create_user(
-            username="acct_test", 
             email="acct@test.com",
             password="password123",
             is_accountant=True,

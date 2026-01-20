@@ -18,7 +18,6 @@ class BookingTests(TestCase):
 
         # creating a client user
         client_user = User.objects.create_user(
-            username="client1",
             email="client1@test.com",
             password="password123",
             is_accountant=False,
@@ -26,7 +25,6 @@ class BookingTests(TestCase):
 
         # creating an accountant user
         accountant_user = User.objects.create_user(
-            username="acct1",
             email="acct1@test.com",
             password="password123",
             is_accountant=True,
