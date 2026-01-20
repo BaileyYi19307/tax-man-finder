@@ -11,4 +11,4 @@ urlpatterns = [
        views.MessageListView.as_view(),
         name="conversation-messages",
     ),
-]
+    ]
