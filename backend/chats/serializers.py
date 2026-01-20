@@ -28,3 +28,9 @@ class MessageSerializer(serializers.ModelSerializer):
         fields = ["id", "sender_email", "body", "created_at"]
 
 
+
+class MessageCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Message
+        fields = ["id", "body", "created_at"]
+        read_only_fields = ["id", "created_at"]

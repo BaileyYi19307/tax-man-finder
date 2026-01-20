@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import ConversationSerializer, MessageSerializer
+from .serializers import ConversationSerializer, MessageSerializer, MessageCreateSerializer
 from .models import Conversation, Message
 from .permissions import IsConversationParticipant
 from django.db.models import Q
@@ -51,4 +51,21 @@ class MessageListView(APIView):
 
         serializer = MessageSerializer(messages, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self,request,conversation_id):
+
+        #get the conversation 
+        conversation = get_object_or_404(Conversation, id=conversation_id)
+        self.check_object_permissions(request, conversation)
+
+        #validate input
+        serializer = MessageCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        #create message
+        message = Message.objects.create( conversation=conversation, sender=request.user, body=serializer.validated_data["body"])
+        #message sender is always request.user
+        #conversation must exist
+        #message body required
+        return Response(MessageCreateSerializer(message).data,status=status.HTTP_201_CREATED)
 
