@@ -1,6 +1,6 @@
 
 # import json
-# from django.test import TestCase
+from django.test import TestCase
 # from channels.testing import WebsocketCommunicator
 # from .consumers import ChatConsumer
 
@@ -128,3 +128,11 @@ class ChatTests(ChannelsLiveServerTestCase):
         return self.driver.find_element(
             by=By.CSS_SELECTOR, value="#chat-log"
         ).get_property("value")
+    
+
+    class ConversationTests(TestCase):
+        def setUp():
+            pass
+
+        def convo_fail_without_inquiry(self):
+            pass

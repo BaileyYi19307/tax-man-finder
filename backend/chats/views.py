@@ -4,9 +4,11 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import ConversationSerializer
-from .models import Conversation
+from .serializers import ConversationSerializer, MessageSerializer
+from .models import Conversation, Message
+from .permissions import IsConversationParticipant
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 
 
 def index(request):
@@ -32,4 +34,21 @@ class ConversationView(APIView):
 
 
     
+class MessageListView(APIView):
+    permission_classes = [IsAuthenticated, IsConversationParticipant]
+
+    def get(self, request, conversation_id):
+        conversation = get_object_or_404(Conversation, id=conversation_id)
+
+        # object-level permission check
+        self.check_object_permissions(request, conversation)
+
+        messages = (
+            Message.objects
+            .filter(conversation=conversation)
+            .order_by("created_at")
+        )
+
+        serializer = MessageSerializer(messages, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 

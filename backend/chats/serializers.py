@@ -1,10 +1,10 @@
 
 from rest_framework import serializers
-from .models import Conversation
+from .models import Conversation, Message
 
 class ConversationSerializer(serializers.ModelSerializer):
     other_user = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Conversation
         fields = ["id","other_user","created_at","updated_at"]
@@ -18,5 +18,13 @@ class ConversationSerializer(serializers.ModelSerializer):
         else:
             return inquiry.client.email
 
+
+
+class MessageSerializer(serializers.ModelSerializer):
+    sender_email = serializers.EmailField(source="sender.email", read_only=True)
+
+    class Meta:
+        model = Message
+        fields = ["id", "sender_email", "body", "created_at"]
 
 
