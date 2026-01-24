@@ -11,13 +11,10 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 
 
-def index(request):
-    return render(request, "chats/index.html")
 
-
-def room(request, room_name):
-    return render(request, "chats/room.html", {"room_name": room_name})
-
+# REST API is read-only for messages:
+#     GET /api/conversations/
+#     GET /api/conversations/<id>/messages/
 
 class ConversationView(APIView):
     permission_classes=[IsAuthenticated]
@@ -31,11 +28,10 @@ class ConversationView(APIView):
 
         return Response(serializer.data,status=status.HTTP_200_OK)
 
-
-
     
 class MessageListView(APIView):
     permission_classes = [IsAuthenticated, IsConversationParticipant]
+    http_method_names = ["get"]
 
     def get(self, request, conversation_id):
         conversation = get_object_or_404(Conversation, id=conversation_id)
@@ -45,27 +41,9 @@ class MessageListView(APIView):
 
         messages = (
             Message.objects
-            .filter(conversation=conversation)
+            .filter(conversation_id=conversation_id)
             .order_by("created_at")
         )
 
         serializer = MessageSerializer(messages, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def post(self,request,conversation_id):
-
-        #get the conversation 
-        conversation = get_object_or_404(Conversation, id=conversation_id)
-        self.check_object_permissions(request, conversation)
-
-        #validate input
-        serializer = MessageCreateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        #create message
-        message = Message.objects.create( conversation=conversation, sender=request.user, body=serializer.validated_data["body"])
-        #message sender is always request.user
-        #conversation must exist
-        #message body required
-        return Response(MessageCreateSerializer(message).data,status=status.HTTP_201_CREATED)
-

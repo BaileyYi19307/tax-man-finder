@@ -30,9 +30,14 @@ django_asgi_app = get_asgi_application()
                             #-> connection then given to URLRouter
 
 #will route to different things depending on the type key of the scope
+# application = ProtocolTypeRouter({
+#     "http": django_asgi_app,
+#     "websocket":AllowedHostsOriginValidator(
+#         AuthMiddlewareStack(URLRouter(websocket_urlpatterns))
+#     )
+# })
+
 application = ProtocolTypeRouter({
-    "http": django_asgi_app,
-    "websocket":AllowedHostsOriginValidator(
-        AuthMiddlewareStack(URLRouter(websocket_urlpatterns))
-    )
+    "http": get_asgi_application(),
+    "websocket": URLRouter(websocket_urlpatterns),
 })
