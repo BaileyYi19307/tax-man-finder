@@ -31,9 +31,9 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    "channels",
     "chats.apps.ChatsConfig",
     "daphne",
-    "channels",
     "rest_framework",
     "rest_framework_simplejwt",
     "api.apps.ApiConfig",

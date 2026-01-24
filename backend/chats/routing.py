@@ -1,8 +1,8 @@
 from django.urls import re_path
 
-from . import consumers
+from .consumers import ChatConsumer
 
 websocket_urlpatterns=[
     #call the as_asgi() - get an ASGI aplication that will instantiate an instance of our consumer for each user-connection
-    re_path(r"ws/chat/(?P<room_name>\w+)/$", consumers.ChatConsumer.as_asgi()), #captures room name as url route, kwargs
+    re_path(r"^ws/conversations/(?P<conversation_id>\d+)/$", ChatConsumer.as_asgi()),
 ]
