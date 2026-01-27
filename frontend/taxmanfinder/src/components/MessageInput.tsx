@@ -1,7 +1,12 @@
 //input field - should do a post after the submission button? 
 import { useState } from "react";
 
-export default function MessageInput(){
+
+type MessageInputProps ={
+    onSend:(text:string) => void; 
+}
+
+export default function MessageInput({onSend}:MessageInputProps){
     const [text,setText] = useState("");
 
     function handleSubmit(e:React.FormEvent){
@@ -9,7 +14,7 @@ export default function MessageInput(){
 
         if (!text.trim()) return;
 
-        console.log("send message:", text);
+        onSend(text);
         setText("");
     }
 
