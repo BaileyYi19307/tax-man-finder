@@ -14,18 +14,38 @@ type Message={
 
 
 export default function ConversationView() {
-    const {conversationId} = useParams();
+    const {conversationId} = useParams<{conversationId}>();
 
-    const [messages,setMessages] = useState<Message[]>([
-        { id: 1, text: "Hey!", isMine: false },
-        { id: 2, text: "Are you free later?", isMine: false },
-        { id: 3, text: "Yeah, around 6 works.", isMine: true },
-    ]);
+
+    const [messagesByConversation, setMessagesByConversation] = useState<
+    Record<string, Message[]>
+    >({
+        "1": [
+            { id: 1, text: "Hey!", isMine: false },
+            { id: 2, text: "Are you free later?", isMine: false },
+        ],
+        "2": [
+            { id: 3, text: "Yeah, around 6 works.", isMine: false },
+        ],
+        "3": [
+            { id: 4, text: "Yeah, around 6 works.", isMine: false },
+        ],
+    });
+
+    const messages = messagesByConversation[conversationId ?? ""] ?? [];
+
+
 
     function handleSend(text:string){
-        setMessages((prev)=>[
-            ...prev,{ id: Date.now(),text,isMine:true}
-        ]);
+        setMessagesByConversation((prev) => {
+            const oldMessages = prev[conversationId] ?? [];
+            const newMessage = { id: Date.now(), text, isMine: true };
+          
+            return {
+              ...prev,
+              [conversationId]: [...oldMessages, newMessage],
+            };
+          });
     }
 
 
