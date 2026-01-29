@@ -1,28 +1,34 @@
 //should display all the conversations associated with the user id 
 
 import {NavLink} from "react-router-dom";
+import type { Conversation } from "./ChatLayout";
 
 
-export default function InboxView(){
+type InboxViewProps={
+    conversations: Conversation[]
+};
+
+
+export default function InboxView({conversations}:InboxViewProps){
     //list all the conversations that the user is part of 
     //how to get the user id then?
-    const conversations = [
-        {id:"1", name: "Alex"},
-        {id: "2", name: "Jamie"},
-        {id:"3", name: "Chris"},
-    ]
 
     return(
         <div>
             <h3>Messages</h3>
 
             <ul>
-                {conversations.map((convo)=>(
-                    <li key = {convo.id}>
-                        <NavLink to= {`/chat/${convo.id}`}>{convo.name}
-                        </NavLink>
+                {conversations.map((c) => {
+                const last = c.messages[c.messages.length - 1]?.text ?? "";
+                return (
+                    <li key={c.id}>
+                    <NavLink to={`/chat/${c.id}`}>
+                        {c.title}
+                    </NavLink>
+                    <div>{last}</div>
                     </li>
-                ))}
+                );
+                })}
             </ul>
 
         </div>
