@@ -1,4 +1,5 @@
 import MessageBubble from "./MessageBubble";
+import {useRef,useEffect} from 'react';
 
 type Message={
     id:number;
@@ -13,6 +14,10 @@ type MessageListProps={
 
 export default function MessageList({messages}:MessageListProps) {
   //create message bubbles
+  const bottomRef = useRef<HTMLDivElement|null>(null);
+
+
+  useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"})},[messages])
 
   return (
     <div style={{ flex: 1, overflowY: "auto" }}>
@@ -23,6 +28,8 @@ export default function MessageList({messages}:MessageListProps) {
           isMine={message.isMine}
         />
       ))}
+
+      <div ref={bottomRef}/>
     </div>
   );
 }
