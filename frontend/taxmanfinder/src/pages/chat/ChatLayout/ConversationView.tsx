@@ -1,51 +1,32 @@
-import {useParams} from "react-router-dom";
+import {useParams,useOutletContext} from "react-router-dom";
 import {useState} from "react";
 import MessageList from "../../../components/MessageList";
 import MessageInput from "../../../components/MessageInput";
+import type { Conversation } from "./ChatLayout";
 
 
-type Message={
-    id:number;
-    text:string; 
-    isMine:boolean;
+type OutletCtx = {
+    conversations:Conversation[];
+    sendMessage:(conversationId:string,text:string)=>void;
 }
-
-
 
 
 export default function ConversationView() {
     const {conversationId} = useParams<{conversationId}>();
+    const {conversations,sendMessage}=useOutletContext<OutletCtx>();
 
 
-    const [messagesByConversation, setMessagesByConversation] = useState<
-    Record<string, Message[]>
-    >({
-        "1": [
-            { id: 1, text: "Hey!", isMine: false },
-            { id: 2, text: "Are you free later?", isMine: false },
-        ],
-        "2": [
-            { id: 3, text: "Yeah, around 6 works.", isMine: false },
-        ],
-        "3": [
-            { id: 4, text: "Yeah, around 6 works.", isMine: false },
-        ],
-    });
+    const convo = conversations.find(c=>c.id == conversationId);
+    const messages = convo?.messages??[];
 
-    const messages = messagesByConversation[conversationId ?? ""] ?? [];
 
 
 
     function handleSend(text:string){
-        setMessagesByConversation((prev) => {
-            const oldMessages = prev[conversationId] ?? [];
-            const newMessage = { id: Date.now(), text, isMine: true };
-          
-            return {
-              ...prev,
-              [conversationId]: [...oldMessages, newMessage],
-            };
-          });
+        if(!conversationId){
+            return;
+        }
+        sendMessage(conversationId,text);
     }
 
 
@@ -53,8 +34,8 @@ export default function ConversationView() {
         <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
 
             {/*header*/}
-            <div>
-                Conversation {conversationId}
+            <div>{convo?.title??
+                `Conversation ${conversationId}`}
             </div>
 
 
