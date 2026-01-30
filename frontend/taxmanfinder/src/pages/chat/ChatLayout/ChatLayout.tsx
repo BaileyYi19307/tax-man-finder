@@ -2,7 +2,7 @@
 // /chat/:conversationId should show inbox + conversation view on right 
 
 import { Outlet } from "react-router-dom";
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import InboxView from "./InboxView";
 
 
@@ -18,9 +18,25 @@ export type Conversation ={
     messages:Message[];
 }
 
+const STORAGE_KEY = "chat_conversations";
+
 export default function ChatLayout() {
-    const [conversations,setConversations] = useState<Conversation[]>([
-        {
+    const [conversations,setConversations] = useState<Conversation[]>( ()=>{
+        
+        const stored = localStorage.getItem(STORAGE_KEY)
+
+        if (stored){
+            try{
+                return JSON.parse(stored)
+            }
+            catch{
+                console.warn("Failed to parse stored conversations")
+            }
+        }
+        
+        //fallback to 
+        
+        return [ {
             id: "1",
             title: "Alex",
             messages: [
@@ -38,7 +54,13 @@ export default function ChatLayout() {
             title: "Chris",
             messages: [{ id: 4, text: "Lunch tomorrow?", isMine: false }],
           },
-    ]);
+          
+    ]});
+    
+    useEffect(()=>{
+        //save whether conversations change
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations));
+    }, [conversations])
 
 
     function sendMessage(conversationId: string, text: string) {
