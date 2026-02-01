@@ -1,8 +1,13 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 
 from . import views
 
+#ceate a router and register our ViewSets with it
+router = DefaultRouter()
+router.register("", views.ServicesViewSet, basename="service")
+
+# the API URLs are now determined automatically by the router
 urlpatterns = [
-    path("", views.CreateService.as_view()),
-    path("create/", views.CreateService.as_view(),name="create_service"),
+    path("", include(router.urls)),
 ]
