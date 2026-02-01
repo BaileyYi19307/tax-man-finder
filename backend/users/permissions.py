@@ -1,11 +1,15 @@
-from rest_framework import permissions
+from rest_framework.permissions import BasePermission, SAFE_METHODS
 
-class IsAccountant(permissions.BasePermission):
+class IsAccountant(BasePermission):
     """
-    Allows access only to users with accountant role
+    Read access for everyone, but write access only for accountants
     """
     def has_permission(self, request, view):
-       
-        return (request.user and request.user.is_authenticated and request.user.is_accountant)
 
+        #allow get, head, options for anyone 
+        if request.method in SAFE_METHODS:
+            return True
+        
+        #only accountants can write
+       
 
