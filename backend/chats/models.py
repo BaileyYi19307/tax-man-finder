@@ -1,38 +1,7 @@
 from django.db import models
 from django.conf import settings
 from services.models import Service
-
-
-class Inquiry(models.Model):
-    client = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        related_name="client_inquiries",
-        on_delete=models.CASCADE,
-    )
-
-    accountant = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        related_name="accountant_inquiries",
-        on_delete=models.CASCADE,
-    )
-
-    service = models.ForeignKey(
-        Service,
-        on_delete=models.CASCADE,
-    )
-
-    status = models.CharField(
-        max_length=20,
-        choices=[
-            ("open", "Open"),
-            ("responded", "Responded"),
-            ("booked", "Booked"),
-            ("closed", "Closed"),
-        ],
-        default="open",
-    )
-
-    created_at = models.DateTimeField(auto_now_add=True)
+from inquiries.models import Inquiry
 
 # Create your models here.
 class Conversation(models.Model):

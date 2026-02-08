@@ -23,7 +23,8 @@ class ConversationView(APIView):
         #filter the conversations that the user participates in
         #identify user
         #fetch conversation objects the user is part of 
-        conversations=Conversation.objects.filter(Q(inquiry__client = request.user)|Q(inquiry__accountant=request.user)).order_by("-updated_at")
+
+        conversations=Conversation.objects.select_related("inquiry","inquiry__service").filter(Q(inquiry__client = request.user)|Q(inquiry__accountant=request.user)).order_by("-updated_at")
         serializer = ConversationSerializer(conversations, many=True, context={'request': request})
 
         return Response(serializer.data,status=status.HTTP_200_OK)
