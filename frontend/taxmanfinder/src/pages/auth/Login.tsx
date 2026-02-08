@@ -22,7 +22,35 @@ export default function LoginPage() {
         }
       );
 
+      
       console.log("success:", response.data);
+
+
+    const access =
+    response.data.access ||
+    response.data.token ||
+    response.data.access_token;
+
+  const refresh =
+    response.data.refresh ||
+    response.data.refresh_token;
+
+  const userId =
+    response.data.user?.id ||
+    response.data.user_id;
+
+
+    if (!access) {
+      console.error("Login succeeded but no access token found in response.data");
+      return;
+    }
+
+    localStorage.setItem("access_token", access);
+
+    if (refresh) localStorage.setItem("refresh_token", refresh);
+    if (userId) localStorage.setItem("user_id", String(userId));
+
+
     } catch (err: any) {
         console.log("status:", err.response?.status);
         console.log("data:", err.response?.data);
