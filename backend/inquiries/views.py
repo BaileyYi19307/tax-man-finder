@@ -13,7 +13,7 @@ from .serializers import InquiryCreateSerializer
 
 # Create your views here.
 class CreateInquiryView(APIView):
-    # permission_classes=[IsAuthenticated]
+    permission_classes=[IsAuthenticated]
 
     def post(self, request):
         #request contains service id 

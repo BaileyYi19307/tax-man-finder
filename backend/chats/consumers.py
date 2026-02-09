@@ -1,6 +1,5 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
-from asgiref.sync import async_to_sync 
 from channels.generic.websocket import WebsocketConsumer
 from .models import Conversation
 from channels.db import database_sync_to_async
@@ -28,10 +27,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if not token:
             return None
 
-        jwt_auth = JWTAuthentication()
-        validated_token = jwt_auth.get_validated_token(token)
-        return jwt_auth.get_user(validated_token)
 
+        jwt_auth = JWTAuthentication()
+        try: 
+            validated_token = jwt_auth.get_validated_token(token)
+            return jwt_auth.get_user(validated_token)
+        except Exception:
+            return None 
 
     @database_sync_to_async
     def user_is_participant(self, user):
@@ -73,10 +75,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     # receive message from websocket
     async def receive(self, text_data):
+        
         text_data_json = json.loads(text_data)
         body = text_data_json["message"]
 
         sender_id=self.scope["user"].id
+        print("WS RECEIVE:", body, "from", sender_id)
 
         message= await self.create_message(body,sender_id)
 
@@ -84,23 +88,36 @@ class ChatConsumer(AsyncWebsocketConsumer):
         #sends an event to a group
             # event has a special 'type' key 
             #chat.message calls the chat_message method
+
         await self.channel_layer.group_send(
-            self.group_name, {"type": "chat.message", "id":message.id,"body":message.body,"created_at": message.created_at.isoformat(),
-}
-        )
+                    self.group_name,
+                    {
+                        "type": "chat.message",
+                        "id": message.id,
+                        "body": message.body,
+                        "sender_id": sender_id,
+                        "created_at": message.created_at.isoformat(),
+                    },
+                )
+
+    async def chat_message(self, event):
+        print("WS SEND:", event)
+
+        await self.send(text_data=json.dumps({
+            "id": event["id"],
+            "body": event["body"],
+            "sender_id": event["sender_id"], 
+            "created_at": event["created_at"]
+        }))
+
+
+    
 
     async def disconnect(self,close_code):
         # leave room group
         await self.channel_layer.group_discard(
             self.group_name, self.channel_name
         )
-
-    async def chat_message(self, event):
-        await self.send(text_data=json.dumps({
-            "id":event["id"],
-            "body":event["body"],
-            "created_at":event["created_at"]
-        }))
 
     @database_sync_to_async
     def create_message(self,body,sender_id):
