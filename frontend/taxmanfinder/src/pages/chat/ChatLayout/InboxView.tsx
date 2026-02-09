@@ -8,29 +8,26 @@ type InboxViewProps={
     conversations: Conversation[]
 };
 
-
-export default function InboxView({conversations}:InboxViewProps){
-    //list all the conversations that the user is part of 
-    //how to get the user id then?
-
-    return(
-        <div>
-            <h3>Messages</h3>
-
-            <ul>
-                {conversations.map((c) => {
-                const last = c.messages[c.messages.length - 1]?.text ?? "";
-                return (
-                    <li key={c.id}>
-                    <NavLink to={`/chat/${c.id}`}>
-                        {c.title}
-                    </NavLink>
-                    <div>{last}</div>
-                    </li>
-                );
-                })}
-            </ul>
-
-        </div>
+export default function InboxView({ conversations = [] }: InboxViewProps) {
+    return (
+      <div>
+        <h3>Messages</h3>
+  
+        <ul>
+          {conversations.length === 0 ? (
+            <li>No conversations yet</li>
+          ) : (
+            conversations.map((c) => (
+              <li key={c.id}>
+                <NavLink to={`/chat/${c.id}`}>
+                  {c.other_user}
+                </NavLink>
+                <div>{c.last_message}</div>
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
     );
-}
+  }
+  
