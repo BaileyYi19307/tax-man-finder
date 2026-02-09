@@ -18,14 +18,21 @@ class ConversationSerializer(serializers.ModelSerializer):
         else:
             return inquiry.client.email
 
-
+    def get_last_message(self, obj):
+            last = (
+                Message.objects
+                .filter(conversation=obj)
+                .order_by("-created_at")
+                .first()
+            )
+            return last.body if last else ""
 
 class MessageSerializer(serializers.ModelSerializer):
     sender_email = serializers.EmailField(source="sender.email", read_only=True)
 
     class Meta:
         model = Message
-        fields = ["id", "sender_email", "body", "created_at"]
+        fields = ["id", "sender_id","sender_email", "body", "created_at"]
 
 
 
