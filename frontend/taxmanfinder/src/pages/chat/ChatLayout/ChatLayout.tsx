@@ -117,23 +117,13 @@ export default function ChatLayout() {
   return (
     <div style={{ display: "flex", height: "100vh" }}>
       
-    <aside
-        style={{
-          width: 300,
-          borderRight: "1px solid #ddd",
-          overflowY: "auto",
-        }}
-      >
+      <aside style={{ width: 300, borderRight: "1px solid #e5e7eb" }}>
+
         <InboxView conversations ={conversations}/>
       </aside>
 
-      <main
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
+      <main style={{ flex: 1, background: "#fafafa" }}>
+
         <Outlet/>
         {/*  render the child route here */}
       </main>
