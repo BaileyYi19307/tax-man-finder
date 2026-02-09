@@ -28,19 +28,23 @@ export default function MessageList({messages,currentUserId}:MessageListProps) {
   );
 
   useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"})},[messages])
-
   return (
-    <div style={{ flex: 1, overflowY: "auto" }}>
+    <div
+      style={{
+        flex: 1,
+        overflowY: "auto",
+        padding: "12px 0",
+        background: "#fafafa",
+      }}
+    >
       {messages.map((message) => (
-        
         <MessageBubble
           key={message.id}
           text={message.body}
           isMine={message.sender_id === currentUserId}
         />
       ))}
-
-      <div ref={bottomRef}/>
+      <div ref={bottomRef} />
     </div>
   );
-}
+}  
