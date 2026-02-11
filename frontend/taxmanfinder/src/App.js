@@ -9,6 +9,7 @@ import ConversationView from './pages/chat/ChatLayout/ConversationView.tsx'
 
 import ServicesList from "./pages/services/ServicesList";
 import ServiceDetail from "./pages/services/ServiceDetail";
+import AccountantDashboard from "./pages/dashboard/AccountantDashboard";
 
 
 const AppRoutes = () =>{
@@ -21,6 +22,9 @@ const AppRoutes = () =>{
 
         <Route path="/services" element={<ServicesList />} />
         <Route path="/services/:serviceId" element={<ServiceDetail />} />
+
+
+        <Route path="/dashboard/accountant" element={<AccountantDashboard />} />
 
         <Route path="/chat" element={<ChatLayout />}>
           <Route index element={<ChatEmptyState />} />

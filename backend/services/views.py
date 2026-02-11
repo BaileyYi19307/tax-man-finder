@@ -16,7 +16,11 @@ class ServicesViewSet(viewsets.ModelViewSet):
     """
     queryset = Service.objects.all()
     serializer_class = ServiceSerializer
-    permission_classes = [IsAccountant] # add IsAuthenticated as well 
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve"]:
+            return [AllowAny()]
+        return [IsAuthenticated(), IsAccountant()]
 
     def perform_create(self, serializer):
         serializer.save(accountant=self.request.user)
