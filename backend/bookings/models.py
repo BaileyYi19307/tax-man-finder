@@ -30,7 +30,7 @@ class Booking(models.Model):
     )
     
     def __str__(self):
-        return f"{self.name} between accountant: {self.accountant.username} and user:{self.user.username}"
+        return f"{self.name} between accountant: {self.accountant.email} and user:{self.user.email}"
 
 
 
