@@ -68,6 +68,9 @@ class LoginSerializer(serializers.Serializer):
         password=data['password']
 
         user = authenticate(email=email, password=password)
+        
+        
+        #check to see if emial is verieifed
 
         if user is None: 
             raise serializers.ValidationError({"detail": "Invalid credentials"})

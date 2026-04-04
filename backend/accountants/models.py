@@ -12,7 +12,7 @@ class AccountantProfile(models.Model):
 
     years_experience = models.IntegerField(default=0)
     credentials = models.TextField(blank=True, default="")
-    bio = models.CharField(blank=True, default="")
+    bio = models.TextField(blank=True, null=True)
     profile_complete = models.BooleanField(default=False)
 
     def __str__(self):

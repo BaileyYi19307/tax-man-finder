@@ -42,6 +42,8 @@ class User(AbstractUser):
 
     #have to implement is_active on the chosen auth backend
     is_verified = models.BooleanField(default=False)
+    is_mobile_verified = models.BooleanField(default=False)
+
     updated_at = models.DateTimeField(auto_now = True)
     #updates the field with current date and time every time the model instance's save() method is called
 

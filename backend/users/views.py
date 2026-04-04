@@ -5,12 +5,19 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
+from django.shortcuts import redirect
+from config import settings
+
 from users.permissions import IsAccountant
+from django.contrib.auth import get_user_model
+from django.core import signing 
+from django.core.mail import send_mail
+
 
 from users.models import User
 from .serializers import MeSerializer
 from users.serializers import SignupSerializer, LoginSerializer
-
+from users.utils import send_verification_email
 
 # @api_view(["GET", "POST"])
 # @permission_classes([AllowAny])
@@ -32,6 +39,7 @@ from users.serializers import SignupSerializer, LoginSerializer
 
 
 from django.contrib.auth import authenticate
+User = get_user_model()
 
 #Allows user to signup
 class SignUp(APIView):
@@ -42,8 +50,11 @@ class SignUp(APIView):
         serializer = SignupSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        
+        send_verification_email(user)
 
         return Response({"id":user.id, "email":user.email, "message":"Registration successful. Please verify your email."}, status=status.HTTP_201_CREATED)
+
 
 class Login(APIView):
     permission_classes=[AllowAny]
@@ -53,6 +64,7 @@ class Login(APIView):
         serializer.is_valid(raise_exception=True)
 
         user = serializer.validated_data['user']
+            
 
         refresh = RefreshToken.for_user(user)
 
@@ -99,3 +111,22 @@ class ClientDashboard(APIView):
             "role": "client",
             "message": "Welcome to the client dashboard"
         })
+
+
+class VerifyEmail(APIView):
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        print("Currently in verify email!!")
+        token = request.query_params.get("token")
+        if not token: 
+            return Response({"detail": "Missing token."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            data = signing.loads(token, salt="email-verify", max_age=60 * 60 * 24)
+            user = User.objects.get(id=data["user_id"], email=data["email"])
+        except Exception as e:
+            return Response({"error:",e},status=status.HTTP_400_BAD_REQUEST)
+            
+        user.is_verified = True
+        user.save(update_fields=["is_verified"])
+        return redirect(f"{settings.FRONTEND_URL}/login?verified=true")
