@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState} from "react";
+import { useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
 
@@ -7,6 +8,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const verified = (searchParams.get("verified") === "true")
 
   const navigate = useNavigate();
 
@@ -45,6 +49,7 @@ export default function LoginPage() {
   }
 
   return (
+
     <div
       style={{
         minHeight: "100vh",
@@ -54,6 +59,21 @@ export default function LoginPage() {
         padding: 16,
       }}
     >
+      {verified && (
+  <div
+    style={{
+      fontSize: 13,
+      color: "#166534",
+      background: "#f0fdf4",
+      border: "1px solid #bbf7d0",
+      borderRadius: 8,
+      padding: 10,
+      marginBottom: 12,
+    }}
+  >
+    Email verified successfully. You can log in now.
+  </div>
+)}
       <div
         style={{
           width: "100%",
