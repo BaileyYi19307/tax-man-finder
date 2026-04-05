@@ -1,5 +1,6 @@
 from django.db import models
 from users.models import User
+from services.models import Service
 from django.utils.translation import gettext_lazy as _
 
 
@@ -17,6 +18,10 @@ class Booking(models.Model):
         User,
         on_delete=models.CASCADE,
         related_name="bookings_as_accountant"
+    )
+    
+    service = models.ForeignKey(
+        Service,null=True, on_delete=models.CASCADE,
     )
 
     user = models.ForeignKey(
