@@ -1,5 +1,7 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import axios from "axios";
+import { jwtDecode } from "jwt-decode";
 
 type Service = {
   id: number;
@@ -38,13 +40,22 @@ export default function ServiceDetail() {
   const [error, setError] = useState<string | null>(null);
 
   const token = localStorage.getItem("access_token");
+  console.log("the token currently is", token);
 
   useEffect(() => {
-    fetch(`http://127.0.0.1:8000/services/${serviceId}/`)
-      .then((r) => r.json())
-      .then(setService)
-      .catch(console.error);
-  }, [serviceId]);
+    async function getService(){
+      try{
+        let response = await axios.get(`http://127.0.0.1:8000/services/${serviceId}/`);
+        setService(response.data);
+      }
+      catch(error){
+        console.log("erorr is",error);
+      }
+    }
+    getService(); 
+  }
+  , [serviceId])
+
 
   async function contactAccountant() {
     if (!token) {
@@ -76,6 +87,67 @@ export default function ServiceDetail() {
       setLoading(false);
     }
   }
+
+
+  async function createBookingRequest(){
+    //issue a post request to the backend
+    //which user is viewing the service right now
+    //which accountant are they referring to?
+    //which service is being viewed right now 
+    //have service 
+    //get the accountant from the service 
+    //get the current user 
+
+    // if (token){
+    //   const decoded = jwtDecode(token);
+    //   console.log("the user id is", userId);
+
+    // }
+    let userId=1;
+    let accountantId = 1; 
+    let serviceId=1; 
+    const name="Test Booking";
+    let date = new Date(); 
+
+    let dataPayload={
+      "user": userId,
+      "accountant":accountantId,
+      "service": serviceId, 
+      "name": name,
+      "date":date
+    }
+  
+    //hardcoding the userId and Accountant for now
+
+    try{
+        const res = await fetch("http://127.0.0.1:8000/bookings/create/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(dataPayload),
+     });
+
+      const text = await res.text();
+      console.log(res.status, text);
+
+
+      // const response = await axios.post(`http://127.0.0.1:8000/bookings/create/`,dataPayload,{
+      //   headers:{
+      //      Authorization: `Bearer ${token}`
+      //   }
+      // })
+
+      // if (response.status=201){
+      //   console.log("booking was created!");
+      // }
+    }
+    catch(error){
+      console.log("erorr is", error);
+    }
+  }
+
 
   if (!service) return <div style={{ padding: 24 }}>Loading…</div>;
 
@@ -155,6 +227,12 @@ export default function ServiceDetail() {
             >
               {loading ? "Starting chat..." : "Contact accountant"}
             </button>
+
+            <button
+              onClick = {createBookingRequest}
+              >
+                Create Booking Request 
+              </button>
 
             <Link
               to="/chat"

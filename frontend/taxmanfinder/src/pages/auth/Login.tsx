@@ -34,7 +34,7 @@ export default function LoginPage() {
       localStorage.setItem("refresh_token", refresh);
       localStorage.setItem("user_id", String(userId));
 
-      navigate("/chat");
+      navigate("/dashboard/client");
     } catch (err: any) {
       const msg =
         err.response?.data?.detail ||
