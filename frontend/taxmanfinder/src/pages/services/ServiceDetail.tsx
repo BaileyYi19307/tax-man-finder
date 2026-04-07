@@ -67,7 +67,7 @@ export default function ServiceDetail() {
     setError(null);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/inquiries/create/", {
+      const res = await fetch("http://127.0.0.1:8000/inquiries/create/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -225,13 +225,13 @@ export default function ServiceDetail() {
                 cursor: loading ? "not-allowed" : "pointer",
               }}
             >
-              {loading ? "Starting chat..." : "Contact accountant"}
+              {loading ? "Starting chat..." : "Message accountant"}
             </button>
 
             <button
               onClick = {createBookingRequest}
               >
-                Create Booking Request 
+                Request Consultation
               </button>
 
             <Link
