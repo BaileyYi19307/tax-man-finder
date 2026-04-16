@@ -3,7 +3,7 @@ import {useRef,useEffect} from 'react';
 
 type Message={
     id:number;
-    body: string; 
+    content: string; 
     sender_id: number, 
     created_at:string; 
 }
@@ -40,7 +40,7 @@ export default function MessageList({messages,currentUserId}:MessageListProps) {
       {messages.map((message) => (
         <MessageBubble
           key={message.id}
-          text={message.body}
+          text={message.content}
           isMine={message.sender_id === currentUserId}
         />
       ))}

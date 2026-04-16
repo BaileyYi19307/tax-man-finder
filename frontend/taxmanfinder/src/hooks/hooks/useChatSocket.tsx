@@ -2,13 +2,13 @@ import { useEffect, useRef } from "react";
 
 type IncomingMessage = {
   id: number;
-  body: string;
+  content: string;
   sender_id: number;
   created_at: string;
 };
 
 export function useChatSocket(
-  conversationId: number | undefined,
+  inquiryId: number | undefined,
   token: string | null,
   onMessage: (msg: IncomingMessage) => void
 ) {
@@ -20,10 +20,10 @@ export function useChatSocket(
   }, [onMessage]);
 
   useEffect(() => {
-    if (!conversationId || !token) return;
+    if (!inquiryId || !token) return;
 
     const socket = new WebSocket(
-      `ws://127.0.0.1:8000/ws/conversations/${conversationId}/?token=${token}`
+      `ws://127.0.0.1:8000/ws/inquiries/${inquiryId}/?token=${token}`
     );
 
     socketRef.current = socket;
@@ -54,7 +54,7 @@ export function useChatSocket(
         socket.close();
       }
     };
-  }, [conversationId, token]);
+  }, [inquiryId, token]);
 
   function sendMessage(text: string) {
     if (!socketRef.current) return;

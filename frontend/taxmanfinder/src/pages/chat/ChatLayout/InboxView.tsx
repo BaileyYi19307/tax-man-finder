@@ -1,32 +1,32 @@
 //should display all the conversations associated with the user id 
 
 import {NavLink} from "react-router-dom";
-import type { Conversation } from "./ChatLayout";
+import type { InquiryListItem } from "./ChatLayout";
 
 
 type InboxViewProps={
-    conversations: Conversation[]
+    inquiries: InquiryListItem[]
 };
 
-export default function InboxView({ conversations = [] }: InboxViewProps) {
+export default function InboxView({ inquiries = [] }: InboxViewProps) {
     return (
       <div>
         <h3>Messages</h3>
   
         <ul>
-          {conversations.length === 0 ? (
+          {inquiries.length === 0 ? (
             <li>No conversations yet</li>
           ) : (
-            conversations.map((c) => (
+            inquiries.map((inquiry) => (
                 <li
-                key={c.id}
+                key={inquiry.id}
                 style={{
                   padding: "10px 12px",
                   borderBottom: "1px solid #e5e7eb",
                 }}
               >
                 <NavLink
-                  to={`/chat/${c.id}`}
+                  to={`/chat/${inquiry.id}`}
                   style={({ isActive }) => ({
                     textDecoration: "none",
                     color: "#111",
@@ -34,9 +34,9 @@ export default function InboxView({ conversations = [] }: InboxViewProps) {
                     display: "block",
                   })}
                 >
-                  {c.other_user}
+                  {inquiry.accountant_name}
                   <div style={{ fontSize: 12, color: "#6b7280" }}>
-                    {c.last_message}
+                    {inquiry.service_title}
                   </div>
                 </NavLink>
               </li>

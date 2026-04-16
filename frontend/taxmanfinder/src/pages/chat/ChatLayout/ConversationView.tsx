@@ -2,14 +2,14 @@ import {useParams,useOutletContext} from "react-router-dom";
 import {useState,useEffect} from "react";
 import MessageList from "../../../components/MessageList";
 import MessageInput from "../../../components/MessageInput";
-import type { Conversation } from "./ChatLayout";
+import type { InquiryListItem } from "./ChatLayout";
 import { useChatSocket } from "../../../hooks/hooks/useChatSocket";
 import { useCallback } from "react";
 ;
 
 type Message = {
     id: number;
-    body: string;
+    content: string;
     sender_id: number;
     created_at: string;
   };
@@ -19,7 +19,7 @@ type Message = {
 export default function ConversationView() {
     const token = localStorage.getItem("access_token");
 
-    const {conversationId} = useParams<{conversationId:string}>();
+    const {inquiryId} = useParams<{inquiryId:string}>();
     const [messages, setMessages] = useState<Message[]>([]);
 
     const currentUserId = Number(localStorage.getItem("user_id"));
@@ -39,7 +39,7 @@ export default function ConversationView() {
           ...prev,
           {
             id: Date.now(), 
-            body: text,
+            content: text,
             sender_id: senderId,
             created_at: new Date().toISOString(),
           },
@@ -51,9 +51,9 @@ export default function ConversationView() {
       
     //load history 
     useEffect(() => {
-        if (!conversationId || !token) return;
+        if (!inquiryId || !token) return;
       
-        fetch(`http://127.0.0.1:8000/api/conversations/${conversationId}/messages/`, {
+        fetch(`http://127.0.0.1:8000/api/inquiries/${inquiryId}/messages/`, {
             headers: { Authorization: `Bearer ${token}` },
           })
             .then(async (r) => {
@@ -61,17 +61,17 @@ export default function ConversationView() {
               return r.json();
             })
             .then((data) => {
-              console.log("HISTORY:", data);
-              setMessages(data);
+              console.log("Inquiry detail:", data);
+              setMessages(data.messages);
             })
             .catch((e) => console.error("history fetch failed:", e));
           
-      }, [conversationId, token]);
+      }, [inquiryId, token]);
       
       //live updates via websocket
 
         const { sendMessage } = useChatSocket(
-            Number(conversationId),
+            Number(inquiryId),
             token,
             handleIncoming
         );

@@ -13,16 +13,18 @@ export type Message={
     created_at:string; 
 }
 
-export type Conversation ={
-    id:string; 
-    other_user: string;
-    last_message: string;
+export type InquiryListItem ={
+    id:number; 
+    status:string; 
+    created_at:string;
+    accountant_name:string; 
+    service_title: string; 
 }
 
 // const STORAGE_KEY = "chat_conversations";
 
 export default function ChatLayout() {
-    const [conversations, setConversations] = useState<Conversation[]>([]);
+    const [inquiries, setInquiries] = useState<InquiryListItem[]>([]);
     const token = localStorage.getItem("access_token");
 
 
@@ -93,7 +95,7 @@ export default function ChatLayout() {
     useEffect(() => {
         if (!token) return;
       
-        fetch("http://127.0.0.1:8000/api/conversations/", {
+        fetch("http://127.0.0.1:8000/api/inquiries/", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -107,8 +109,8 @@ export default function ChatLayout() {
             return res.json();
           })
           .then((data) => {
-            console.log("Inbox conversations:", data);
-            setConversations(data);
+            console.log("Inbox inquiries:", data);
+            setInquiries(data);
           })
           .catch(console.error);
       }, [token]);
@@ -119,7 +121,7 @@ export default function ChatLayout() {
       
       <aside style={{ width: 300, borderRight: "1px solid #e5e7eb" }}>
 
-        <InboxView conversations ={conversations}/>
+        <InboxView inquiries ={inquiries}/>
       </aside>
 
       <main style={{ flex: 1, background: "#fafafa" }}>

@@ -1,16 +1,13 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
-from channels.generic.websocket import WebsocketConsumer
-from .models import Conversation
 from channels.db import database_sync_to_async
 from .models import Message
-
+from inquiries.models import Inquiry
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from django.contrib.auth.models import AnonymousUser
 
 
 # WebSocket is the single write path:
-#     WS /ws/conversations/<id>/?token=JWT
+#     WS /ws/inquiries/<id>/?token=JWT
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def authenticate(self):
@@ -37,15 +34,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def user_is_participant(self, user):
-        conversation = Conversation.objects.get(id=self.conversation_id)
-        inquiry = conversation.inquiry
+        try: 
+            inquiry = Inquiry.objects.get(id=self.inquiry_id)
+        except Inquiry.DoesNotExist:
+            return False
         return user in [inquiry.client, inquiry.accountant]
     
     async def connect(self):
-        self.conversation_id = self.scope["url_route"]["kwargs"]["conversation_id"]      
+        self.inquiry_id = self.scope["url_route"]["kwargs"]["inquiry_id"]      
         #obtains convo id parameter from the url route in chat/routing.py
         #every consumer has a scope that contains information about its connection 
-        self.group_name = f"conversation_{self.conversation_id}" #construct a Channels group name 
+        self.group_name = f"inquiry_{self.inquiry_id}" #construct a Channels group name 
 
         user = await self.authenticate()
 
@@ -68,21 +67,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.accept() # accepts the websocket connection
 
 
-
-    @database_sync_to_async
-    def get_conversation(self):
-        return Conversation.objects.get(id=self.conversation_id)
-
     # receive message from websocket
     async def receive(self, text_data):
         
-        text_data_json = json.loads(text_data)
-        body = text_data_json["message"]
+        try:         
+            text_data_json = json.loads(text_data)
+        except json.JSONDecodeError:
+            return 
+        content = text_data_json.get("message","").strip()
+        if not content:
+            return
 
         sender_id=self.scope["user"].id
-        print("WS RECEIVE:", body, "from", sender_id)
+        print("WS RECEIVE:", content, "from", sender_id)
 
-        message= await self.create_message(body,sender_id)
+        message= await self.create_message(content,sender_id)
 
         # send message to room group
         #sends an event to a group
@@ -94,7 +93,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     {
                         "type": "chat.message",
                         "id": message.id,
-                        "body": message.body,
+                        "content": message.content,
                         "sender_id": sender_id,
                         "created_at": message.created_at.isoformat(),
                     },
@@ -105,7 +104,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         await self.send(text_data=json.dumps({
             "id": event["id"],
-            "body": event["body"],
+            "content": event["content"],
             "sender_id": event["sender_id"], 
             "created_at": event["created_at"]
         }))
@@ -120,12 +119,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
     @database_sync_to_async
-    def create_message(self,body,sender_id):
-        conversation=Conversation.objects.get(id = self.conversation_id)
+    def create_message(self,content,sender_id):
+        inquiry=Inquiry.objects.get(id = self.inquiry_id)
         return Message.objects.create(
-            conversation=conversation,
+            inquiry=inquiry,
             sender_id=sender_id,
-            body=body
+            content=content
         )
     
 
