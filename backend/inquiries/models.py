@@ -20,3 +20,8 @@ class Inquiry(models.Model):
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="open")
     created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        constraints=[
+            models.UniqueConstraint(fields=["client","service"],name="unique_client_service_inquiry")
+        ]
+            
