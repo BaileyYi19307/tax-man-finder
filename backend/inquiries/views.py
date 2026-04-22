@@ -10,6 +10,7 @@ from django.db.models import Q
 
 from .serializers import InquiryCreateSerializer, InquirySerializer
 from chats.serializers import MessageSerializer, MessageCreateSerializer
+from django.db import IntegrityError,transaction
 
 
 #get all the inquiries
@@ -29,23 +30,39 @@ class ListCreateInquiriesView(APIView):
 
     def post(self, request):
         #request contains service id 
+        
+        
         inquiry_serializer = InquiryCreateSerializer(data=request.data)
         inquiry_serializer.is_valid(raise_exception=True)
 
+        #here, we check if the inquiry already exists
+
         service = get_object_or_404(Service, id=inquiry_serializer.validated_data["service_id"])
+        
+        #I need to check request user an service
+        #check to see if an inquiry with this service id and this user already exists, if yes, return the id 
+     
 
-        #now we make an inquiry abut it 
-        inquiry = Inquiry.objects.create(
-            client=request.user,
-            accountant = service.accountant,
-            service = service
-        )
-
+            #now we make an inquiry abut it 
+        try:
+            with transaction.atomic():
+                inquiry = Inquiry.objects.create(
+                    client=request.user,
+                    accountant = service.accountant,
+                    service = service
+                )
+                created=True
+            
+        except IntegrityError:
+            inquiry = Inquiry.objects.get(
+                client=request.user,
+                service=service
+            )
+            created=False
         return Response(
-            {
-                "inquiry_id": inquiry.id,
-            },
-            status=status.HTTP_201_CREATED
+            {"inquiry_id":inquiry.id},
+            status = status.HTTP_200_OK if not created else status.HTTP_201_CREATED
+            
         )
 
 class ReadSpecificInquiryView(APIView):
