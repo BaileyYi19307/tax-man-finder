@@ -41,6 +41,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return user in [inquiry.client, inquiry.accountant]
     
     async def connect(self):
+        print("CONNECT HIT")
+        print("scope path:", self.scope.get("path"))
+        print("url route:", self.scope.get("url_route"))
+        print("query string:", self.scope.get("query_string"))
         self.inquiry_id = self.scope["url_route"]["kwargs"]["inquiry_id"]      
         #obtains convo id parameter from the url route in chat/routing.py
         #every consumer has a scope that contains information about its connection 
@@ -72,6 +76,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         
         try:         
             text_data_json = json.loads(text_data)
+            print("The text data received is",text_data)
         except json.JSONDecodeError:
             return 
         content = text_data_json.get("message","").strip()
@@ -120,9 +125,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def create_message(self,content,sender_id):
-        inquiry=Inquiry.objects.get(id = self.inquiry_id)
         return Message.objects.create(
-            inquiry=inquiry,
+            inquiry=self.inquiry_id,
             sender_id=sender_id,
             content=content
         )
