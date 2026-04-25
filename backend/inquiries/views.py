@@ -1,12 +1,13 @@
 from rest_framework.views import APIView
 from services.models import Service
-from inquiries.models import Inquiry
+from inquiries.models import Inquiry,ConversationReadState
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from chats.models import Message
 from django.db.models import Q
+from django.utils import timezone
 
 from .serializers import InquiryCreateSerializer, InquirySerializer
 from chats.serializers import MessageSerializer, MessageCreateSerializer
@@ -114,3 +115,30 @@ class SendMessageView(APIView): # user passes in content, backend fills out
             {"message_id":message.id},
             status = status.HTTP_201_CREATED
         )
+
+
+class MarkReadView(APIView):
+    permission_classes=[IsAuthenticated]
+    
+    def post(self, request, inquiry_id):
+        #grab the conversation read state
+        inquiry= get_object_or_404(Inquiry,Q(client=request.user)|Q(accountant=request.user),id=inquiry_id)
+        conversation_read_state = ConversationReadState.objects.filter(user=request.user, inquiry=inquiry).first()
+        
+        if conversation_read_state:
+            conversation_read_state.last_read_at = timezone.now()
+            conversation_read_state.save()
+        else:
+            conversation_read_state= ConversationReadState.objects.create(
+                inquiry=inquiry,
+                user = request.user,
+                last_read_at = timezone.now()
+            )
+        
+            
+        return Response({
+            "status": "marked_read",
+            "inquiry_id": inquiry.id,
+            "last_read_at": conversation_read_state.last_read_at})        
+        
+    
