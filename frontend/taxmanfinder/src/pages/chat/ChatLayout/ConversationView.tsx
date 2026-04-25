@@ -15,11 +15,27 @@ type Message = {
   };
 
 
+  function formatDateTime(timestamp: string | null) {
+  if (!timestamp) return "Not read yet";
+
+  return new Date(timestamp).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 
 export default function ConversationView() {
     const token = localStorage.getItem("access_token");
 
     const {inquiryId} = useParams<{inquiryId:string}>();
+
+    const [inquiryLastReadAt, setInquiryLastReadAt] = useState<string | null>(null);
+    console.log("The inquiry Id right now is", inquiryId);
+    //inquiry id is not being set correctly in the url - look back into inbox view
+
     const [messages, setMessages] = useState<Message[]>([]);
 
     const currentUserId = Number(localStorage.getItem("user_id"));
@@ -31,6 +47,14 @@ export default function ConversationView() {
     setMessages((prev) => [...prev, incoming]);
     }, [currentUserId]);
 
+
+    useEffect(() => {
+  console.log("ConversationView mounted");
+
+  return () => {
+    console.log("ConversationView unmounted");
+  };
+}, []);
 
     function handleSend(text: string) {
         const senderId = currentUserId;
@@ -51,35 +75,60 @@ export default function ConversationView() {
       
     //load history 
     useEffect(() => {
-        if (!inquiryId || !token) return;
-      
-        fetch(`http://127.0.0.1:8000/api/inquiries/${inquiryId}/messages/`, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-            .then(async (r) => {
-              if (!r.ok) throw new Error(await r.text());
-              return r.json();
+      async function fetchInquiryDetails(){
+          if (!inquiryId || !token){        
+            return;
+          }
+
+          try{
+          let inquiryResponse = await fetch(`http://127.0.0.1:8000/api/inquiries/${inquiryId}/`, {
+              headers: { Authorization: `Bearer ${token}` },
             })
-            .then((data) => {
-              console.log("Inquiry detail:", data);
-              setMessages(data.messages);
-            })
-            .catch((e) => console.error("history fetch failed:", e));
-          
+
+            if (inquiryResponse.ok){
+              let inquiryData = await inquiryResponse.json();
+              console.log("Inquiry details:", inquiryData);
+              setMessages(inquiryData.messages);
+
+            }
+
+            let readStateResponse = await fetch(`http://127.0.0.1:8000/api/inquiries/${inquiryId}/mark-read/`,{
+              method: "POST",
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
+            });
+
+            if (readStateResponse.ok){
+              let readStateData = await readStateResponse.json();
+              console.log("Read state details:", readStateData);
+              setInquiryLastReadAt(readStateData.last_read_at);
+            }
+
+          }
+          catch(error){
+            console.error("history fetch failed", error);
+          }
+        }
+        fetchInquiryDetails();
       }, [inquiryId, token]);
       
       //live updates via websocket
+
+      console.log("The inquiryId here is", inquiryId);
 
         const { sendMessage } = useChatSocket(
             Number(inquiryId),
             token,
             handleIncoming
         );
+
+
+        
         
       
     return(
         <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
             {/*message list*/}
+            <div> Inquiry ID {inquiryId} - Last Read At {formatDateTime(inquiryLastReadAt)}</div>
             <MessageList messages={messages} currentUserId={Number(localStorage.getItem("user_id"))}/>
 
             {/* message input here*/}

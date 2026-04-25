@@ -20,12 +20,17 @@ export function useChatSocket(
   }, [onMessage]);
 
   useEffect(() => {
-    if (!inquiryId || !token) return;
+    if (!inquiryId || !token) {
+      console.log("no inquiry id or token");
+      console.log(token);
+      return;
+    }
 
     const socket = new WebSocket(
       `ws://127.0.0.1:8000/ws/inquiries/${inquiryId}/?token=${token}`
     );
 
+    
     socketRef.current = socket;
 
     socket.onopen = () => {
@@ -33,7 +38,7 @@ export function useChatSocket(
     };
 
     socket.onmessage = (event) => {
-      console.log("WS RAW:", event.data);
+      console.log("WS received:", event.data);
       const data = JSON.parse(event.data);
       onMessageRef.current(data);
     };
@@ -42,9 +47,13 @@ export function useChatSocket(
       console.error("WS error", e);
     };
 
-    socket.onclose = () => {
-      console.log("WS closed");
-    };
+ socket.onclose = (event) => {
+  console.log("WS closed", {
+    code: event.code,
+    reason: event.reason,
+    wasClean: event.wasClean,
+  });
+};
 
     return () => {
       if (
@@ -57,8 +66,21 @@ export function useChatSocket(
   }, [inquiryId, token]);
 
   function sendMessage(text: string) {
-    if (!socketRef.current) return;
-    if (socketRef.current.readyState !== WebSocket.OPEN) return;
+
+    console.log("sendMessage called with:", text);
+
+    if (!socketRef.current){
+      console.log("No socketRef.current");
+      return;
+    }
+
+    console.log("Socket readyState:", socketRef.current.readyState);
+    if (socketRef.current.readyState !== WebSocket.OPEN){
+      console.log("Socket is not open");
+     return;
+    }
+
+      console.log("Actually sending message:", text);
 
     socketRef.current.send(JSON.stringify({ message: text }));
   }
