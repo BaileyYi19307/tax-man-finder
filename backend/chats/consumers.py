@@ -126,7 +126,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def create_message(self,content,sender_id):
         return Message.objects.create(
-            inquiry=self.inquiry_id,
+            inquiry_id=self.inquiry_id,
             sender_id=sender_id,
             content=content
         )

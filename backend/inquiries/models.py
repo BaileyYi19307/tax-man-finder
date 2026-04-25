@@ -25,3 +25,19 @@ class Inquiry(models.Model):
             models.UniqueConstraint(fields=["client","service"],name="unique_client_service_inquiry")
         ]
             
+
+class ConversationReadState(models.Model):
+    inquiry = models.ForeignKey(
+        "Inquiry",
+        on_delete=models.CASCADE,
+        related_name="read_states"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="conversation_reads"
+    )
+    last_read_at = models.DateTimeField()
+
+    class Meta:
+        unique_together = ("inquiry", "user") # only one row per user and inquiry
