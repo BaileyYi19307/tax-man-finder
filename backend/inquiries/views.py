@@ -77,18 +77,38 @@ class ReadSpecificInquiryView(APIView):
         
         inquiry_serializer = InquirySerializer(inquiry)
         
+        convo_read_state = ConversationReadState.objects.filter(inquiry=inquiry,user=request.user).first()
+    
+        
         messages = (
             Message.objects.select_related("sender")
             .filter(inquiry=inquiry)
             .order_by("created_at")
         )
         
+        other_party_messages = (
+            Message.objects.select_related("sender")
+            .filter(inquiry=inquiry)
+            .exclude(sender=request.user)
+        )
+        
+        latest_other_party_message = other_party_messages.order_by("-created_at").first()
+        
+        if latest_other_party_message is None:
+            unread = False
+        elif convo_read_state is None:
+            unread = True
+        else:
+            unread = latest_other_party_message.created_at > convo_read_state.last_read_at
+        
+        
         message_serializer = MessageSerializer(messages, many=True)
 
         return Response(
             {
                 "inquiry": inquiry_serializer.data,
-                "messages": message_serializer.data
+                "messages": message_serializer.data,
+                "unread": unread
             },
             status=status.HTTP_200_OK
         )
@@ -141,4 +161,4 @@ class MarkReadView(APIView):
             "inquiry_id": inquiry.id,
             "last_read_at": conversation_read_state.last_read_at})        
         
-    
+
