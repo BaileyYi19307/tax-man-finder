@@ -33,7 +33,7 @@ const AppRoutes = () =>{
         <Route path="/chat" element={<ChatLayout />}>
           <Route index element={<ChatEmptyState />} />
 
-          <Route path=":conversationId" element={<ConversationView />} />
+          <Route path=":inquiryId" element={<ConversationView />} />
         </Route>
         <Route path="*" element={<LoginPage />} />
       </Routes>

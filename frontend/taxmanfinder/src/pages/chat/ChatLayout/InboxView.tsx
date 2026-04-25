@@ -9,6 +9,8 @@ type InboxViewProps={
 };
 
 export default function InboxView({ inquiries = [] }: InboxViewProps) {
+
+  console.log("in inbox view, inquiries is", inquiries)
     return (
       <div>
         <h3>Messages</h3>
@@ -25,6 +27,7 @@ export default function InboxView({ inquiries = [] }: InboxViewProps) {
                   borderBottom: "1px solid #e5e7eb",
                 }}
               >
+                <p> Here here here {inquiry.service_title}</p>
                 <NavLink
                   to={`/chat/${inquiry.id}`}
                   style={({ isActive }) => ({

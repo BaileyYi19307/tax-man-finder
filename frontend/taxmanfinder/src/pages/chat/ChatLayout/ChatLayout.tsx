@@ -111,16 +111,19 @@ export default function ChatLayout() {
           .then((data) => {
             console.log("Inbox inquiries:", data);
             setInquiries(data);
+            console.log("inquiries is now", inquiries)
           })
           .catch(console.error);
       }, [token]);
       
+    useEffect(() => {
+  console.log("inquiries updated:", inquiries);
+}, [inquiries]);
       
   return (
     <div style={{ display: "flex", height: "100vh" }}>
       
       <aside style={{ width: 300, borderRight: "1px solid #e5e7eb" }}>
-
         <InboxView inquiries ={inquiries}/>
       </aside>
 
