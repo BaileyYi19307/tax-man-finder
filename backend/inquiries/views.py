@@ -23,10 +23,33 @@ class ListCreateInquiriesView(APIView):
         #so backend should read request.user 
         #return all the inquiries where the client is the user? 
         inquiries = Inquiry.objects.filter(Q(client = request.user) | Q(accountant=request.user)).select_related("accountant","service").order_by("-created_at")
+    
+        result=[]
         
-        #instantiate the serializer
-        serializer = InquirySerializer(inquiries, many=True)        
-        return Response(serializer.data,status=status.HTTP_200_OK)
+        for inquiry in inquiries: 
+            inquiry_data = InquirySerializer(inquiry).data
+            
+            convo_read_state = ConversationReadState.objects.filter(inquiry=inquiry,user=request.user).first()
+
+            other_party_messages = (
+                Message.objects.select_related("sender")
+                .filter(inquiry=inquiry)
+                .exclude(sender=request.user)
+            )
+            latest_other_party_message = other_party_messages.order_by("-created_at").first()
+            if latest_other_party_message is None:
+                unread = False
+            elif convo_read_state is None:
+                unread = True
+            else:
+                unread = latest_other_party_message.created_at > convo_read_state.last_read_at
+                
+            inquiry_data["unread"] = unread
+
+            result.append(inquiry_data)
+            
+               
+        return Response(result,status=status.HTTP_200_OK)
 
 
     def post(self, request):
