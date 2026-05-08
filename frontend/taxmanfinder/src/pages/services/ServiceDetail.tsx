@@ -39,6 +39,11 @@ export default function ServiceDetail() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  //booking form
+  const [showBookingForm, setShowBookingForm] = useState(false);
+  const [bookingName, setBookingName]= useState("");
+  const [bookingDate, setBookingDate]= useState("");
+
   const token = localStorage.getItem("access_token");
   console.log("the token currently is", token);
 
@@ -103,22 +108,18 @@ export default function ServiceDetail() {
     //   console.log("the user id is", userId);
 
     // }
-    let userId=1;
-    let accountantId = 1; 
-    let serviceId=1; 
-    const name="Test Booking";
-    let date = new Date(); 
 
-    let dataPayload={
-      "user": userId,
-      "accountant":accountantId,
-      "service": serviceId, 
-      "name": name,
-      "date":date
+
+    if (!token){
+      navigate("/login");
+      return; 
+    }
+
+    //make data payload for backend 
+    const data = {
+      name:bookingName, date:bookingDate, service: serviceId,
     }
   
-    //hardcoding the userId and Accountant for now
-
     try{
         const res = await fetch("http://127.0.0.1:8000/bookings/create/", {
         method: "POST",
@@ -126,22 +127,15 @@ export default function ServiceDetail() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(dataPayload),
+        body: JSON.stringify(data),
      });
+
+     if (!res.ok) throw new Error(await res.text())
 
       const text = await res.text();
       console.log(res.status, text);
-
-
-      // const response = await axios.post(`http://127.0.0.1:8000/bookings/create/`,dataPayload,{
-      //   headers:{
-      //      Authorization: `Bearer ${token}`
-      //   }
-      // })
-
-      // if (response.status=201){
-      //   console.log("booking was created!");
-      // }
+      console.log("booking created", data);
+      setShowBookingForm(false);
     }
     catch(error){
       console.log("erorr is", error);
@@ -229,7 +223,7 @@ export default function ServiceDetail() {
             </button>
 
             <button
-              onClick = {createBookingRequest}
+              onClick = {()=>setShowBookingForm(true)}
               >
                 Request Consultation
               </button>
@@ -254,6 +248,62 @@ export default function ServiceDetail() {
           <div style={{ marginTop: 14, fontSize: 12, ...muted }}>
             Clicking “Contact accountant” creates an inquiry and opens a chat.
           </div>
+
+          {showBookingForm && (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.35)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 16,
+    }}
+  >
+    <div
+      style={{
+        background: "#fff",
+        borderRadius: 12,
+        padding: 20,
+        width: "100%",
+        maxWidth: 420,
+      }}
+    >
+      <h3 style={{ marginTop: 0 }}>Request Consultation</h3>
+
+      <label>
+        Name
+        <input
+          value={bookingName}
+          onChange={(e) => setBookingName(e.target.value)}
+          placeholder={service.name}
+          style={{ width: "100%", marginTop: 6, marginBottom: 12 }}
+        />
+      </label>
+
+      <label>
+        Date and time
+        <input
+          type="datetime-local"
+          value={bookingDate}
+          onChange={(e) => setBookingDate(e.target.value)}
+          style={{ width: "100%", marginTop: 6, marginBottom: 16 }}
+        />
+      </label>
+
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        <button onClick={() => setShowBookingForm(false)}>
+          Cancel
+        </button>
+
+        <button onClick={createBookingRequest} disabled={!bookingDate}>
+         Submit Request
+        </button>
+      </div>
+    </div>
+  </div>
+)}
         </div>
       </div>
     </div>
