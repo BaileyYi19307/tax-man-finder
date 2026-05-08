@@ -19,6 +19,7 @@ export type InquiryListItem ={
     created_at:string;
     accountant_name:string; 
     service_title: string; 
+    unread:boolean;
 }
 
 // const STORAGE_KEY = "chat_conversations";
@@ -91,6 +92,15 @@ export default function ChatLayout() {
     //       });
     //     });
     //   }
+    function handleMarkRead(inquiryId: number) {
+  setInquiries((prev) =>
+    prev.map((inquiry) =>
+      inquiry.id === inquiryId
+        ? { ...inquiry, unread: false }
+        : inquiry
+    )
+  );
+}
     
     useEffect(() => {
         if (!token) return;
@@ -124,7 +134,7 @@ export default function ChatLayout() {
     <div style={{ display: "flex", height: "100vh" }}>
       
       <aside style={{ width: 300, borderRight: "1px solid #e5e7eb" }}>
-        <InboxView inquiries ={inquiries}/>
+        <InboxView inquiries ={inquiries} onMarkRead={handleMarkRead}/>
       </aside>
 
       <main style={{ flex: 1, background: "#fafafa" }}>
