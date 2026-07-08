@@ -1,9 +1,11 @@
 from django.urls import path
-
+from rest_framework.routers import DefaultRouter
+from .views import BookingsViewSet
 from . import views
 
-urlpatterns = [
-    path("", views.BookingCreation.as_view()),
-    path("create/", views.BookingCreation.as_view(),name="create_booking"),
-    path("mine/", views.MyBookingsView.as_view(),name="view_booking")
-]
+router = DefaultRouter()
+
+#use BookingViewSet to handle URLS that start with /bookings/
+router.register(r"", BookingsViewSet, basename="bookings")
+
+urlpatterns = router.urls
