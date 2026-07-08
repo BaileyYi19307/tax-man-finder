@@ -23,7 +23,6 @@ class BookingCreation(APIView):
     
     
 class MyBookingsView(APIView):
-    permission_classes = [IsAuthenticated]
     
     def get(self,request):
         #filter by request.user
@@ -33,5 +32,29 @@ class MyBookingsView(APIView):
         serializer = BookingSerializer(bookings,many=True)
         return Response(serializer.data)
 
+
+
+from rest_framework import viewsets
+
+class BookingsViewSet(viewsets.ModelViewSet):
+    """
+    Viewset for managing bookings 
+    """
+    permission_classes = [IsAuthenticated]
     
+    #only return bookings belonging to the logged-in user
+    def get_queryset(self):
+        return Booking.objects.filter(user=self.request.user)
+    
+    def get_serializer_class(self):
+        #use create serializer when making bookign 
+        #use regular rserializer for listing/viewing/updating 
+        if self.action == "create":
+            return BookingCreateSerializer
+        return BookingSerializer
+    
+    def perform_create(self,serializer):
+        #when creating, attached logged in user automatically 
+        serializer.save(user=self.request.user)
+
     
