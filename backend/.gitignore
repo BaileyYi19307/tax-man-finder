@@ -1,5 +1,6 @@
 __pycache__/
 *.pyc
 
-__pycache__/
-*.pyc
+# Virtualenvs (use only backend/.venv — see README)
+.venv/
+venv/
