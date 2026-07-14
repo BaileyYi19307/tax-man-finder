@@ -33,16 +33,21 @@ CSRF_TRUSTED_ORIGINS = env_list(
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000",)
 BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.getenv("EMAIL_HOST",'smtp.gmail.com')  # Use your email provider's SMTP server
-EMAIL_PORT = int(os.getenv("EMAIL_PORT",587))
-
-EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS","True") == "True"
-
+# Local/dev defaults to console email so signup works without SMTP.
+# Set EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend for real mail.
+_IS_PRODUCTION = os.getenv("ENV") == "production"
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.smtp.EmailBackend"
+    if _IS_PRODUCTION
+    else "django.core.mail.backends.console.EmailBackend",
+)
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True"
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
-
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER,)
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER)
 
 
 # Application definition
@@ -139,10 +144,10 @@ WSGI_APPLICATION = "config.wsgi.application"
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 
-if os.getenv("ENV") == "production":
+if _IS_PRODUCTION:
     DATABASES = {
         "default": {
-            "ENGINE": "django.db.backends.postgresql",  # or sqlite/mysql
+            "ENGINE": "django.db.backends.postgresql",
             "NAME": os.environ.get("DB_NAME"),
             "USER": os.environ.get("DB_USER"),
             "PASSWORD": os.environ.get("DB_PASSWORD"),
@@ -151,13 +156,11 @@ if os.getenv("ENV") == "production":
         }
     }
 else:
+    # Local default: SQLite. Tests use a separate in-memory-style temp DB name.
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": BASE_DIR / "db.sqlite3",
-            "TEST": {
-                "NAME": BASE_DIR / "db.sqlite3",
-            },
         }
     }
 
