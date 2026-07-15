@@ -22,12 +22,15 @@ cp .env.example .env
 # Every time you work on the backend:
 source .venv/bin/activate
 
-# Redis must be running for WebSocket chat
-# macOS (Homebrew): brew services start redis
+# Chat needs Daphne (not plain runserver) plus a channel layer:
+# - Default: Redis (recommended)
+#     macOS: brew services start redis
+#     Check: redis-cli ping   # should print PONG
+# - Solo local without Redis: set CHANNEL_LAYER=memory in .env
 
 python manage.py migrate
 daphne -b 0.0.0.0 -p 8000 config.asgi:application
-# HTTP-only alternative (WebSockets may not work):
+# HTTP-only alternative (WebSockets may not work reliably):
 # python manage.py runserver
 ```
 
@@ -40,6 +43,7 @@ Admin: http://127.0.0.1:8000/admin/
 
 Signup verification emails print to the terminal when using the console email backend (the `.env.example` default).
 
+For chat: keep `CHANNEL_LAYER=redis` (and Redis running), or set `CHANNEL_LAYER=memory` in `.env` if you are not running Redis.
 ## Local development (frontend)
 
 ```bash
