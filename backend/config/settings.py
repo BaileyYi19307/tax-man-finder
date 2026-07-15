@@ -74,16 +74,22 @@ INSTALLED_APPS = [
 ]
 
 
-REDIS_URL = os.getenv("REDIS_URL","redis://127.0.0.1:6379/0")
+REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
 ASGI_APPLICATION = "config.asgi.application"
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts":[REDIS_URL],
+
+# Default: Redis (needed for real multi-connection chat).
+# Solo local without Redis: set CHANNEL_LAYER=memory in .env
+if os.getenv("CHANNEL_LAYER", "redis").lower() == "memory":
+    CHANNEL_LAYERS = {
+        "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}
+    }
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [REDIS_URL]},
         }
     }
-}
 
 REST_FRAMEWORK = {
     # Use Django's standard `django.contrib.auth` permissions,
