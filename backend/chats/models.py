@@ -1,8 +1,6 @@
 from django.db import models
 from django.conf import settings
-from services.models import Service
 from inquiries.models import Inquiry
-
 
 
 class Message(models.Model):
