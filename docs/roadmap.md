@@ -31,12 +31,18 @@ What properties should a User have?
         - Use modern token-based authentication system 
 - Accountant Profile creation 
     - create accountants app for accountant-specific profile + listing 
+    - When a user registers -> if they select create accountant, should create an accountant profile for them (frontend should send request)
     - Accountant profile is only complete when 
         - Profile info has been filled out 
         - Has atleast one service 
         - Else, incomplete 
 - Service listing model 
+    - Creating service 
+    - Updating service
+    - Deleting service 
 - Public browsing of accountants
+
+
 
 
 ## Phase 2: Booking and Messaging
