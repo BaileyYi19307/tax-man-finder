@@ -1,43 +1,23 @@
 """
 ASGI config for config project.
 
-It exposes the ASGI callable as a module-level variable named ``application``.
-
-For more information on this file, see
-https://docs.djangoproject.com/en/6.0/howto/deployment/asgi/
+Django must be initialized before importing apps that touch models
+(e.g. chats.routing → consumers → models).
 """
 
 import os
 
 from django.core.asgi import get_asgi_application
-from channels.routing import ProtocolTypeRouter
-from django.core.asgi import get_asgi_application
-
-from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
-from channels.security.websocket import AllowedHostsOriginValidator
-from django.core.asgi import get_asgi_application
-
-from chats.routing import websocket_urlpatterns
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+
+# Initialize Django before importing anything that loads models.
 django_asgi_app = get_asgi_application()
 
-#when a connection is made to the Channels developmnet server, ProtocolTypeRouter -> 
-#first inspects the type of connection - if it's WebSocket connection 
-#connection will be given to the AuthMiddlewareStack
-        #AuthMiddlewareStack -> populates scope with reference to currently authenticated user
-                            #-> connection then given to URLRouter
-
-#will route to different things depending on the type key of the scope
-# application = ProtocolTypeRouter({
-#     "http": django_asgi_app,
-#     "websocket":AllowedHostsOriginValidator(
-#         AuthMiddlewareStack(URLRouter(websocket_urlpatterns))
-#     )
-# })
+from chats.routing import websocket_urlpatterns  # noqa: E402
 
 application = ProtocolTypeRouter({
-    "http": get_asgi_application(),
+    "http": django_asgi_app,
     "websocket": URLRouter(websocket_urlpatterns),
 })
