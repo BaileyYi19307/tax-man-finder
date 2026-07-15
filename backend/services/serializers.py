@@ -6,8 +6,9 @@ class ServiceSerializer(serializers.ModelSerializer):
     """Validates and creates a service """
 
     class Meta:
-        model=Service
-        fields='__all__'
-        #what fields should be included in the output
+        model = Service
+        fields = "__all__"
+        # Set from request.user in ServicesViewSet.perform_create — not from the client body
+        read_only_fields = ["accountant"]
 
 
