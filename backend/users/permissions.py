@@ -9,7 +9,9 @@ class IsAccountant(BasePermission):
         #allow get, head, options for anyone 
         if request.method in SAFE_METHODS:
             return True
-        
-        #only accountants can write
+       
+        #only authenticated accountants can modify data 
+        return request.user.is_authenticated and request.user.is_accountant
+            
        
 
