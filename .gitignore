@@ -139,11 +139,22 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 
+
+# Python
+__pycache__/
+*.pyc
+
+# virtual environments
+venv/
+venve/
+.env
+
 #Python 
 __pycache__/
 *.py[cod]
 
 #Virtual envs
+.env
 env/
 .venv/
 venv/

@@ -1,3 +1,41 @@
 from django.db import models
+from users.models import User
+from services.models import Service
+from django.utils.translation import gettext_lazy as _
 
-# Create your models here.
+
+class BookingStatusOptions(models.IntegerChoices):
+    COMPLETE=1,_("Complete")
+    UPCOMING = 3,_("Upcoming")
+    PENDING = 2,_("Pending")
+    CANCELLED = 0,_("Cancelled")
+
+#create your models here.
+class Booking(models.Model):
+    name = models.CharField(max_length=255)
+    date = models.DateTimeField()
+    accountant = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="bookings_as_accountant"
+    )
+    
+    service = models.ForeignKey(
+        Service,null=True, on_delete=models.CASCADE,
+    )
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="bookings_as_client"
+    )
+    status = models.IntegerField(
+        default = BookingStatusOptions.PENDING,
+        choices = BookingStatusOptions.choices,
+    )
+    
+    def __str__(self):
+        return f"{self.name} between accountant: {self.accountant.email} and user:{self.user.email}"
+
+
+
