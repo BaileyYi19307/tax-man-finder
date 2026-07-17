@@ -47,7 +47,7 @@ class BookingsViewSet(viewsets.ModelViewSet):
         return Booking.objects.filter(user=self.request.user)
     
     def get_serializer_class(self):
-        #use create serializer when making bookign 
+        #use create serializer when making booking
         #use regular rserializer for listing/viewing/updating 
         if self.action == "create":
             return BookingCreateSerializer
@@ -55,6 +55,6 @@ class BookingsViewSet(viewsets.ModelViewSet):
     
     def perform_create(self,serializer):
         #when creating, attached logged in user automatically 
-        serializer.save(user=self.request.user)
+        serializer.save(user=self.request.user, accountant=serializer.validated_data['service'].accountant)
 
     
