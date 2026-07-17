@@ -3,16 +3,12 @@ from rest_framework import serializers
 from .models import Booking
 
 
-
 #create serializer for booking creation 
 class BookingCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking 
         fields=["name","date","service"] # client writable fields 
-        
-    def create(self, validated_data):
-        return Booking.objects.create(**validated_data)
-        
+
 
 #takes booking model instance, turns into jSON
 class BookingSerializer(serializers.ModelSerializer):
@@ -28,5 +24,5 @@ class BookingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Booking
-        fields = ["id","name","date","accountant","accountant_email","user","status","status_label"]
-        read_only_fields = ["status", "status_label"]
+        fields = ["id","name","date","accountant","accountant_email","user","status","status_label","service"]
+        read_only_fields = ["status", "status_label","user","accountant"]
