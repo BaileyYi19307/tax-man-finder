@@ -52,8 +52,13 @@ class ProfileStatusTest(TestCase):
         self.profile.years_experience = 3
         self.profile.save()
 
-        #adding a service
-        Service.objects.create(accountant=self.profile, name = "Tax Filing", description="This is a tax filing", price = 100)
+        # Service.accountant is a User, not AccountantProfile
+        Service.objects.create(
+            accountant=self.user,
+            name="Tax Filing",
+            description="This is a tax filing",
+            price=100,
+        )
         
         url = reverse("profile-status", args=[self.user.id])
         resp = self.client.get(url)
