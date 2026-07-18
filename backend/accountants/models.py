@@ -9,7 +9,6 @@ class AccountantProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL,
                                 on_delete=models.CASCADE,
                                 related_name="accountant_profile")
-
     years_experience = models.IntegerField(default=0)
     credentials = models.TextField(blank=True, default="")
     bio = models.TextField(blank=True, null=True)
@@ -24,7 +23,7 @@ class AccountantProfile(models.Model):
     
     @property 
     def has_services(self):
-        return self.services.exists()
+        return self.user.services.exists()
     
     @property
     def is_complete(self):

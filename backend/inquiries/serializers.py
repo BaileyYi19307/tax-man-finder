@@ -5,7 +5,7 @@ from .models import Inquiry
 
 class InquirySerializer(serializers.ModelSerializer):
     #how to get accountant name? 
-    accountant_name = serializers.CharField(source="accountant.user.email",read_only=True)
+    accountant_name = serializers.CharField(source="accountant.email",read_only=True)
     service_title = serializers.CharField(source="service.name", read_only=True)
     
     class Meta: 
