@@ -4,6 +4,7 @@ from django.urls import reverse
 from users.models import User
 from rest_framework import status
 from .models import Service
+from accountants.models import AccountantProfile
 
 class ServiceCreatePermissionsTest(TestCase):
 
@@ -14,6 +15,7 @@ class ServiceCreatePermissionsTest(TestCase):
 
         #create an accountant
         cls.accountant = User.objects.create_user(email='testaccountant@example.com', password='testpassword', is_accountant=True,is_verified=True)
+        AccountantProfile.objects.create(user=cls.accountant)
 
         #create a client 
         cls.client_user = User.objects.create_user(email='testuser@example.com', password='testpassword', is_accountant=False,is_verified=True)

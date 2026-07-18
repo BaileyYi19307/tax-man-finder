@@ -52,6 +52,9 @@ class User(AbstractUser):
 
     objects = UserManager()  # <-- attach custom manager
 
+    def has_accountant_profile(self):
+        #check to see if the user has an accountant profile
+        return hasattr(self, "accountant_profile")
 
     def __str__(self):
         return self.email
