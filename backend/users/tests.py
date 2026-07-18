@@ -178,26 +178,37 @@ class LoginTest(TestCase):
       
 
 class RolePermissionTest(TestCase):
-    def setUp(self):
-        self.client = APIClient()
-        self.password = "testpassword123"
 
-        self.accountant = User.objects.create_user(
+    @classmethod
+    def setUpTestData(cls):
+        cls.password = "testpassword123"
+
+        cls.accountant = User.objects.create_user(
             email="accountant@gmail.com",
-            password=self.password,
+            password=cls.password,
             is_accountant=True,
             is_verified=True,
         )
 
-        self.client_user = User.objects.create_user(
+        #attach an accountant profile 
+        AccountantProfile.objects.create(
+            user=cls.accountant
+        )
+
+        cls.client_user = User.objects.create_user(
             email="client@email.com",
-            password=self.password,
+            password=cls.password,
             is_accountant=False,
             is_verified=True,
         )
 
-        self.accountant_dashboard=reverse("accountant-dashboard")
-        self.client_dashboard=reverse('client-dashboard')
+        cls.accountant_dashboard=reverse("accountant-dashboard")
+        cls.client_dashboard=reverse('client-dashboard')
+
+
+    def setUp(self):
+        self.client = APIClient()
+
 
     def authenticate(self,user):
         self.client.force_authenticate(user=user)
@@ -225,33 +236,6 @@ class RolePermissionTest(TestCase):
     def test_unauthenticated_user_gets_401(self):
         response = self.client.get(self.accountant_dashboard)
         self.assertEqual(response.status_code, 401)
-
-# #test an accountant profile is created when a user signs up as an accountant
-# #i.e. a request is sent with data that includes is_accountant = true 
-# class AccountantProfileTest(TestCase):
-#     def setUp(self):
-#         #create a user
-#         self.client=APIClient()
-            
-#     def test_accountant_profile_exists_when_user_signsup_as_accountant(self):
-#         #check to see an accountant profile exists with a specific id
-#         #create data
-#         data = {"email": "bailey@email.com", "password":"test", "is_accountant":True}
-#         url = reverse("signup")
-#         response = self.client.post(url,data,format="json")
-#         print(response.data)
-
-#         self.assertEqual(response.status_code, 201)
-#         self.assertTrue(AccountantProfile.objects.filter(pk=response.data['id']).exists())
-
-#     def test_accountant_profile_doesnt_exist_when_user_signs_up_regular(self):
-#         data = {"email": "bailey@email.com", "password":"test", "is_accountant":False}
-#         url = reverse("signup")
-#         response = self.client.post(url,data,format="json")
-#         print(response.data)
-
-#         self.assertEqual(response.status_code, 201)
-#         self.assertFalse(AccountantProfile.objects.filter(pk=response.data['id']).exists())
 
 
 
