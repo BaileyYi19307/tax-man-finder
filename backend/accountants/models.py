@@ -26,7 +26,7 @@ class AccountantProfile(models.Model):
     
     @property 
     def has_services(self):
-        return self.user.services.exists()
+        return self.user.services.filter(is_active=True).exists()
     
     @property
     def is_complete(self):

@@ -7,9 +7,23 @@ type Service = {
   id: number;
   name: string;
   description: string;
-  price: string;
+  pricing_type: "fixed" | "hourly" | "consultation_required";
+  indicative_price: string | null;
   accountant: number;
 };
+
+function formatServicePrice(service: Pick<Service, "pricing_type" | "indicative_price">) {
+  if (service.pricing_type === "consultation_required") {
+    return "Consultation required";
+  }
+  if (service.indicative_price == null || service.indicative_price === "") {
+    return "Price on request";
+  }
+  if (service.pricing_type === "hourly") {
+    return `$${service.indicative_price}/hr`;
+  }
+  return `$${service.indicative_price}`;
+}
 
 const page = {
   minHeight: "100vh",
@@ -181,7 +195,7 @@ export default function ServiceDetail() {
                 whiteSpace: "nowrap",
               }}
             >
-              ${service.price}
+              {formatServicePrice(service)}
             </div>
           </div>
 
