@@ -57,7 +57,7 @@ class ProfileStatusTest(TestCase):
             accountant=self.user,
             name="Tax Filing",
             description="This is a tax filing",
-            price=100,
+            indicative_price=100,
         )
         
         url = reverse("profile-status", args=[self.user.id])

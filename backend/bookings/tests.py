@@ -33,7 +33,7 @@ class BookingTests(TestCase):
         cls.service = Service.objects.create(
             name="Tax consultation",
             description="Tax consultation",
-            price=100.00,
+            indicative_price=100.00,
             accountant=cls.accountant_user
         )
 

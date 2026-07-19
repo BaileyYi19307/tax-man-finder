@@ -22,7 +22,7 @@ class InquirySerializerTest(TestCase):
             accountant=accountant,
             name="Tax Filing",
             description="File taxes",
-            price=100,
+            indicative_price=100,
         )
         inquiry = Inquiry.objects.create(
             client=client,

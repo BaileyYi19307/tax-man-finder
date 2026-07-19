@@ -23,7 +23,7 @@ class ServiceCreatePermissionsTest(TestCase):
         cls.service_data = {
                 "name": "test service",
                 "description": "this is a test service",
-                "price": 200.00,
+                "indicative_price": 200.00,
         }
 
     def setUp(self):
