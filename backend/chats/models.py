@@ -6,7 +6,7 @@ from inquiries.models import Inquiry
 class Message(models.Model):
     inquiry = models.ForeignKey(
         Inquiry,
-        related_name = "inquiry",
+        related_name = "messages",
         on_delete = models.CASCADE,
     )
 
