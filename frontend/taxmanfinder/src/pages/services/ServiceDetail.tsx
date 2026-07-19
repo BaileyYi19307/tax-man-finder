@@ -92,13 +92,14 @@ export default function ServiceDetail() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ service_id: Number(serviceId) }),
+        body: JSON.stringify({ service: Number(serviceId) }),
       });
 
       if (!res.ok) throw new Error(await res.text());
 
       const data = await res.json();
-      navigate(`/chat/${data.conversation_id}`);
+      // API returns inquiry_id (conversation_id was a frontend mismatch)
+      navigate(`/chat/${data.inquiry_id}`);
     } catch (e: any) {
       setError("Could not start chat. Please try again.");
       console.error(e);

@@ -52,42 +52,36 @@ class ListCreateInquiriesView(APIView):
         return Response(result,status=status.HTTP_200_OK)
 
 
-    def post(self, request):
-        #request contains service id 
-        
-        
-        inquiry_serializer = InquiryCreateSerializer(data=request.data)
+    def post(self, request):        
+        #validate payload
+        inquiry_serializer = InquiryCreateSerializer(data=request.data,context={"request":request})
         inquiry_serializer.is_valid(raise_exception=True)
 
-        #here, we check if the inquiry already exists
+        valid_data = inquiry_serializer.validated_data
 
-        service = get_object_or_404(Service, id=inquiry_serializer.validated_data["service_id"])
-        
-        #I need to check request user an service
-        #check to see if an inquiry with this service id and this user already exists, if yes, return the id 
-     
+        #if service is provided: 
+        #check to see if there already exists an open inquiry with the same accountant,client
+        if valid_data.get("service"): 
+            existing = Inquiry.objects.filter(
+                status= Inquiry.StatusChoices.OPEN,
+                client = request.user,
+                accountant = valid_data["accountant"],
+                service = valid_data["service"]
+            ).first()
+        else: 
+            existing=Inquiry.objects.filter(
+                status= Inquiry.StatusChoices.OPEN,
+                client = request.user,
+                accountant = valid_data["accountant"],
+                service__isnull=True
+            ).first()
+  
+        if existing is not None: 
+            return Response({"inquiry_id": existing.id},status=status.HTTP_200_OK)
+        else:
+            inquiry = inquiry_serializer.save(client = request.user)
+            return Response({"inquiry_id": inquiry.id},status = status.HTTP_201_CREATED)
 
-            #now we make an inquiry abut it 
-        try:
-            with transaction.atomic():
-                inquiry = Inquiry.objects.create(
-                    client=request.user,
-                    accountant = service.accountant,
-                    service = service
-                )
-                created=True
-            
-        except IntegrityError:
-            inquiry = Inquiry.objects.get(
-                client=request.user,
-                service=service
-            )
-            created=False
-        return Response(
-            {"inquiry_id":inquiry.id},
-            status = status.HTTP_200_OK if not created else status.HTTP_201_CREATED
-            
-        )
 
 class ReadSpecificInquiryView(APIView):
     permission_classes = [IsAuthenticated]
