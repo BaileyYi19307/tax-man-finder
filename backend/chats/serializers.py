@@ -15,5 +15,10 @@ class MessageCreateSerializer(serializers.ModelSerializer):
         model = Message
         fields = ["id", "content", "created_at"]
         read_only_fields = ["id", "created_at"]
-        
-        
+
+    def validate_content(self, value):
+        # Field-level validation: reject empty / whitespace-only bodies
+        cleaned = (value or "").strip()
+        if not cleaned:
+            raise serializers.ValidationError("Message content cannot be blank.")
+        return cleaned
