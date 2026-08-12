@@ -53,6 +53,10 @@ export default function ServiceDetail() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  //message composer
+  const [showMessageForm, setShowMessageForm] = useState(false);
+  const [messageText, setMessageText] = useState("");
+
   //booking form
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [bookingName, setBookingName]= useState("");
@@ -76,9 +80,30 @@ export default function ServiceDetail() {
   , [serviceId])
 
 
-  async function contactAccountant() {
+  function openMessageForm() {
     if (!token) {
       navigate("/login");
+      return;
+    }
+    setError(null);
+    setShowMessageForm(true);
+  }
+
+  function closeMessageForm() {
+    setShowMessageForm(false);
+    setMessageText("");
+    setError(null);
+  }
+
+  async function sendMessage() {
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    const content = messageText.trim();
+    if (!content) {
+      setError("Message cannot be blank.");
       return;
     }
 
@@ -92,13 +117,17 @@ export default function ServiceDetail() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ service: Number(serviceId) }),
+        body: JSON.stringify({
+          service: Number(serviceId),
+          content,
+        }),
       });
 
       if (!res.ok) throw new Error(await res.text());
 
       const data = await res.json();
-      // API returns inquiry_id (conversation_id was a frontend mismatch)
+      setShowMessageForm(false);
+      setMessageText("");
       navigate(`/chat/${data.inquiry_id}`);
     } catch (e: any) {
       setError("Could not start chat. Please try again.");
@@ -222,19 +251,18 @@ export default function ServiceDetail() {
 
           <div style={{ marginTop: 18, display: "flex", gap: 10 }}>
             <button
-              onClick={contactAccountant}
-              disabled={loading}
+              onClick={openMessageForm}
               style={{
                 padding: "10px 14px",
                 borderRadius: 10,
                 border: "none",
-                background: loading ? "#93c5fd" : "#2563eb",
+                background: "#2563eb",
                 color: "#fff",
                 fontWeight: 700,
-                cursor: loading ? "not-allowed" : "pointer",
+                cursor: "pointer",
               }}
             >
-              {loading ? "Starting chat..." : "Message accountant"}
+              Message accountant
             </button>
 
             <button
@@ -260,9 +288,72 @@ export default function ServiceDetail() {
             </Link>
           </div>
 
-          <div style={{ marginTop: 14, fontSize: 12, ...muted }}>
-            Clicking “Contact accountant” creates an inquiry and opens a chat.
-          </div>
+          {showMessageForm && (
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.35)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 16,
+              }}
+            >
+              <div
+                style={{
+                  background: "#fff",
+                  borderRadius: 12,
+                  padding: 20,
+                  width: "100%",
+                  maxWidth: 420,
+                }}
+              >
+                <h3 style={{ marginTop: 0 }}>Message accountant</h3>
+
+                <label style={{ display: "block", fontSize: 14 }}>
+                  Message
+                  <textarea
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    placeholder="Describe what you need help with..."
+                    rows={4}
+                    style={{
+                      width: "100%",
+                      marginTop: 6,
+                      marginBottom: 16,
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </label>
+
+                {error && (
+                  <div
+                    style={{
+                      marginBottom: 12,
+                      fontSize: 13,
+                      color: "#b91c1c",
+                    }}
+                  >
+                    {error}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                  <button type="button" onClick={closeMessageForm} disabled={loading}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={sendMessage}
+                    disabled={loading || !messageText.trim()}
+                  >
+                    {loading ? "Sending..." : "Send"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {showBookingForm && (
   <div
