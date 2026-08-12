@@ -1,5 +1,6 @@
 # inquiries/serializers.py
 from rest_framework import serializers
+from chats.message_rules import MessageSendDenied, clean_message_content
 from .models import Inquiry 
 
 
@@ -24,11 +25,10 @@ class InquiryCreateSerializer(serializers.ModelSerializer):
     content = serializers.CharField(write_only=True)
 
     def validate_content(self, value):
-        #reject blank / whitespace-only messages
-        cleaned = (value or "").strip()
-        if not cleaned:
-            raise serializers.ValidationError("Message content cannot be blank.")
-        return cleaned
+        try:
+            return clean_message_content(value)
+        except MessageSendDenied as exc:
+            raise serializers.ValidationError(exc.detail) from exc
 
     def validate(self,data):
         #if service is set, accountant should match service.accountant 

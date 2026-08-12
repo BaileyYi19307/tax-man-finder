@@ -249,7 +249,7 @@ export default function ServiceDetail() {
             </div>
           )}
 
-          <div style={{ marginTop: 18, display: "flex", gap: 10 }}>
+          <div style={{ marginTop: 18, display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button
               onClick={openMessageForm}
               style={{
@@ -262,7 +262,7 @@ export default function ServiceDetail() {
                 cursor: "pointer",
               }}
             >
-              Message accountant
+              Message about this service
             </button>
 
             <button
@@ -270,6 +270,24 @@ export default function ServiceDetail() {
               >
                 Request Consultation
               </button>
+
+            {service && (
+              <Link
+                to={`/accountants/${service.accountant}`}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  color: "#111827",
+                  textDecoration: "none",
+                  fontWeight: 700,
+                  fontSize: 14,
+                }}
+              >
+                View accountant profile
+              </Link>
+            )}
 
             <Link
               to="/chat"
@@ -309,7 +327,7 @@ export default function ServiceDetail() {
                   maxWidth: 420,
                 }}
               >
-                <h3 style={{ marginTop: 0 }}>Message accountant</h3>
+                <h3 style={{ marginTop: 0 }}>Message about this service</h3>
 
                 <label style={{ display: "block", fontSize: 14 }}>
                   Message

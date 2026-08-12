@@ -1,6 +1,7 @@
 
 from rest_framework import serializers
 from .models import Message
+from .message_rules import MessageSendDenied, clean_message_content
 
 class MessageSerializer(serializers.ModelSerializer):
     sender_email = serializers.EmailField(source="sender.email", read_only=True)
@@ -17,8 +18,7 @@ class MessageCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at"]
 
     def validate_content(self, value):
-        # Field-level validation: reject empty / whitespace-only bodies
-        cleaned = (value or "").strip()
-        if not cleaned:
-            raise serializers.ValidationError("Message content cannot be blank.")
-        return cleaned
+        try:
+            return clean_message_content(value)
+        except MessageSendDenied as exc:
+            raise serializers.ValidationError(exc.detail) from exc

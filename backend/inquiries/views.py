@@ -174,6 +174,11 @@ class SendMessageView(APIView): # user passes in content, backend fills out
         )
 
 
+# Note: non-participants never reach the closed/blank checks — get_object_or_404
+# with the participant Q filter returns 404 for outsiders.
+
+
+
 class MarkReadView(APIView):
     permission_classes=[IsAuthenticated]
     
