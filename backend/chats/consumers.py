@@ -2,11 +2,12 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import Message
+from .message_rules import MessageSendDenied, assert_can_send_message, clean_message_content
 from inquiries.models import Inquiry
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
-# WebSocket is the single write path:
+# Ongoing chat write path (start-conversation is HTTP POST /api/inquiries/):
 #     WS /ws/inquiries/<id>/?token=JWT
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -41,10 +42,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return user in [inquiry.client, inquiry.accountant]
     
     async def connect(self):
-        print("CONNECT HIT")
-        print("scope path:", self.scope.get("path"))
-        print("url route:", self.scope.get("url_route"))
-        print("query string:", self.scope.get("query_string"))
         self.inquiry_id = self.scope["url_route"]["kwargs"]["inquiry_id"]      
         #obtains convo id parameter from the url route in chat/routing.py
         #every consumer has a scope that contains information about its connection 
@@ -76,22 +73,27 @@ class ChatConsumer(AsyncWebsocketConsumer):
         
         try:         
             text_data_json = json.loads(text_data)
-            print("The text data received is",text_data)
         except json.JSONDecodeError:
-            return 
-        content = text_data_json.get("message","").strip()
-        if not content:
             return
 
-        sender_id=self.scope["user"].id
-        print("WS RECEIVE:", content, "from", sender_id)
+        try:
+            content = clean_message_content(text_data_json.get("message", ""))
+        except MessageSendDenied:
+            # Blank / whitespace: reject without creating a Message (keep socket open).
+            await self.send(text_data=json.dumps({
+                "error": "Message content cannot be blank.",
+            }))
+            return
 
-        message= await self.create_message(content,sender_id)
+        sender = self.scope["user"]
 
-        # send message to room group
-        #sends an event to a group
-            # event has a special 'type' key 
-            #chat.message calls the chat_message method
+        try:
+            message = await self.create_message(content, sender)
+        except MessageSendDenied as exc:
+            # Closed (or lost participant): close with domain code, no Message.
+            code = 4008 if exc.code == "closed" else 4003
+            await self.close(code=code)
+            return
 
         await self.channel_layer.group_send(
                     self.group_name,
@@ -99,23 +101,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         "type": "chat.message",
                         "id": message.id,
                         "content": message.content,
-                        "sender_id": sender_id,
+                        "sender_id": sender.id,
                         "created_at": message.created_at.isoformat(),
                     },
                 )
 
     async def chat_message(self, event):
-        print("WS SEND:", event)
-
         await self.send(text_data=json.dumps({
             "id": event["id"],
             "content": event["content"],
             "sender_id": event["sender_id"], 
             "created_at": event["created_at"]
         }))
-
-
-    
 
     async def disconnect(self,close_code):
         # leave room group
@@ -124,11 +121,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
     @database_sync_to_async
-    def create_message(self,content,sender_id):
-        return Message.objects.create(
-            inquiry_id=self.inquiry_id,
-            sender_id=sender_id,
-            content=content
+    def create_message(self, content, sender):
+        inquiry = Inquiry.objects.select_related("client", "accountant").get(
+            id=self.inquiry_id
         )
-    
-
+        assert_can_send_message(sender, inquiry)
+        return Message.objects.create(
+            inquiry=inquiry,
+            sender=sender,
+            content=content,
+        )

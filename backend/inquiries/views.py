@@ -58,6 +58,7 @@ class ListCreateInquiriesView(APIView):
         inquiry_serializer.is_valid(raise_exception=True)
 
         valid_data = inquiry_serializer.validated_data
+        content = valid_data["content"]
 
         #if service is provided: 
         #check to see if there already exists an open inquiry with the same accountant,client
@@ -77,10 +78,23 @@ class ListCreateInquiriesView(APIView):
             ).first()
   
         if existing is not None: 
+            #reuse open inquiry and add this message
+            Message.objects.create(
+                inquiry=existing,
+                sender=request.user,
+                content=content,
+            )
             return Response({"inquiry_id": existing.id},status=status.HTTP_200_OK)
-        else:
+
+        #create inquiry + first message together (all or nothing)
+        with transaction.atomic():
             inquiry = inquiry_serializer.save(client = request.user)
-            return Response({"inquiry_id": inquiry.id},status = status.HTTP_201_CREATED)
+            Message.objects.create(
+                inquiry=inquiry,
+                sender=request.user,
+                content=content,
+            )
+        return Response({"inquiry_id": inquiry.id},status = status.HTTP_201_CREATED)
 
 
 class ReadSpecificInquiryView(APIView):
@@ -141,6 +155,12 @@ class SendMessageView(APIView): # user passes in content, backend fills out
         #we want the inquiry where either the user is the client or the accountant, and from those, get the inquiry with it's id 
         #only give me this inquiry if the current user is part of it 
         inquiry= get_object_or_404(Inquiry,Q(client=sender)|Q(accountant=sender),id=inquiry_id)
+
+        if inquiry.status == Inquiry.StatusChoices.CLOSED:
+            return Response(
+                {"detail": "Cannot send messages to a closed inquiry."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         
         message_serializer = MessageCreateSerializer(data= request.data)
         message_serializer.is_valid(raise_exception=True)
@@ -152,6 +172,11 @@ class SendMessageView(APIView): # user passes in content, backend fills out
             {"message_id":message.id},
             status = status.HTTP_201_CREATED
         )
+
+
+# Note: non-participants never reach the closed/blank checks — get_object_or_404
+# with the participant Q filter returns 404 for outsiders.
+
 
 
 class MarkReadView(APIView):

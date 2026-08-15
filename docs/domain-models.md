@@ -226,11 +226,13 @@ Service.accountant → User.id
 
 ### Creation
 
-- An inquiry may begin from a specific service
-- An inquiry may begin from an accountant’s profile without a service
-- When started from a service, that service is attached automatically
-- When started from an accountant profile, the client may optionally select one of that accountant’s services
-- The inquiry is created only after the client sends the first message
+- Clients discover an **accountant / firm profile**, which owns professional info and a list of **Services**
+- There are two UI entry points to start messaging (see **Starting a conversation** below); both use one backend operation
+- An inquiry may be **service-specific** (`service` set) or **general** (`service` null)
+- When started from a service page, that service is attached automatically
+- When started from a profile, the client may optionally select one of that accountant’s services
+- Opening the message composer does **not** create an inquiry
+- The inquiry is created only when the client **sends** a non-blank first message (together with that message), or an existing matching **open** inquiry is reused and the message is appended
 
 ### Participants or ownership
 
@@ -496,32 +498,82 @@ Consistency rules that cut across models:
 
 ---
 
-## Message Accountant flow
+## Starting a conversation (Message Accountant)
 
-On an accountant’s profile (example: Jane):
+### Why the model looks like this
+
+Clients find an **accountant / firm profile** first. That profile lists **Services** (offerings such as Individual Tax Preparation or Bookkeeping). Messaging is about talking to that accountant; a service is optional context for the conversation.
+
+So the domain uses one conversation type (**Inquiry**) with an optional `service`:
+
+- `service = null` → general contact with the accountant
+- `service` set → contact about that specific offering
+
+Two buttons in the product are only **entry points**. They should not invent two different backend APIs.
+
+### One domain operation
+
+Both UI flows call the same operation conceptually:
+
+`start_conversation(accountant, optional service, first_message)`
+
+Implementation today: authenticated `POST /api/inquiries/` with `content` required, plus either `service` or `accountant` (when general).
+
+Behavior:
+
+1. Reject blank / whitespace-only `first_message`
+2. Find a matching **open** inquiry (see reuse rules below)
+3. If found → reuse it and **append** the message; return that `inquiry_id`
+4. If not → **atomically** create Inquiry + first Message; return new `inquiry_id`
+5. Client navigates to `/chat/<inquiry_id>`
+
+Opening a composer or clicking Message without Send must never create an Inquiry.
+
+### Entry point 1 — General contact (accountant / firm profile)
 
 ```text
-[Message Jane]
-
-Service
-[ Select a service — optional ]
-
-Message
-[ Describe what you need help with... ]
-
-[ Send Message ]
+[Message Accountant]
+  → message form
+  → optional Service selection
+  → required first message
+  → [Send]
 ```
 
-Submitting creates:
+- No service selected → general inquiry: `client + accountant + service = null`
+- Service selected → same outcome as starting from that service page (`service` set)
 
-- An inquiry
-- The initial message
+*(Profile Message UI may land after the service-page composer; the domain rule is the same.)*
 
-Details:
+### Entry point 2 — Service-specific contact (service card / detail)
 
-- When started from a service page, that service is attached automatically
-- When started from an accountant profile, the client may optionally select one of that accountant’s services
-- The inquiry is created only after the client sends the first message
+```text
+[Message about this service] / [Message accountant]
+  → message composer
+  → service already implied (do not ask again)
+  → required first message
+  → [Send]
+```
+
+Creates or reuses: `client + accountant + service`.
+
+### Existing open inquiry (reuse)
+
+Before creating a new Inquiry, look for a matching **open** row:
+
+| Kind | Match |
+|------|--------|
+| General | `client` + `accountant` + `service` is null + Open |
+| Service | `client` + `accountant` + `service` + Open |
+
+If matched: do **not** create another Inquiry; append the new Message; navigate to that conversation.
+
+A client may have **separate open** inquiries with the same accountant for **different** services, plus at most one open general inquiry.
+
+### Closed inquiry
+
+- Closed inquiries accept **no** further messages
+- Later contact via the same profile/service entry point does **not** reuse the closed row
+- Create a **new** Inquiry + first Message instead
 
 ---
 
@@ -609,6 +661,14 @@ These decisions are confirmed and supersede earlier open questions.
 - From an accountant profile: create a new inquiry, initial message, and pending booking
 - From an existing open inquiry: reuse the inquiry and create a pending booking
 - When reusing an inquiry: it must be open, participants must match, it must not already have an active booking, a booking-related message should be added, and a closed inquiry cannot receive a booking request
+
+### Starting a messaging conversation
+
+- Accountant/firm profile owns services and is the discovery surface; services are offerings under that profile
+- Two UI entry points (profile Message Accountant; service-page message) share one `start_conversation` operation
+- `service = null` means a general inquiry with that accountant
+- Inquiry rows are created only on Send of a non-blank first message (or an open match is reused and the message is appended)
+- Open-inquiry reuse and closed-inquiry non-reuse follow the **Starting a conversation** section above
 
 ---
 

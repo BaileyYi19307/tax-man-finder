@@ -1,5 +1,6 @@
 # inquiries/serializers.py
 from rest_framework import serializers
+from chats.message_rules import MessageSendDenied, clean_message_content
 from .models import Inquiry 
 
 
@@ -9,7 +10,7 @@ class InquirySerializer(serializers.ModelSerializer):
     service_title = serializers.SerializerMethodField()
 
     def get_service_title(self, obj):
-        # General inquiries have no service — don't touch service.name
+        #general inquiry has no service
         if obj.service is None:
             return None
         return obj.service.name
@@ -20,6 +21,14 @@ class InquirySerializer(serializers.ModelSerializer):
         
 
 class InquiryCreateSerializer(serializers.ModelSerializer):
+    #first message text — not stored on Inquiry
+    content = serializers.CharField(write_only=True)
+
+    def validate_content(self, value):
+        try:
+            return clean_message_content(value)
+        except MessageSendDenied as exc:
+            raise serializers.ValidationError(exc.detail) from exc
 
     def validate(self,data):
         #if service is set, accountant should match service.accountant 
@@ -34,10 +43,15 @@ class InquiryCreateSerializer(serializers.ModelSerializer):
         if client == data.get("accountant"):
             raise serializers.ValidationError({"accountant": "You can not start an inquiry with yourself"})
         return data
+
+    def create(self, validated_data):
+        #content belongs on Message, not Inquiry
+        validated_data.pop("content", None)
+        return super().create(validated_data)
     
     class Meta:
         model=Inquiry 
-        fields=["id","accountant","client","service","created_at","status"]
+        fields=["id","accountant","client","service","created_at","status","content"]
         read_only_fields=["id", "client","created_at","status"]
         extra_kwargs={
             "service":{"required":False},
