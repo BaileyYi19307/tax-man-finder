@@ -14,6 +14,7 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const navigate = useNavigate();
   const currentUserId = Number(localStorage.getItem("user_id"));
 
@@ -41,12 +42,29 @@ export default function BookingsPage() {
     setBookings(await listMyBookings());
   }
 
+  async function runBookingAction(
+    action: () => Promise<unknown>,
+    failureMessage: string
+  ) {
+    try {
+      setActionError(null);
+      await action();
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      setActionError(failureMessage);
+    }
+  }
+
   if (loading) return <div className="bookings-page">Loading bookings…</div>;
   if (error) return <div className="bookings-page">{error}</div>;
 
   return (
     <div className="bookings-page">
       <h2>My consultations</h2>
+      {actionError && (
+        <p style={{ color: "#b91c1c" }}>{actionError}</p>
+      )}
       {bookings.length === 0 ? (
         <p>No bookings yet.</p>
       ) : (
@@ -69,19 +87,23 @@ export default function BookingsPage() {
                   <>
                     <button
                       type="button"
-                      onClick={async () => {
-                        await acceptBooking(b.id);
-                        await refresh();
-                      }}
+                      onClick={() =>
+                        runBookingAction(
+                          () => acceptBooking(b.id),
+                          "Could not accept booking. It may overlap another confirmed consultation."
+                        )
+                      }
                     >
                       Accept
                     </button>
                     <button
                       type="button"
-                      onClick={async () => {
-                        await declineBooking(b.id);
-                        await refresh();
-                      }}
+                      onClick={() =>
+                        runBookingAction(
+                          () => declineBooking(b.id),
+                          "Could not decline booking."
+                        )
+                      }
                     >
                       Decline
                     </button>
@@ -90,10 +112,12 @@ export default function BookingsPage() {
                 {(b.status === "pending" || b.status === "confirmed") && (
                   <button
                     type="button"
-                    onClick={async () => {
-                      await cancelBooking(b.id);
-                      await refresh();
-                    }}
+                    onClick={() =>
+                      runBookingAction(
+                        () => cancelBooking(b.id),
+                        "Could not cancel booking."
+                      )
+                    }
                   >
                     Cancel
                   </button>

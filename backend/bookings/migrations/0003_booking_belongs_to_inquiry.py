@@ -8,10 +8,12 @@ import django.utils.timezone
 
 STATUS_MAP = {
     0: "cancelled",
-    1: "confirmed",  # former "Complete"
+    1: "cancelled",  # former "Complete" — finished, not an active request
     2: "pending",
     3: "confirmed",  # former "Upcoming"
 }
+
+ACTIVE_STATUSES = ("pending", "confirmed")
 
 
 def forwards_booking_domain(apps, schema_editor):
@@ -21,6 +23,13 @@ def forwards_booking_domain(apps, schema_editor):
     for booking in Booking.objects.all():
         client_id = booking.client_id
         accountant_id = booking.accountant_id
+
+        old_status = booking.status if isinstance(booking.status, int) else None
+        if old_status in STATUS_MAP:
+            new_status = STATUS_MAP[old_status]
+        else:
+            new_status = booking.status_new or "pending"
+        becomes_active = new_status in ACTIVE_STATUSES
 
         if booking.inquiry_id is None:
             qs = Inquiry.objects.filter(
@@ -34,8 +43,17 @@ def forwards_booking_domain(apps, schema_editor):
                 qs = qs.filter(service_id__isnull=True)
             inquiry = qs.first()
             if inquiry is None:
-                # Prefer attaching to a closed prior inquiry over violating open uniqueness
-                # when an open row already exists for a different service pairing.
+                inquiry = Inquiry.objects.create(
+                    client_id=client_id,
+                    accountant_id=accountant_id,
+                    service_id=booking.service_id,
+                    status="closed",
+                )
+            elif becomes_active and Booking.objects.filter(
+                inquiry_id=inquiry.id,
+                status_new__in=ACTIVE_STATUSES,
+            ).exists():
+                # Keep at most one active booking on the reused open inquiry.
                 inquiry = Inquiry.objects.create(
                     client_id=client_id,
                     accountant_id=accountant_id,
@@ -51,12 +69,7 @@ def forwards_booking_domain(apps, schema_editor):
         if booking.name is None:
             booking.name = ""
 
-        old_status = booking.status if isinstance(booking.status, int) else None
-        if hasattr(booking, "status_new"):
-            if old_status in STATUS_MAP:
-                booking.status_new = STATUS_MAP[old_status]
-            elif not booking.status_new:
-                booking.status_new = "pending"
+        booking.status_new = new_status
         booking.save()
 
 

@@ -1,10 +1,11 @@
 from rest_framework import serializers
+from django.db import IntegrityError
+from django.utils import timezone
 
 from inquiries.models import Inquiry
 from services.models import Service
 from users.models import User
 from .models import ACTIVE_BOOKING_STATUSES, Booking, BookingStatus
-from django.utils import timezone
 
 
 class BookingSerializer(serializers.ModelSerializer):
@@ -72,17 +73,22 @@ class BookingCreateSerializer(serializers.Serializer):
         ends_at = Booking.compute_ends_at(starts_at)
         note = (validated_data.get("note") or "").strip()
 
-        booking = Booking.objects.create(
-            inquiry=inquiry,
-            client=inquiry.client,
-            accountant=inquiry.accountant,
-            starts_at=starts_at,
-            ends_at=ends_at,
-            status=BookingStatus.PENDING,
-            name="",
-            date=starts_at,
-            service=inquiry.service,
-        )
+        try:
+            booking = Booking.objects.create(
+                inquiry=inquiry,
+                client=inquiry.client,
+                accountant=inquiry.accountant,
+                starts_at=starts_at,
+                ends_at=ends_at,
+                status=BookingStatus.PENDING,
+                name="",
+                date=starts_at,
+                service=inquiry.service,
+            )
+        except IntegrityError as exc:
+            raise serializers.ValidationError(
+                {"inquiry": "This inquiry already has an active booking."}
+            ) from exc
 
         if note:
             from chats.models import Message

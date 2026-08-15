@@ -1,6 +1,7 @@
 from datetime import timedelta
 from unittest.mock import patch
 
+from django.db import IntegrityError, transaction
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -292,3 +293,30 @@ class BookingDomainTests(TestCase):
         self.assertEqual(Inquiry.objects.count(), 0)
         self.assertEqual(Message.objects.count(), 0)
         self.assertEqual(Booking.objects.count(), 0)
+
+    def test_database_rejects_second_active_booking_on_same_inquiry(self):
+        self._auth(self.client_user)
+        first = self.client.post(
+            self.create_url,
+            {"inquiry": self.inquiry.id, "starts_at": self.starts.isoformat()},
+            format="json",
+        )
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+
+        later = self.starts + timedelta(hours=4)
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                Booking.objects.create(
+                    inquiry=self.inquiry,
+                    client=self.client_user,
+                    accountant=self.accountant_user,
+                    starts_at=later,
+                    ends_at=later + timedelta(minutes=30),
+                    status=BookingStatus.PENDING,
+                )
+        self.assertEqual(
+            Booking.objects.filter(
+                inquiry=self.inquiry, status__in=ACTIVE_BOOKING_STATUSES
+            ).count(),
+            1,
+        )

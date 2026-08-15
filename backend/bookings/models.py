@@ -64,6 +64,11 @@ class Booking(models.Model):
                 check=Q(ends_at__gt=models.F("starts_at")),
                 name="booking_ends_after_starts",
             ),
+            models.UniqueConstraint(
+                fields=["inquiry"],
+                condition=Q(status__in=["pending", "confirmed"]),
+                name="unique_active_booking_per_inquiry",
+            ),
         ]
 
     def __str__(self):

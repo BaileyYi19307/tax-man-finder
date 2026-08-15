@@ -1,4 +1,4 @@
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -140,71 +140,77 @@ class RequestConsultationView(APIView):
         starts_at = data["starts_at"]
         ends_at = Booking.compute_ends_at(starts_at)
 
-        with transaction.atomic():
-            inquiry = data.get("inquiry")
-            if inquiry is None:
-                accountant = data["accountant"]
-                service = data.get("service")
-                if service is not None:
-                    existing = Inquiry.objects.filter(
-                        status=Inquiry.StatusChoices.OPEN,
-                        client=request.user,
-                        accountant=accountant,
-                        service=service,
-                    ).first()
-                else:
-                    existing = Inquiry.objects.filter(
-                        status=Inquiry.StatusChoices.OPEN,
-                        client=request.user,
-                        accountant=accountant,
-                        service__isnull=True,
-                    ).first()
+        try:
+            with transaction.atomic():
+                inquiry = data.get("inquiry")
+                if inquiry is None:
+                    accountant = data["accountant"]
+                    service = data.get("service")
+                    if service is not None:
+                        existing = Inquiry.objects.filter(
+                            status=Inquiry.StatusChoices.OPEN,
+                            client=request.user,
+                            accountant=accountant,
+                            service=service,
+                        ).first()
+                    else:
+                        existing = Inquiry.objects.filter(
+                            status=Inquiry.StatusChoices.OPEN,
+                            client=request.user,
+                            accountant=accountant,
+                            service__isnull=True,
+                        ).first()
 
-                if existing is not None:
-                    if Booking.objects.filter(
-                        inquiry=existing, status__in=ACTIVE_BOOKING_STATUSES
-                    ).exists():
-                        return Response(
-                            {
-                                "detail": "Matching open inquiry already has an active booking."
-                            },
-                            status=status.HTTP_400_BAD_REQUEST,
+                    if existing is not None:
+                        if Booking.objects.filter(
+                            inquiry=existing, status__in=ACTIVE_BOOKING_STATUSES
+                        ).exists():
+                            return Response(
+                                {
+                                    "detail": "Matching open inquiry already has an active booking."
+                                },
+                                status=status.HTTP_400_BAD_REQUEST,
+                            )
+                        inquiry = existing
+                        Message.objects.create(
+                            inquiry=inquiry,
+                            sender=request.user,
+                            content=content,
                         )
-                    inquiry = existing
-                    Message.objects.create(
-                        inquiry=inquiry,
-                        sender=request.user,
-                        content=content,
-                    )
+                    else:
+                        inquiry = Inquiry.objects.create(
+                            client=request.user,
+                            accountant=accountant,
+                            service=service,
+                            status=Inquiry.StatusChoices.OPEN,
+                        )
+                        Message.objects.create(
+                            inquiry=inquiry,
+                            sender=request.user,
+                            content=content,
+                        )
                 else:
-                    inquiry = Inquiry.objects.create(
-                        client=request.user,
-                        accountant=accountant,
-                        service=service,
-                        status=Inquiry.StatusChoices.OPEN,
-                    )
                     Message.objects.create(
                         inquiry=inquiry,
                         sender=request.user,
                         content=content,
                     )
-            else:
-                Message.objects.create(
-                    inquiry=inquiry,
-                    sender=request.user,
-                    content=content,
-                )
 
-            booking = Booking.objects.create(
-                inquiry=inquiry,
-                client=inquiry.client,
-                accountant=inquiry.accountant,
-                starts_at=starts_at,
-                ends_at=ends_at,
-                status=BookingStatus.PENDING,
-                name="",
-                date=starts_at,
-                service=inquiry.service,
+                booking = Booking.objects.create(
+                    inquiry=inquiry,
+                    client=inquiry.client,
+                    accountant=inquiry.accountant,
+                    starts_at=starts_at,
+                    ends_at=ends_at,
+                    status=BookingStatus.PENDING,
+                    name="",
+                    date=starts_at,
+                    service=inquiry.service,
+                )
+        except IntegrityError:
+            return Response(
+                {"detail": "This inquiry already has an active booking."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         return Response(
