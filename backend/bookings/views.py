@@ -18,6 +18,11 @@ from .serializers import (
 )
 
 
+class ActiveBookingConflict(Exception):
+    def __init__(self, detail="This inquiry already has an active booking."):
+        self.detail = detail
+
+
 def confirmed_overlap_exists(accountant, starts_at, ends_at, exclude_booking_id=None):
     """Confirmed bookings for the same accountant must not overlap."""
     qs = Booking.objects.filter(
@@ -29,6 +34,37 @@ def confirmed_overlap_exists(accountant, starts_at, ends_at, exclude_booking_id=
     if exclude_booking_id:
         qs = qs.exclude(pk=exclude_booking_id)
     return qs.exists()
+
+
+def _open_inquiry_queryset(client, accountant, service):
+    qs = Inquiry.objects.select_for_update().filter(
+        status=Inquiry.StatusChoices.OPEN,
+        client=client,
+        accountant=accountant,
+    )
+    if service is not None:
+        return qs.filter(service=service)
+    return qs.filter(service__isnull=True)
+
+
+def get_or_create_open_inquiry(client, accountant, service):
+    """Reuse the open inquiry, recovering from a concurrent-create uniqueness race."""
+    existing = _open_inquiry_queryset(client, accountant, service).first()
+    if existing is not None:
+        return existing
+    try:
+        with transaction.atomic():
+            return Inquiry.objects.create(
+                client=client,
+                accountant=accountant,
+                service=service,
+                status=Inquiry.StatusChoices.OPEN,
+            )
+    except IntegrityError:
+        existing = _open_inquiry_queryset(client, accountant, service).first()
+        if existing is None:
+            raise
+        return existing
 
 
 class BookingsViewSet(viewsets.ModelViewSet):
@@ -144,72 +180,39 @@ class RequestConsultationView(APIView):
             with transaction.atomic():
                 inquiry = data.get("inquiry")
                 if inquiry is None:
-                    accountant = data["accountant"]
-                    service = data.get("service")
-                    if service is not None:
-                        existing = Inquiry.objects.filter(
-                            status=Inquiry.StatusChoices.OPEN,
-                            client=request.user,
-                            accountant=accountant,
-                            service=service,
-                        ).first()
-                    else:
-                        existing = Inquiry.objects.filter(
-                            status=Inquiry.StatusChoices.OPEN,
-                            client=request.user,
-                            accountant=accountant,
-                            service__isnull=True,
-                        ).first()
-
-                    if existing is not None:
-                        if Booking.objects.filter(
-                            inquiry=existing, status__in=ACTIVE_BOOKING_STATUSES
-                        ).exists():
-                            return Response(
-                                {
-                                    "detail": "Matching open inquiry already has an active booking."
-                                },
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
-                        inquiry = existing
-                        Message.objects.create(
-                            inquiry=inquiry,
-                            sender=request.user,
-                            content=content,
-                        )
-                    else:
-                        inquiry = Inquiry.objects.create(
-                            client=request.user,
-                            accountant=accountant,
-                            service=service,
-                            status=Inquiry.StatusChoices.OPEN,
-                        )
-                        Message.objects.create(
-                            inquiry=inquiry,
-                            sender=request.user,
-                            content=content,
-                        )
-                else:
-                    Message.objects.create(
-                        inquiry=inquiry,
-                        sender=request.user,
-                        content=content,
+                    inquiry = get_or_create_open_inquiry(
+                        client=request.user,
+                        accountant=data["accountant"],
+                        service=data.get("service"),
                     )
-
-                booking = Booking.objects.create(
+                    if Booking.objects.filter(
+                        inquiry=inquiry, status__in=ACTIVE_BOOKING_STATUSES
+                    ).exists():
+                        raise ActiveBookingConflict(
+                            "Matching open inquiry already has an active booking."
+                        )
+                Message.objects.create(
                     inquiry=inquiry,
-                    client=inquiry.client,
-                    accountant=inquiry.accountant,
-                    starts_at=starts_at,
-                    ends_at=ends_at,
-                    status=BookingStatus.PENDING,
-                    name="",
-                    date=starts_at,
-                    service=inquiry.service,
+                    sender=request.user,
+                    content=content,
                 )
-        except IntegrityError:
+                try:
+                    booking = Booking.objects.create(
+                        inquiry=inquiry,
+                        client=inquiry.client,
+                        accountant=inquiry.accountant,
+                        starts_at=starts_at,
+                        ends_at=ends_at,
+                        status=BookingStatus.PENDING,
+                        name="",
+                        date=starts_at,
+                        service=inquiry.service,
+                    )
+                except IntegrityError as exc:
+                    raise ActiveBookingConflict from exc
+        except ActiveBookingConflict as exc:
             return Response(
-                {"detail": "This inquiry already has an active booking."},
+                {"detail": exc.detail},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

@@ -1,5 +1,5 @@
 from datetime import timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.db import IntegrityError, transaction
 from django.test import TestCase
@@ -293,6 +293,114 @@ class BookingDomainTests(TestCase):
         self.assertEqual(Inquiry.objects.count(), 0)
         self.assertEqual(Message.objects.count(), 0)
         self.assertEqual(Booking.objects.count(), 0)
+
+    def test_request_consultation_inquiry_create_race_reuses_open_inquiry(self):
+        """Open-inquiry uniqueness races reuse the winner instead of a booking error."""
+        Inquiry.objects.all().delete()
+        Message.objects.all().delete()
+        winner = Inquiry.objects.create(
+            client=self.client_user,
+            accountant=self.accountant_user,
+            service=None,
+            status=Inquiry.StatusChoices.OPEN,
+        )
+        self._auth(self.client_user)
+        miss = MagicMock()
+        miss.first.return_value = None
+        hit = MagicMock()
+        hit.first.return_value = winner
+
+        with (
+            patch("bookings.views._open_inquiry_queryset", side_effect=[miss, hit]),
+            patch(
+                "bookings.views.Inquiry.objects.create",
+                side_effect=IntegrityError("unique_open_general_inquiry"),
+            ),
+        ):
+            response = self.client.post(
+                self.consult_url,
+                {
+                    "accountant": self.accountant_user.id,
+                    "starts_at": self.starts.isoformat(),
+                    "content": "General consult please",
+                },
+                format="json",
+            )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["inquiry_id"], winner.id)
+        self.assertEqual(Inquiry.objects.count(), 1)
+        self.assertEqual(Booking.objects.count(), 1)
+        self.assertEqual(Message.objects.count(), 1)
+
+    def test_request_consultation_inquiry_create_race_respects_active_booking(self):
+        Inquiry.objects.all().delete()
+        Message.objects.all().delete()
+        Booking.objects.all().delete()
+        winner = Inquiry.objects.create(
+            client=self.client_user,
+            accountant=self.accountant_user,
+            service=None,
+            status=Inquiry.StatusChoices.OPEN,
+        )
+        later = self.starts + timedelta(hours=3)
+        Booking.objects.create(
+            inquiry=winner,
+            client=self.client_user,
+            accountant=self.accountant_user,
+            starts_at=later,
+            ends_at=later + timedelta(minutes=30),
+            status=BookingStatus.PENDING,
+        )
+        self._auth(self.client_user)
+        miss = MagicMock()
+        miss.first.return_value = None
+        hit = MagicMock()
+        hit.first.return_value = winner
+
+        with (
+            patch("bookings.views._open_inquiry_queryset", side_effect=[miss, hit]),
+            patch(
+                "bookings.views.Inquiry.objects.create",
+                side_effect=IntegrityError("unique_open_general_inquiry"),
+            ),
+        ):
+            response = self.client.post(
+                self.consult_url,
+                {
+                    "accountant": self.accountant_user.id,
+                    "starts_at": self.starts.isoformat(),
+                    "content": "General consult please",
+                },
+                format="json",
+            )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("active booking", response.data["detail"].lower())
+        self.assertEqual(Inquiry.objects.count(), 1)
+        self.assertEqual(Booking.objects.count(), 1)
+        self.assertEqual(Message.objects.count(), 0)
+
+    def test_request_consultation_booking_integrity_error_rolls_back_message(self):
+        self._auth(self.client_user)
+        with patch(
+            "bookings.views.Booking.objects.create",
+            side_effect=IntegrityError("unique_active_booking_per_inquiry"),
+        ):
+            response = self.client.post(
+                self.consult_url,
+                {
+                    "inquiry": self.inquiry.id,
+                    "starts_at": self.starts.isoformat(),
+                    "content": "Please book me",
+                },
+                format="json",
+            )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "This inquiry already has an active booking.",
+        )
+        self.assertEqual(Booking.objects.count(), 0)
+        self.assertFalse(Message.objects.filter(content="Please book me").exists())
 
     def test_database_rejects_second_active_booking_on_same_inquiry(self):
         self._auth(self.client_user)
