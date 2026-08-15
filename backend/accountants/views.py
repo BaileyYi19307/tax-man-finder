@@ -1,6 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from .serializers import AccountantProfileSerializer, AccountantProfileStatusSerializer
 from .models import AccountantProfile
@@ -11,15 +11,21 @@ from django.shortcuts import get_object_or_404
 # Create your views here.
 
 class CreateAccountantProfile(APIView):
-    permission_classes=[AllowAny]
-    
-    def post(self,request):
-        #create an accountant first
-        serializer = AccountantProfileSerializer(data=request.data)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            return Response(serializer.data,status=status.HTTP_200_OK)
-        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+    """Authenticated users create their own profile (no AllowAny)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if AccountantProfile.objects.filter(user=request.user).exists():
+            return Response(
+                {"detail": "Accountant profile already exists."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        payload = {**request.data, "user": request.user.id}
+        serializer = AccountantProfileSerializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
         
 
 class CheckProfileStatus(APIView):

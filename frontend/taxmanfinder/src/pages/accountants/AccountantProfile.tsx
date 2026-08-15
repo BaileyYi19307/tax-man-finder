@@ -1,5 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  API_BASE,
+  requestConsultation,
+  startConversation,
+} from "../../api/client";
 
 type ProfileService = {
   id: number;
@@ -41,25 +46,43 @@ export default function AccountantProfilePage() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<AccountantProfile | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [showMessageForm, setShowMessageForm] = useState(false);
+  const [showBookingForm, setShowBookingForm] = useState(false);
   const [messageText, setMessageText] = useState("");
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
+  const [bookingNote, setBookingNote] = useState("");
+  const [bookingDate, setBookingDate] = useState("");
 
   const token = localStorage.getItem("access_token");
 
   useEffect(() => {
+    let cancelled = false;
+    setProfile(null);
+    setLoadError(null);
+
     async function loadProfile() {
       try {
-        const res = await fetch(`http://127.0.0.1:8000/accountants/${userId}/`);
+        const res = await fetch(`${API_BASE}/accountants/${userId}/`);
         if (!res.ok) throw new Error(await res.text());
-        setProfile(await res.json());
+        const data = await res.json();
+        if (!cancelled) {
+          setProfile(data);
+          setLoadError(null);
+        }
       } catch (e) {
         console.error(e);
-        setError("Could not load accountant profile.");
+        if (!cancelled) {
+          setProfile(null);
+          setLoadError("Could not load accountant profile.");
+        }
       }
     }
     loadProfile();
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
 
   function openMessageForm() {
@@ -67,7 +90,7 @@ export default function AccountantProfilePage() {
       navigate("/login");
       return;
     }
-    setError(null);
+    setFormError(null);
     setShowMessageForm(true);
   }
 
@@ -75,7 +98,7 @@ export default function AccountantProfilePage() {
     setShowMessageForm(false);
     setMessageText("");
     setSelectedServiceId("");
-    setError(null);
+    setFormError(null);
   }
 
   async function sendMessage() {
@@ -86,46 +109,94 @@ export default function AccountantProfilePage() {
 
     const content = messageText.trim();
     if (!content) {
-      setError("Message cannot be blank.");
+      setFormError("Message cannot be blank.");
       return;
     }
 
     setLoading(true);
-    setError(null);
-
-    const body: { content: string; accountant?: number; service?: number } = {
-      content,
-    };
-    if (selectedServiceId) {
-      body.service = Number(selectedServiceId);
-    } else {
-      body.accountant = profile.user_id;
-    }
+    setFormError(null);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/inquiries/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) throw new Error(await res.text());
-
-      const data = await res.json();
+      const body: { content: string; accountant?: number; service?: number } = {
+        content,
+      };
+      if (selectedServiceId) {
+        body.service = Number(selectedServiceId);
+      } else {
+        body.accountant = profile.user_id;
+      }
+      const data = await startConversation(body);
       closeMessageForm();
       navigate(`/chat/${data.inquiry_id}`);
     } catch (e) {
       console.error(e);
-      setError("Could not start chat. Please try again.");
+      setFormError("Could not start chat. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
-  if (!profile && !error) {
+  function openBookingForm() {
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+    setFormError(null);
+    setShowBookingForm(true);
+  }
+
+  function closeBookingForm() {
+    setShowBookingForm(false);
+    setBookingNote("");
+    setBookingDate("");
+    setSelectedServiceId("");
+    setFormError(null);
+  }
+
+  async function submitConsultation() {
+    if (!token || !profile) {
+      navigate("/login");
+      return;
+    }
+    const content = bookingNote.trim();
+    if (!content) {
+      setFormError("Please include a brief note.");
+      return;
+    }
+    if (!bookingDate) {
+      setFormError("Please choose a start date and time.");
+      return;
+    }
+
+    setLoading(true);
+    setFormError(null);
+    try {
+      const body: {
+        content: string;
+        starts_at: string;
+        service?: number;
+        accountant?: number;
+      } = {
+        content,
+        starts_at: new Date(bookingDate).toISOString(),
+      };
+      if (selectedServiceId) {
+        body.service = Number(selectedServiceId);
+      } else {
+        body.accountant = profile.user_id;
+      }
+      const data = await requestConsultation(body);
+      closeBookingForm();
+      navigate(`/chat/${data.inquiry_id}`);
+    } catch (e) {
+      console.error(e);
+      setFormError("Could not request consultation. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (!profile && !loadError) {
     return (
       <div style={page}>
         <div style={container}>Loading profile…</div>
@@ -139,6 +210,10 @@ export default function AccountantProfilePage() {
         <Link to="/services" style={{ fontSize: 13, color: "#2563eb" }}>
           ← Back to services
         </Link>
+
+        {loadError && (
+          <div style={{ ...card, marginTop: 16, color: "#b91c1c" }}>{loadError}</div>
+        )}
 
         {profile && (
           <div style={{ ...card, marginTop: 16 }}>
@@ -174,11 +249,7 @@ export default function AccountantProfilePage() {
               )}
             </div>
 
-            {error && !showMessageForm && (
-              <div style={{ marginTop: 14, color: "#b91c1c", fontSize: 13 }}>{error}</div>
-            )}
-
-            <div style={{ marginTop: 18, display: "flex", gap: 10 }}>
+            <div style={{ marginTop: 18, display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button
                 type="button"
                 onClick={openMessageForm}
@@ -193,6 +264,9 @@ export default function AccountantProfilePage() {
                 }}
               >
                 Message Accountant
+              </button>
+              <button type="button" onClick={openBookingForm}>
+                Request Consultation
               </button>
               <Link
                 to="/chat"
@@ -214,80 +288,158 @@ export default function AccountantProfilePage() {
         )}
 
         {showMessageForm && profile && (
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0,0,0,0.35)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 16,
-            }}
-          >
-            <div
-              style={{
-                background: "#fff",
-                borderRadius: 12,
-                padding: 20,
-                width: "100%",
-                maxWidth: 420,
-              }}
-            >
-              <h3 style={{ marginTop: 0 }}>Message Accountant</h3>
+          <Modal>
+            <h3 style={{ marginTop: 0 }}>Message Accountant</h3>
+            <ServiceSelect
+              services={profile.services}
+              value={selectedServiceId}
+              onChange={setSelectedServiceId}
+            />
+            <label style={{ display: "block", fontSize: 14 }}>
+              Message
+              <textarea
+                value={messageText}
+                onChange={(e) => setMessageText(e.target.value)}
+                placeholder="Describe what you need help with..."
+                rows={4}
+                style={{ width: "100%", marginTop: 6, marginBottom: 16, boxSizing: "border-box" }}
+              />
+            </label>
+            {formError && <ErrorText text={formError} />}
+            <Actions
+              onCancel={closeMessageForm}
+              onSubmit={sendMessage}
+              loading={loading}
+              disabled={!messageText.trim()}
+              submitLabel="Send"
+            />
+          </Modal>
+        )}
 
-              <label style={{ display: "block", fontSize: 14, marginBottom: 12 }}>
-                Service (optional)
-                <select
-                  value={selectedServiceId}
-                  onChange={(e) => setSelectedServiceId(e.target.value)}
-                  style={{ width: "100%", marginTop: 6, padding: 8 }}
-                >
-                  <option value="">General inquiry</option>
-                  {profile.services.map((s) => (
-                    <option key={s.id} value={String(s.id)}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label style={{ display: "block", fontSize: 14 }}>
-                Message
-                <textarea
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  placeholder="Describe what you need help with..."
-                  rows={4}
-                  style={{
-                    width: "100%",
-                    marginTop: 6,
-                    marginBottom: 16,
-                    boxSizing: "border-box",
-                  }}
-                />
-              </label>
-
-              {error && (
-                <div style={{ marginBottom: 12, fontSize: 13, color: "#b91c1c" }}>{error}</div>
-              )}
-
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                <button type="button" onClick={closeMessageForm} disabled={loading}>
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={sendMessage}
-                  disabled={loading || !messageText.trim()}
-                >
-                  {loading ? "Sending..." : "Send"}
-                </button>
-              </div>
-            </div>
-          </div>
+        {showBookingForm && profile && (
+          <Modal>
+            <h3 style={{ marginTop: 0 }}>Request Consultation</h3>
+            <p style={{ ...muted, fontSize: 13 }}>Fixed 30-minute consultation.</p>
+            <ServiceSelect
+              services={profile.services}
+              value={selectedServiceId}
+              onChange={setSelectedServiceId}
+            />
+            <label style={{ display: "block", fontSize: 14, marginBottom: 12 }}>
+              Date and time
+              <input
+                type="datetime-local"
+                value={bookingDate}
+                onChange={(e) => setBookingDate(e.target.value)}
+                style={{ width: "100%", marginTop: 6 }}
+              />
+            </label>
+            <label style={{ display: "block", fontSize: 14 }}>
+              Brief note
+              <textarea
+                value={bookingNote}
+                onChange={(e) => setBookingNote(e.target.value)}
+                placeholder="What would you like to discuss?"
+                rows={3}
+                style={{ width: "100%", marginTop: 6, marginBottom: 16, boxSizing: "border-box" }}
+              />
+            </label>
+            {formError && <ErrorText text={formError} />}
+            <Actions
+              onCancel={closeBookingForm}
+              onSubmit={submitConsultation}
+              loading={loading}
+              disabled={!bookingDate || !bookingNote.trim()}
+              submitLabel="Request Consultation"
+            />
+          </Modal>
         )}
       </div>
+    </div>
+  );
+}
+
+function Modal({ children }: { children: ReactNode }) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.35)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 12,
+          padding: 20,
+          width: "100%",
+          maxWidth: 420,
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ServiceSelect({
+  services,
+  value,
+  onChange,
+}: {
+  services: ProfileService[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label style={{ display: "block", fontSize: 14, marginBottom: 12 }}>
+      Service (optional)
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ width: "100%", marginTop: 6, padding: 8 }}
+      >
+        <option value="">General inquiry</option>
+        {services.map((s) => (
+          <option key={s.id} value={String(s.id)}>
+            {s.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function ErrorText({ text }: { text: string }) {
+  return <div style={{ marginBottom: 12, fontSize: 13, color: "#b91c1c" }}>{text}</div>;
+}
+
+function Actions({
+  onCancel,
+  onSubmit,
+  loading,
+  disabled,
+  submitLabel,
+}: {
+  onCancel: () => void;
+  onSubmit: () => void;
+  loading: boolean;
+  disabled: boolean;
+  submitLabel: string;
+}) {
+  return (
+    <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+      <button type="button" onClick={onCancel} disabled={loading}>
+        Cancel
+      </button>
+      <button type="button" onClick={onSubmit} disabled={loading || disabled}>
+        {loading ? "Working..." : submitLabel}
+      </button>
     </div>
   );
 }

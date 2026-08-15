@@ -11,8 +11,8 @@ type InboxViewProps={
 };
 
 export default function InboxView({ inquiries = [],onMarkRead }: InboxViewProps) {
+  const currentUserId = Number(localStorage.getItem("user_id"));
 
-  console.log("in inbox view, inquiries is", inquiries)
     return (
       <div>
         <h3>Messages</h3>
@@ -53,7 +53,9 @@ export default function InboxView({ inquiries = [],onMarkRead }: InboxViewProps)
       />
     )}
     
-                  {inquiry.accountant_name}
+                  {currentUserId === inquiry.accountant
+                    ? inquiry.client_name
+                    : inquiry.accountant_name}
                   </div>
                   <div style={{ fontSize: 12, color: "#6b7280" }}>
                     {inquiry.service_title}
@@ -67,4 +69,3 @@ export default function InboxView({ inquiries = [],onMarkRead }: InboxViewProps)
       </div>
     );
   }
-  

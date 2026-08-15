@@ -1,7 +1,7 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { jwtDecode } from "jwt-decode";
+import { API_BASE, requestConsultation, startConversation } from "../../api/client";
 
 type Service = {
   id: number;
@@ -53,32 +53,26 @@ export default function ServiceDetail() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  //message composer
   const [showMessageForm, setShowMessageForm] = useState(false);
   const [messageText, setMessageText] = useState("");
 
-  //booking form
   const [showBookingForm, setShowBookingForm] = useState(false);
-  const [bookingName, setBookingName]= useState("");
-  const [bookingDate, setBookingDate]= useState("");
+  const [bookingNote, setBookingNote] = useState("");
+  const [bookingDate, setBookingDate] = useState("");
 
   const token = localStorage.getItem("access_token");
-  console.log("the token currently is", token);
 
   useEffect(() => {
-    async function getService(){
-      try{
-        let response = await axios.get(`http://127.0.0.1:8000/services/${serviceId}/`);
+    async function getService() {
+      try {
+        const response = await axios.get(`${API_BASE}/services/${serviceId}/`);
         setService(response.data);
-      }
-      catch(error){
-        console.log("erorr is",error);
+      } catch (err) {
+        console.log("error is", err);
       }
     }
-    getService(); 
-  }
-  , [serviceId])
-
+    getService();
+  }, [serviceId]);
 
   function openMessageForm() {
     if (!token) {
@@ -111,25 +105,13 @@ export default function ServiceDetail() {
     setError(null);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/inquiries/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          service: Number(serviceId),
-          content,
-        }),
+      const data = await startConversation({
+        service: Number(serviceId),
+        content,
       });
-
-      if (!res.ok) throw new Error(await res.text());
-
-      const data = await res.json();
-      setShowMessageForm(false);
-      setMessageText("");
+      closeMessageForm();
       navigate(`/chat/${data.inquiry_id}`);
-    } catch (e: any) {
+    } catch (e) {
       setError("Could not start chat. Please try again.");
       console.error(e);
     } finally {
@@ -137,55 +119,57 @@ export default function ServiceDetail() {
     }
   }
 
-
-  async function createBookingRequest(){
-    //issue a post request to the backend
-    //which user is viewing the service right now
-    //which accountant are they referring to?
-    //which service is being viewed right now 
-    //have service 
-    //get the accountant from the service 
-    //get the current user 
-
-    // if (token){
-    //   const decoded = jwtDecode(token);
-    //   console.log("the user id is", userId);
-
-    // }
-
-
-    if (!token){
+  function openBookingForm() {
+    if (!token) {
       navigate("/login");
-      return; 
+      return;
     }
-
-    //make data payload for backend 
-    const data = {
-      name:bookingName, date:bookingDate, service: serviceId,
-    }
-  
-    try{
-        const res = await fetch("http://127.0.0.1:8000/bookings/create/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
-     });
-
-     if (!res.ok) throw new Error(await res.text())
-
-      const text = await res.text();
-      console.log(res.status, text);
-      console.log("booking created", data);
-      setShowBookingForm(false);
-    }
-    catch(error){
-      console.log("erorr is", error);
-    }
+    setError(null);
+    setShowBookingForm(true);
   }
 
+  function closeBookingForm() {
+    setShowBookingForm(false);
+    setBookingNote("");
+    setBookingDate("");
+    setError(null);
+  }
+
+  async function createBookingRequest() {
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    const content = bookingNote.trim();
+    if (!content) {
+      setError("Please include a brief note for the consultation.");
+      return;
+    }
+    if (!bookingDate) {
+      setError("Please choose a start date and time.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const startsAt = new Date(bookingDate).toISOString();
+      const data = await requestConsultation({
+        service: Number(serviceId),
+        starts_at: startsAt,
+        content,
+      });
+      closeBookingForm();
+      navigate(`/chat/${data.inquiry_id}`);
+    } catch (e) {
+      console.error(e);
+      setError("Could not request consultation. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   if (!service) return <div style={{ padding: 24 }}>Loading…</div>;
 
@@ -211,7 +195,6 @@ export default function ServiceDetail() {
             <div style={{ fontSize: 22, fontWeight: 800, color: "#111827" }}>
               {service.name}
             </div>
-
             <div
               style={{
                 fontSize: 13,
@@ -233,7 +216,7 @@ export default function ServiceDetail() {
             {service.description}
           </div>
 
-          {error && (
+          {error && !showMessageForm && !showBookingForm && (
             <div
               style={{
                 marginTop: 14,
@@ -265,29 +248,25 @@ export default function ServiceDetail() {
               Message about this service
             </button>
 
-            <button
-              onClick = {()=>setShowBookingForm(true)}
-              >
-                Request Consultation
-              </button>
+            <button type="button" onClick={openBookingForm}>
+              Request Consultation
+            </button>
 
-            {service && (
-              <Link
-                to={`/accountants/${service.accountant}`}
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 10,
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
-                  color: "#111827",
-                  textDecoration: "none",
-                  fontWeight: 700,
-                  fontSize: 14,
-                }}
-              >
-                View accountant profile
-              </Link>
-            )}
+            <Link
+              to={`/accountants/${service.accountant}`}
+              style={{
+                padding: "10px 14px",
+                borderRadius: 10,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                color: "#111827",
+                textDecoration: "none",
+                fontWeight: 700,
+                fontSize: 14,
+              }}
+            >
+              View accountant profile
+            </Link>
 
             <Link
               to="/chat"
@@ -328,7 +307,6 @@ export default function ServiceDetail() {
                 }}
               >
                 <h3 style={{ marginTop: 0 }}>Message about this service</h3>
-
                 <label style={{ display: "block", fontSize: 14 }}>
                   Message
                   <textarea
@@ -344,19 +322,11 @@ export default function ServiceDetail() {
                     }}
                   />
                 </label>
-
                 {error && (
-                  <div
-                    style={{
-                      marginBottom: 12,
-                      fontSize: 13,
-                      color: "#b91c1c",
-                    }}
-                  >
+                  <div style={{ marginBottom: 12, fontSize: 13, color: "#b91c1c" }}>
                     {error}
                   </div>
                 )}
-
                 <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                   <button type="button" onClick={closeMessageForm} disabled={loading}>
                     Cancel
@@ -374,60 +344,74 @@ export default function ServiceDetail() {
           )}
 
           {showBookingForm && (
-  <div
-    style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.35)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: 16,
-    }}
-  >
-    <div
-      style={{
-        background: "#fff",
-        borderRadius: 12,
-        padding: 20,
-        width: "100%",
-        maxWidth: 420,
-      }}
-    >
-      <h3 style={{ marginTop: 0 }}>Request Consultation</h3>
-
-      <label>
-        Name
-        <input
-          value={bookingName}
-          onChange={(e) => setBookingName(e.target.value)}
-          placeholder={service.name}
-          style={{ width: "100%", marginTop: 6, marginBottom: 12 }}
-        />
-      </label>
-
-      <label>
-        Date and time
-        <input
-          type="datetime-local"
-          value={bookingDate}
-          onChange={(e) => setBookingDate(e.target.value)}
-          style={{ width: "100%", marginTop: 6, marginBottom: 16 }}
-        />
-      </label>
-
-      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-        <button onClick={() => setShowBookingForm(false)}>
-          Cancel
-        </button>
-
-        <button onClick={createBookingRequest} disabled={!bookingDate}>
-         Submit Request
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.35)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 16,
+              }}
+            >
+              <div
+                style={{
+                  background: "#fff",
+                  borderRadius: 12,
+                  padding: 20,
+                  width: "100%",
+                  maxWidth: 420,
+                }}
+              >
+                <h3 style={{ marginTop: 0 }}>Request Consultation</h3>
+                <p style={{ ...muted, fontSize: 13 }}>
+                  30-minute consultation. Service is already selected for this page.
+                </p>
+                <label style={{ display: "block", fontSize: 14, marginBottom: 12 }}>
+                  Date and time
+                  <input
+                    type="datetime-local"
+                    value={bookingDate}
+                    onChange={(e) => setBookingDate(e.target.value)}
+                    style={{ width: "100%", marginTop: 6 }}
+                  />
+                </label>
+                <label style={{ display: "block", fontSize: 14 }}>
+                  Brief note
+                  <textarea
+                    value={bookingNote}
+                    onChange={(e) => setBookingNote(e.target.value)}
+                    placeholder="What would you like to discuss?"
+                    rows={3}
+                    style={{
+                      width: "100%",
+                      marginTop: 6,
+                      marginBottom: 16,
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </label>
+                {error && (
+                  <div style={{ marginBottom: 12, fontSize: 13, color: "#b91c1c" }}>
+                    {error}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                  <button type="button" onClick={closeBookingForm} disabled={loading}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={createBookingRequest}
+                    disabled={loading || !bookingDate || !bookingNote.trim()}
+                  >
+                    {loading ? "Submitting..." : "Request Consultation"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

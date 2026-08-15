@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { apiFetch } from "../../api/client";
 
-type Conversation = {
+type InquiryRow = {
   id: number;
-  other_user: string;
-  last_message: string;
+  accountant_name: string;
+  client_name: string;
+  service_title: string | null;
+  status: string;
 };
 
 const page = {
@@ -28,24 +31,24 @@ const card = {
 const muted = { color: "#6b7280" };
 
 export default function AccountantDashboard() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [inquiries, setInquiries] = useState<InquiryRow[]>([]);
   const token = localStorage.getItem("access_token");
 
   useEffect(() => {
     if (!token) return;
 
-    fetch("http://127.0.0.1:8000/api/conversations/", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then(setConversations)
+    apiFetch("/api/inquiries/")
+      .then(async (r) => {
+        if (!r.ok) throw new Error(await r.text());
+        return r.json();
+      })
+      .then(setInquiries)
       .catch(console.error);
   }, [token]);
 
   return (
     <div style={page}>
       <div style={container}>
-        {/* Header */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 24, fontWeight: 800, color: "#111827" }}>
             Accountant Dashboard
@@ -55,7 +58,6 @@ export default function AccountantDashboard() {
           </div>
         </div>
 
-        {/* Quick actions */}
         <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
           <Link to="/services" style={{ ...card, textDecoration: "none", color: "#111827", flex: 1 }}>
             <div style={{ fontWeight: 700 }}>My Services</div>
@@ -70,30 +72,34 @@ export default function AccountantDashboard() {
               Respond to client inquiries
             </div>
           </Link>
+
+          <Link to="/bookings" style={{ ...card, textDecoration: "none", color: "#111827", flex: 1 }}>
+            <div style={{ fontWeight: 700 }}>Consultations</div>
+            <div style={{ ...muted, fontSize: 13, marginTop: 6 }}>
+              Accept or decline booking requests
+            </div>
+          </Link>
         </div>
 
-        {/* Recent conversations */}
         <div style={card}>
-          <div style={{ fontWeight: 700, marginBottom: 12 }}>
-            Recent conversations
-          </div>
+          <div style={{ fontWeight: 700, marginBottom: 12 }}>Recent inquiries</div>
 
-          {conversations.length === 0 && (
-            <div style={{ ...muted, fontSize: 13 }}>
-              No conversations yet.
-            </div>
+          {inquiries.length === 0 && (
+            <div style={{ ...muted, fontSize: 13 }}>No inquiries yet.</div>
           )}
 
           <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {conversations.slice(0, 5).map((c) => (
+            {inquiries.slice(0, 5).map((c) => (
               <li key={c.id} style={{ padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}>
                 <Link
                   to={`/chat/${c.id}`}
                   style={{ textDecoration: "none", color: "#111827" }}
                 >
-                  <div style={{ fontWeight: 600 }}>{c.other_user}</div>
+                  <div style={{ fontWeight: 600 }}>
+                    {c.client_name}
+                  </div>
                   <div style={{ ...muted, fontSize: 13, marginTop: 2 }}>
-                    {c.last_message || "No messages yet"}
+                    {c.service_title || "General inquiry"} · {c.status}
                   </div>
                 </Link>
               </li>

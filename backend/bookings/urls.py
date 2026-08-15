@@ -1,11 +1,20 @@
-from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .views import BookingsViewSet
-from . import views
+from django.urls import path
+
+from .views import BookingsViewSet, InquiryBookingsView, RequestConsultationView
 
 router = DefaultRouter()
-
-#use BookingViewSet to handle URLS that start with /bookings/
 router.register(r"", BookingsViewSet, basename="bookings")
 
-urlpatterns = router.urls
+urlpatterns = [
+    path(
+        "request-consultation/",
+        RequestConsultationView.as_view(),
+        name="request-consultation",
+    ),
+    path(
+        "by-inquiry/<int:inquiry_id>/",
+        InquiryBookingsView.as_view(),
+        name="inquiry-bookings",
+    ),
+] + router.urls

@@ -22,7 +22,7 @@ class ListCreateInquiriesView(APIView):
         #want to get all of a users inquiries 
         #so backend should read request.user 
         #return all the inquiries where the client is the user? 
-        inquiries = Inquiry.objects.filter(Q(client = request.user) | Q(accountant=request.user)).select_related("accountant","service").order_by("-created_at")
+        inquiries = Inquiry.objects.filter(Q(client = request.user) | Q(accountant=request.user)).select_related("accountant","client","service").order_by("-created_at")
     
         result=[]
         
@@ -102,7 +102,7 @@ class ReadSpecificInquiryView(APIView):
     
     def get(self,request,inquiry_id):
         #only allow users who participate in the inquiry to access it 
-        inquiry_queryset = Inquiry.objects.select_related("accountant","service").filter(Q(client=request.user)|Q(accountant=request.user))
+        inquiry_queryset = Inquiry.objects.select_related("accountant","client","service").filter(Q(client=request.user)|Q(accountant=request.user))
         
         inquiry= get_object_or_404(inquiry_queryset,id=inquiry_id)
         

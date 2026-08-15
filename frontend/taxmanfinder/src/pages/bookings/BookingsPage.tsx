@@ -1,203 +1,107 @@
-//get token from localstorage
-//fetch bookings
-//store in state
-//render list
-
 import "../../styles/BookingsPage.css";
-import axios from "axios";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-type Booking = {
-  id: number;
-  name: string;
-  date: string;
-  accountant: number;
-  accountant_email: string;
-  user: number;
-  status: number;
-  status_label: string;
-};
+import {
+  acceptBooking,
+  cancelBooking,
+  declineBooking,
+  listMyBookings,
+  type Booking,
+} from "../../api/client";
 
 export default function BookingsPage() {
   const token = localStorage.getItem("access_token");
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [bookingToDelete, setBookingToDelete] = useState<number | null>(null);
-const [bookingToView, setBookingToView] = useState<Booking|null>(null);
-const [bookingToEdit,setBookingToEdit] = useState<Booking|null>(null);
-
-
-
   const navigate = useNavigate();
+  const currentUserId = Number(localStorage.getItem("user_id"));
 
-  function handleViewBooking(booking:Booking){
-    //store selected booking 
-    setBookingToView(booking);
-  }
-function handleEditBooking(booking:Booking){
-    //store selected booking 
-    setBookingToEdit(booking);
-  }
-
-
-  async function confirmModifyBooking(bookingId:number){
-    if (!token){
-        console.log("no token found");
-        navigate("/login")
-        return; 
-    }
-    try{
-        const res = await axios.patch(
-            `http://127.0.0.1:8000/bookings/${bookingId}/`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                },
-            }
-    );
-
-        //update frontend with booking from backend 
-        setBookings((currentBookings)=>(
-            currentBookings.map((booking)=>(booking.id===bookingId? res.data:booking))
-        ))
-        setBookingToEdit(null);
-    
-    }catch(error){
-        console.log("erorr modifying booking",error)
-
-    }
-  }
-
-
-  async function deleteBooking(bookingId:number) {
-          if (!token) {
-        console.log("no token found");
-        navigate("/login");
-        return;
-      }
-    try {
-
-      let res = await axios.delete(
-        `http://127.0.0.1:8000/bookings/${bookingId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-
-      //if backend deletion worked, update frontend too
-      //keep every booking except for the one that was just deleted
-      setBookings((currentBookings) =>
-        currentBookings.filter((booking) => booking.id != bookingId),
-      );
-
-      setBookingToDelete(null);
-    } catch (error) {
-      console.log("error deleting booking", error);
-      setError("Could not delete booking");
-    }
-  }
-
-  //fetch bookings on mount
   useEffect(() => {
     async function fetchBookings() {
       try {
         setLoading(true);
         setError(null);
         if (!token) {
-          console.log("no token found");
           navigate("/login");
           return;
         }
-        let res = await axios.get("http://127.0.0.1:8000/bookings/", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        console.log("bookings response data:", res.data);
-        setBookings(res.data);
-      } catch (error) {
+        setBookings(await listMyBookings());
+      } catch (e) {
         setError("Could not load bookings");
-        console.log("error fetching bookings", error);
+        console.error(e);
       } finally {
         setLoading(false);
       }
     }
-
     fetchBookings();
-  }, []);
+  }, [token, navigate]);
 
-  if (loading) {
-    return <p> Loading your bookings ...</p>;
+  async function refresh() {
+    setBookings(await listMyBookings());
   }
 
-  if (error) {
-    return <p> {error} </p>;
-  }
-  function formatDate(date: string) {
-    return new Date(date).toLocaleString();
-  }
+  if (loading) return <div className="bookings-page">Loading bookings…</div>;
+  if (error) return <div className="bookings-page">{error}</div>;
 
   return (
-    <div>
+    <div className="bookings-page">
+      <h2>My consultations</h2>
       {bookings.length === 0 ? (
-        <p>
-          {" "}
-          You do not have any bookings yet. Browse services to request one.
-        </p>
+        <p>No bookings yet.</p>
       ) : (
-        bookings.map((booking) => (
-          <div
-            key={booking.id}
-            style={{
-              border: "1px solid black",
-              padding: "10px",
-              marginBottom: "10px",
-              borderRadius: "6px",
-            }}
-          >
-            {" "}
-            {booking.name}
-            <div> Booking Status: {booking.status_label}</div>
-            <div> Booking Date: {formatDate(booking.date)}</div>
-            <div>
-              {" "}
-              Accountant: <span>{booking.accountant_email}</span>
-            </div>
-            <div style={{ marginTop: "10px" }}>
-              <button className="edit-buttons modify"> Modify </button>
-              <button className="edit-buttons view"> View </button>
-              <button
-                className="edit-buttons delete"
-                onClick={() => setBookingToDelete(booking.id)}
-              >
-                {" "}
-                Delete{" "}
-              </button>
-              <button className="edit-buttons message"> Message </button>
-              {bookingToDelete === booking.id && (
-                <div>
-                  <p>Are you sure you want to delete this booking?</p>
-
+        <ul className="bookings-list">
+          {bookings.map((b) => (
+            <li key={b.id} className="booking-card">
+              <div>
+                <strong>{b.status_label}</strong> with{" "}
+                {b.client === currentUserId ? b.accountant_email : b.client_email}
+              </div>
+              <div>
+                {new Date(b.starts_at).toLocaleString()} –{" "}
+                {new Date(b.ends_at).toLocaleString()}
+              </div>
+              <div className="booking-actions">
+                <button type="button" onClick={() => navigate(`/chat/${b.inquiry_id}`)}>
+                  Open chat
+                </button>
+                {b.status === "pending" && b.accountant === currentUserId && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await acceptBooking(b.id);
+                        await refresh();
+                      }}
+                    >
+                      Accept
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await declineBooking(b.id);
+                        await refresh();
+                      }}
+                    >
+                      Decline
+                    </button>
+                  </>
+                )}
+                {(b.status === "pending" || b.status === "confirmed") && (
                   <button
-                    className="edit-buttons"
-                    onClick={() => deleteBooking(booking.id)}
+                    type="button"
+                    onClick={async () => {
+                      await cancelBooking(b.id);
+                      await refresh();
+                    }}
                   >
-                    {" "}
-                    Yes, delete
+                    Cancel
                   </button>
-
-                  <button
-                    className="edit-buttons"
-                    onClick={() => setBookingToDelete(null)}
-                  >
-                    {" "}
-                    Cancel{" "}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        ))
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
