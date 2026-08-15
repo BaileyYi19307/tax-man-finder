@@ -7,6 +7,7 @@ from .models import Inquiry
 class InquirySerializer(serializers.ModelSerializer):
     #how to get accountant name? 
     accountant_name = serializers.CharField(source="accountant.email",read_only=True)
+    client_name = serializers.CharField(source="client.email", read_only=True)
     service_title = serializers.SerializerMethodField()
 
     def get_service_title(self, obj):
@@ -17,7 +18,7 @@ class InquirySerializer(serializers.ModelSerializer):
     
     class Meta: 
         model=Inquiry
-        fields=["id","status","created_at","accountant_name","service_title"]
+        fields=["id","status","created_at","client","accountant","client_name","accountant_name","service_title"]
         
 
 class InquiryCreateSerializer(serializers.ModelSerializer):

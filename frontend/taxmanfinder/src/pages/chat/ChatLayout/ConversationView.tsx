@@ -1,23 +1,26 @@
-import {useParams,useOutletContext} from "react-router-dom";
-import {useState,useEffect} from "react";
+import { useParams } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
 import MessageList from "../../../components/MessageList";
 import MessageInput from "../../../components/MessageInput";
-import type { InquiryListItem } from "./ChatLayout";
 import { useChatSocket } from "../../../hooks/hooks/useChatSocket";
-import { useCallback } from "react";
-;
+import {
+  acceptBooking,
+  apiFetch,
+  cancelBooking,
+  declineBooking,
+  listInquiryBookings,
+  type Booking,
+} from "../../../api/client";
 
 type Message = {
-    id: number;
-    content: string;
-    sender_id: number;
-    created_at: string;
-  };
+  id: number;
+  content: string;
+  sender_id: number;
+  created_at: string;
+};
 
-
-  function formatDateTime(timestamp: string | null) {
-  if (!timestamp) return "Not read yet";
-
+function formatDateTime(timestamp: string | null) {
+  if (!timestamp) return "—";
   return new Date(timestamp).toLocaleString("en-US", {
     month: "short",
     day: "numeric",
@@ -28,113 +31,186 @@ type Message = {
 }
 
 export default function ConversationView() {
-    const token = localStorage.getItem("access_token");
+  const token = localStorage.getItem("access_token");
+  const { inquiryId } = useParams<{ inquiryId: string }>();
+  const [inquiryLastReadAt, setInquiryLastReadAt] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [inquiryStatus, setInquiryStatus] = useState<string | null>(null);
+  const currentUserId = Number(localStorage.getItem("user_id"));
 
-    const {inquiryId} = useParams<{inquiryId:string}>();
+  const handleIncoming = useCallback(
+    (incoming: Message) => {
+      if (!incoming?.content || incoming.sender_id === currentUserId) return;
+      setMessages((prev) => [...prev, incoming]);
+    },
+    [currentUserId]
+  );
 
-    const [inquiryLastReadAt, setInquiryLastReadAt] = useState<string | null>(null);
-    console.log("The inquiry Id right now is", inquiryId);
-    //inquiry id is not being set correctly in the url - look back into inbox view
-
-    const [messages, setMessages] = useState<Message[]>([]);
-
-    const currentUserId = Number(localStorage.getItem("user_id"));
-
-    const handleIncoming = useCallback((incoming: Message) => {
-    // Ignore echoes of my own messages
-    if (incoming.sender_id === currentUserId) return;
-
-    setMessages((prev) => [...prev, incoming]);
-    }, [currentUserId]);
-
-
-    useEffect(() => {
-  console.log("ConversationView mounted");
-
-  return () => {
-    console.log("ConversationView unmounted");
-  };
-}, []);
-
-    function handleSend(text: string) {
-        const senderId = currentUserId;
-      
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now(), 
-            content: text,
-            sender_id: senderId,
-            created_at: new Date().toISOString(),
-          },
-        ]);
-      
-        sendMessage(text);
+  const handleSocketClose = useCallback((code: number) => {
+    if (code !== 4008) return;
+    setInquiryStatus("closed");
+    setActionError("This inquiry is closed. New messages were not sent.");
+    setMessages((prev) => {
+      const last = prev[prev.length - 1];
+      if (last && last.sender_id === currentUserId && last.id > 1e12) {
+        return prev.slice(0, -1);
       }
-      
-      
-    //load history 
-    useEffect(() => {
-      async function fetchInquiryDetails(){
-          if (!inquiryId || !token){        
-            return;
-          }
+      return prev;
+    });
+  }, [currentUserId]);
 
-          try{
-          let inquiryResponse = await fetch(`http://127.0.0.1:8000/api/inquiries/${inquiryId}/`, {
-              headers: { Authorization: `Bearer ${token}` },
-            })
+  const { sendMessage } = useChatSocket(
+    Number(inquiryId),
+    token,
+    handleIncoming,
+    handleSocketClose
+  );
 
-            if (inquiryResponse.ok){
-              let inquiryData = await inquiryResponse.json();
-              console.log("Inquiry details:", inquiryData);
-              setMessages(inquiryData.messages);
+  function handleSend(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    if (inquiryStatus === "closed") {
+      setActionError("This inquiry is closed. New messages were not sent.");
+      return;
+    }
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now(),
+        content: trimmed,
+        sender_id: currentUserId,
+        created_at: new Date().toISOString(),
+      },
+    ]);
+    sendMessage(trimmed);
+  }
 
-            }
+  async function refreshBookings() {
+    if (!inquiryId) return;
+    try {
+      setBookings(await listInquiryBookings(inquiryId));
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
-            let readStateResponse = await fetch(`http://127.0.0.1:8000/api/inquiries/${inquiryId}/mark-read/`,{
-              method: "POST",
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`},
-            });
-
-            if (readStateResponse.ok){
-              let readStateData = await readStateResponse.json();
-              console.log("Read state details:", readStateData);
-              setInquiryLastReadAt(readStateData.last_read_at);
-            }
-
-          }
-          catch(error){
-            console.error("history fetch failed", error);
-          }
+  useEffect(() => {
+    async function fetchInquiryDetails() {
+      if (!inquiryId || !token) return;
+      try {
+        const inquiryResponse = await apiFetch(`/api/inquiries/${inquiryId}/`);
+        if (inquiryResponse.ok) {
+          const inquiryData = await inquiryResponse.json();
+          setMessages(inquiryData.messages);
+          setInquiryStatus(inquiryData.inquiry?.status ?? null);
         }
-        fetchInquiryDetails();
-      }, [inquiryId, token]);
-      
-      //live updates via websocket
 
-      console.log("The inquiryId here is", inquiryId);
-
-        const { sendMessage } = useChatSocket(
-            Number(inquiryId),
-            token,
-            handleIncoming
+        const readStateResponse = await apiFetch(
+          `/api/inquiries/${inquiryId}/mark-read/`,
+          { method: "POST" }
         );
+        if (readStateResponse.ok) {
+          const readStateData = await readStateResponse.json();
+          setInquiryLastReadAt(readStateData.last_read_at);
+        }
 
+        await refreshBookings();
+      } catch (error) {
+        console.error("history fetch failed", error);
+      }
+    }
+    fetchInquiryDetails();
+  }, [inquiryId, token]);
 
-        
-        
-      
-    return(
-        <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-            {/*message list*/}
-            <div> Inquiry ID {inquiryId} - Last Read At {formatDateTime(inquiryLastReadAt)}</div>
-            <MessageList messages={messages} currentUserId={Number(localStorage.getItem("user_id"))}/>
+  async function onAccept(id: number) {
+    try {
+      setActionError(null);
+      await acceptBooking(id);
+      await refreshBookings();
+    } catch {
+      setActionError("Could not accept booking.");
+    }
+  }
 
-            {/* message input here*/}
-            <MessageInput onSend={handleSend} />
+  async function onDecline(id: number) {
+    try {
+      setActionError(null);
+      await declineBooking(id);
+      await refreshBookings();
+    } catch {
+      setActionError("Could not decline booking.");
+    }
+  }
 
+  async function onCancel(id: number) {
+    try {
+      setActionError(null);
+      await cancelBooking(id);
+      await refreshBookings();
+    } catch {
+      setActionError("Could not cancel booking.");
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <div style={{ padding: "8px 12px", fontSize: 13, color: "#6b7280" }}>
+        Inquiry {inquiryId} · Last read {formatDateTime(inquiryLastReadAt)}
+      </div>
+
+      {bookings.length > 0 && (
+        <div style={{ padding: "8px 12px", borderBottom: "1px solid #e5e7eb" }}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>Consultation requests</div>
+          {actionError && (
+            <div style={{ color: "#b91c1c", fontSize: 13, marginBottom: 8 }}>{actionError}</div>
+          )}
+          {bookings.map((b) => (
+            <div
+              key={b.id}
+              style={{
+                border: "1px solid #e5e7eb",
+                borderRadius: 8,
+                padding: 10,
+                marginBottom: 8,
+                background: "#f8fafc",
+              }}
+            >
+              <div style={{ fontSize: 14 }}>
+                <strong>{b.status_label}</strong> · {formatDateTime(b.starts_at)} –{" "}
+                {formatDateTime(b.ends_at)}
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                {b.status === "pending" && b.accountant === currentUserId && (
+                  <>
+                    <button type="button" onClick={() => onAccept(b.id)}>
+                      Accept
+                    </button>
+                    <button type="button" onClick={() => onDecline(b.id)}>
+                      Decline
+                    </button>
+                  </>
+                )}
+                {(b.status === "pending" || b.status === "confirmed") && (
+                  <button type="button" onClick={() => onCancel(b.id)}>
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
-  
-    )
+      )}
+
+      <MessageList messages={messages} currentUserId={currentUserId} />
+      {inquiryStatus === "closed" ? (
+        <div style={{ padding: 12, fontSize: 13, color: "#6b7280", borderTop: "1px solid #e5e7eb" }}>
+          This inquiry is closed. You can still read the conversation.
+        </div>
+      ) : (
+        <MessageInput onSend={handleSend} />
+      )}
+    </div>
+  );
 }

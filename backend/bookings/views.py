@@ -1,60 +1,241 @@
-from django.shortcuts import render
-from rest_framework.views import APIView
-from rest_framework import status
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
-from .serializers import BookingSerializer, BookingCreateSerializer
+from django.db import IntegrityError, transaction
+from django.db.models import Q
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
-from .models import Booking
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-class BookingCreation(APIView):
-    permission_classes = [IsAuthenticated] # user must authenticated 
-
-    def post(self, request):
-        # do I ge tthe accountant here or in serializer
-        serializer = BookingCreateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        service = serializer.validated_data["service"]
-
-        booking = serializer.save(user=request.user, accountant = service.accountant)
-
-
-        return Response(BookingSerializer(booking).data, status=status.HTTP_201_CREATED)
-    
-    
-class MyBookingsView(APIView):
-    
-    def get(self,request):
-        #filter by request.user
-        #return many = True 
-        user = request.user
-        bookings = Booking.objects.filter(user=user)
-        serializer = BookingSerializer(bookings,many=True)
-        return Response(serializer.data)
+from chats.models import Message
+from inquiries.models import Inquiry
+from .models import ACTIVE_BOOKING_STATUSES, Booking, BookingStatus
+from .serializers import (
+    BookingCreateSerializer,
+    BookingSerializer,
+    RequestConsultationSerializer,
+)
 
 
+class ActiveBookingConflict(Exception):
+    def __init__(self, detail="This inquiry already has an active booking."):
+        self.detail = detail
 
-from rest_framework import viewsets
+
+def confirmed_overlap_exists(accountant, starts_at, ends_at, exclude_booking_id=None):
+    """Confirmed bookings for the same accountant must not overlap."""
+    qs = Booking.objects.filter(
+        accountant=accountant,
+        status=BookingStatus.CONFIRMED,
+        starts_at__lt=ends_at,
+        ends_at__gt=starts_at,
+    )
+    if exclude_booking_id:
+        qs = qs.exclude(pk=exclude_booking_id)
+    return qs.exists()
+
+
+def _open_inquiry_queryset(client, accountant, service):
+    qs = Inquiry.objects.select_for_update().filter(
+        status=Inquiry.StatusChoices.OPEN,
+        client=client,
+        accountant=accountant,
+    )
+    if service is not None:
+        return qs.filter(service=service)
+    return qs.filter(service__isnull=True)
+
+
+def get_or_create_open_inquiry(client, accountant, service):
+    """Reuse the open inquiry, recovering from a concurrent-create uniqueness race."""
+    existing = _open_inquiry_queryset(client, accountant, service).first()
+    if existing is not None:
+        return existing
+    try:
+        with transaction.atomic():
+            return Inquiry.objects.create(
+                client=client,
+                accountant=accountant,
+                service=service,
+                status=Inquiry.StatusChoices.OPEN,
+            )
+    except IntegrityError:
+        existing = _open_inquiry_queryset(client, accountant, service).first()
+        if existing is None:
+            raise
+        return existing
+
 
 class BookingsViewSet(viewsets.ModelViewSet):
-    """
-    Viewset for managing bookings 
-    """
     permission_classes = [IsAuthenticated]
-    
-    #only return bookings belonging to the logged-in user
+    http_method_names = ["get", "post", "head", "options"]
+
     def get_queryset(self):
-        return Booking.objects.filter(user=self.request.user)
-    
+        user = self.request.user
+        return (
+            Booking.objects.filter(Q(client=user) | Q(accountant=user))
+            .select_related("inquiry", "client", "accountant", "service")
+            .order_by("-starts_at")
+        )
+
     def get_serializer_class(self):
-        #use create serializer when making booking
-        #use regular rserializer for listing/viewing/updating 
         if self.action == "create":
             return BookingCreateSerializer
         return BookingSerializer
-    
-    def perform_create(self,serializer):
-        #when creating, attached logged in user automatically 
-        serializer.save(user=self.request.user, accountant=serializer.validated_data['service'].accountant)
 
-    
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        booking = serializer.save()
+        return Response(
+            BookingSerializer(booking).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    def _get_participant_booking(self, pk):
+        return get_object_or_404(self.get_queryset(), pk=pk)
+
+    @action(detail=True, methods=["post"])
+    def accept(self, request, pk=None):
+        booking = self._get_participant_booking(pk)
+        if request.user.id != booking.accountant_id:
+            return Response(
+                {"detail": "Only the accountant can accept a booking."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if booking.status != BookingStatus.PENDING:
+            return Response(
+                {"detail": "Only pending bookings can be accepted."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if confirmed_overlap_exists(
+            booking.accountant, booking.starts_at, booking.ends_at, booking.id
+        ):
+            return Response(
+                {"detail": "This booking overlaps another confirmed booking."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        booking.status = BookingStatus.CONFIRMED
+        booking.save(update_fields=["status", "updated_at"])
+        return Response(BookingSerializer(booking).data)
+
+    @action(detail=True, methods=["post"])
+    def decline(self, request, pk=None):
+        booking = self._get_participant_booking(pk)
+        if request.user.id != booking.accountant_id:
+            return Response(
+                {"detail": "Only the accountant can decline a booking."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if booking.status != BookingStatus.PENDING:
+            return Response(
+                {"detail": "Only pending bookings can be declined."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        booking.status = BookingStatus.DECLINED
+        booking.save(update_fields=["status", "updated_at"])
+        return Response(BookingSerializer(booking).data)
+
+    @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        booking = self._get_participant_booking(pk)
+        if request.user.id not in (booking.client_id, booking.accountant_id):
+            return Response(
+                {"detail": "Only participants can cancel a booking."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if booking.status not in (
+            BookingStatus.PENDING,
+            BookingStatus.CONFIRMED,
+        ):
+            return Response(
+                {"detail": "Only pending or confirmed bookings can be cancelled."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        booking.status = BookingStatus.CANCELLED
+        booking.save(update_fields=["status", "updated_at"])
+        return Response(BookingSerializer(booking).data)
+
+
+class RequestConsultationView(APIView):
+    """
+    Atomic consultation request:
+    reuse/create open inquiry + first/booking message + pending booking.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = RequestConsultationSerializer(
+            data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        content = data["content"]
+        starts_at = data["starts_at"]
+        ends_at = Booking.compute_ends_at(starts_at)
+
+        try:
+            with transaction.atomic():
+                inquiry = data.get("inquiry")
+                if inquiry is None:
+                    inquiry = get_or_create_open_inquiry(
+                        client=request.user,
+                        accountant=data["accountant"],
+                        service=data.get("service"),
+                    )
+                    if Booking.objects.filter(
+                        inquiry=inquiry, status__in=ACTIVE_BOOKING_STATUSES
+                    ).exists():
+                        raise ActiveBookingConflict(
+                            "Matching open inquiry already has an active booking."
+                        )
+                Message.objects.create(
+                    inquiry=inquiry,
+                    sender=request.user,
+                    content=content,
+                )
+                try:
+                    booking = Booking.objects.create(
+                        inquiry=inquiry,
+                        client=inquiry.client,
+                        accountant=inquiry.accountant,
+                        starts_at=starts_at,
+                        ends_at=ends_at,
+                        status=BookingStatus.PENDING,
+                        name="",
+                        date=starts_at,
+                        service=inquiry.service,
+                    )
+                except IntegrityError as exc:
+                    raise ActiveBookingConflict from exc
+        except ActiveBookingConflict as exc:
+            return Response(
+                {"detail": exc.detail},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "inquiry_id": inquiry.id,
+                "booking": BookingSerializer(booking).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class InquiryBookingsView(APIView):
+    """List bookings for an inquiry (participants only)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, inquiry_id):
+        inquiry = get_object_or_404(
+            Inquiry.objects.filter(
+                Q(client=request.user) | Q(accountant=request.user)
+            ),
+            id=inquiry_id,
+        )
+        bookings = Booking.objects.filter(inquiry=inquiry).order_by("-created_at")
+        return Response(BookingSerializer(bookings, many=True).data)
