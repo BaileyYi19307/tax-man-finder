@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth/AuthProvider";
 import { clearPostAuthRouting, signupPath } from "../../auth/intent";
 import {
   createAccountantProfile,
@@ -25,6 +26,7 @@ const field = {
 
 export default function AccountantOnboarding() {
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [firmName, setFirmName] = useState("");
@@ -116,6 +118,7 @@ export default function AccountantOnboarding() {
             }),
       });
       clearPostAuthRouting();
+      await refreshUser();
       navigate("/dashboard/accountant", { replace: true });
     } catch (err: any) {
       setError(err.message || "Could not save your profile. Please try again.");

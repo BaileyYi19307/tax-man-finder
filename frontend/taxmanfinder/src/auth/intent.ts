@@ -73,6 +73,15 @@ function accountantOnboardingPath(path: string | null | undefined) {
   return path === "/onboarding/accountant";
 }
 
+function isReturnToPath(path: string | null | undefined): path is string {
+  return (
+    isSafeNextPath(path) &&
+    path !== "/dashboard/client" &&
+    path !== "/dashboard/accountant" &&
+    !accountantOnboardingPath(path)
+  );
+}
+
 export function loginPath(options?: { next?: string | null; intent?: string | null }) {
   persistIntentFromAuthParams(options);
   const params = new URLSearchParams();
@@ -119,14 +128,25 @@ export function resolvePostAuthPath(options: {
   const accountantIntent = intent === "tax-professional";
   const profileComplete = Boolean(options.profileComplete);
 
-  // Explicit return-to from messaging/consultation wins over leftover accountant intent,
-  // except when that return-to is the default client dashboard.
-  if (
-    queryNext &&
-    queryNext !== "/dashboard/client" &&
-    !accountantOnboardingPath(queryNext)
-  ) {
+  // Message / Request consultation (and other in-progress actions) win over dashboard
+  // routing, leftover signup intent, and accountant onboarding.
+  if (isReturnToPath(queryNext)) {
+    clearPostAuthRouting();
     return queryNext;
+  }
+  if (isReturnToPath(storedNext) && !queryNext) {
+    const returnTo = storedNext;
+    clearPostAuthRouting();
+    return returnTo;
+  }
+
+  if (options.hasAccountantProfile && profileComplete) {
+    clearPostAuthRouting();
+    return "/dashboard/accountant";
+  }
+
+  if (options.hasAccountantProfile && !profileComplete) {
+    return "/onboarding/accountant";
   }
 
   if (
@@ -134,15 +154,7 @@ export function resolvePostAuthPath(options: {
     accountantOnboardingPath(queryNext) ||
     accountantOnboardingPath(storedNext)
   ) {
-    if (options.hasAccountantProfile && profileComplete) {
-      clearPostAuthRouting();
-      return "/dashboard/accountant";
-    }
     return "/onboarding/accountant";
-  }
-
-  if (storedNext && storedNext !== "/dashboard/client") {
-    return storedNext;
   }
 
   return "/dashboard/client";

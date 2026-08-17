@@ -96,3 +96,60 @@ test("verified login params do not wipe stored accountant intent", () => {
     })
   ).toBe("/onboarding/accountant");
 });
+
+test("returning complete accountant without intent goes to accountant dashboard", () => {
+  expect(
+    resolvePostAuthPath({
+      next: null,
+      intent: null,
+      hasAccountantProfile: true,
+      profileComplete: true,
+    })
+  ).toBe("/dashboard/accountant");
+});
+
+test("returning accountant is not sent to the client dashboard by leftover looking-for-help intent", () => {
+  persistIntentFromAuthParams({ intent: "looking-for-help" });
+  expect(
+    resolvePostAuthPath({
+      next: null,
+      intent: "looking-for-help",
+      hasAccountantProfile: true,
+      profileComplete: true,
+    })
+  ).toBe("/dashboard/accountant");
+});
+
+test("incomplete accountant without intent resumes onboarding", () => {
+  expect(
+    resolvePostAuthPath({
+      next: null,
+      intent: null,
+      hasAccountantProfile: true,
+      profileComplete: false,
+    })
+  ).toBe("/onboarding/accountant");
+});
+
+test("complete accountant still returns to the message/consultation page", () => {
+  persistAccountantSignupIntent();
+  expect(
+    resolvePostAuthPath({
+      next: "/accountants/12",
+      intent: null,
+      hasAccountantProfile: true,
+      profileComplete: true,
+    })
+  ).toBe("/accountants/12");
+});
+
+test("complete accountant is not sent to the client dashboard by next=/dashboard/client", () => {
+  expect(
+    resolvePostAuthPath({
+      next: "/dashboard/client",
+      intent: "looking-for-help",
+      hasAccountantProfile: true,
+      profileComplete: true,
+    })
+  ).toBe("/dashboard/accountant");
+});

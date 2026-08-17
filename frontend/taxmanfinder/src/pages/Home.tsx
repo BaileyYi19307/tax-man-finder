@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
+import { dashboardPathForUser, useAuth } from "../auth/AuthProvider";
 import { persistAccountantSignupIntent, persistClientBrowseIntent } from "../auth/intent";
 
 const page = {
-  minHeight: "100vh",
   background: "#f8fafc",
   padding: "32px 16px",
 };
@@ -24,27 +24,33 @@ const card = {
 };
 
 export default function Home() {
+  const { user } = useAuth();
+  const dashboardPath = dashboardPathForUser(user);
+  const dashboardLabel = user?.has_accountant_profile
+    ? "Go to accountant dashboard"
+    : "Go to client dashboard";
+
   return (
     <div style={page}>
       <div style={container}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 28 }}>
-          <div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: "#111827" }}>
-              Find tax help, or join as a professional
-            </div>
-            <div style={{ color: "#6b7280", marginTop: 8, lineHeight: 1.5 }}>
-              Browse public accountant profiles without an account. Sign in only when you
-              want to message someone or request a consultation.
-            </div>
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontSize: 28, fontWeight: 800, color: "#111827" }}>
+            Find tax help, or join as a professional
           </div>
-          <div style={{ display: "flex", gap: 16, fontSize: 14, fontWeight: 600 }}>
-            <Link to="/login" style={{ color: "#2563eb", textDecoration: "none" }}>
-              Log in
-            </Link>
-            <Link to="/signup" style={{ color: "#2563eb", textDecoration: "none" }}>
-              Sign up
-            </Link>
+          <div style={{ color: "#6b7280", marginTop: 8, lineHeight: 1.5 }}>
+            Browse public accountant profiles without an account. Sign in only when you
+            want to message someone or request a consultation.
           </div>
+          {user && (
+            <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 16, fontSize: 14, fontWeight: 600 }}>
+              <Link to={dashboardPath} style={{ color: "#2563eb", textDecoration: "none" }}>
+                {dashboardLabel}
+              </Link>
+              <Link to="/accountants" style={{ color: "#2563eb", textDecoration: "none" }}>
+                Browse accountants
+              </Link>
+            </div>
+          )}
         </div>
 
         <div

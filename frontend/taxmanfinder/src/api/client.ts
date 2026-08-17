@@ -1,9 +1,18 @@
+import { getAccessToken } from "../auth/session";
+
 const API_BASE =
   process.env.REACT_APP_API_BASE || "http://127.0.0.1:8000";
 
-export function getAccessToken(): string | null {
-  return localStorage.getItem("access_token");
-}
+export { getAccessToken };
+
+export type CurrentUser = {
+  id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  has_accountant_profile: boolean;
+  accountant_profile_complete: boolean;
+};
 
 export function authHeaders(extra: HeadersInit = {}): HeadersInit {
   const token = getAccessToken();
@@ -138,14 +147,7 @@ export type AccountantProfilePayload = {
 export async function getMe() {
   const res = await apiFetch("/users/me/");
   if (!res.ok) throw new Error(await res.text());
-  return (await res.json()) as {
-    id: number;
-    email: string;
-    first_name: string;
-    last_name: string;
-    has_accountant_profile: boolean;
-    accountant_profile_complete: boolean;
-  };
+  return (await res.json()) as CurrentUser;
 }
 
 export async function getProfileStatus(userId: number) {

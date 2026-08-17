@@ -69,12 +69,15 @@ A user remains a normal authenticated user whether or not their accountant profi
 
 ## Routing after login
 
-Priority:
+Priority (implemented in `resolvePostAuthPath`):
 
-1. Explicit `next` from the current login URL when it is a safe in-app path and is **not** `/dashboard/client` or accountant onboarding (this preserves Message / Request consultation return-to).
-2. Accountant intent (URL, or `localStorage` after email verification) → incomplete or missing profile goes to `/onboarding/accountant`; a complete profile goes to `/dashboard/accountant`.
-3. Any other stored `next`.
-4. Default `/dashboard/client`.
+1. **Return-to `next`** — a safe in-app path from the login URL, or a stored `next` when the URL has none. It must **not** be `/dashboard/client`, `/dashboard/accountant`, or `/onboarding/accountant`. This preserves Message / Request consultation return-to even for a complete accountant.
+2. **Complete accountant** (`has_accountant_profile` and `accountant_profile_complete`) → `/dashboard/accountant`. Leftover looking-for-help or tax-professional intent must not send them to `/dashboard/client`.
+3. **Incomplete accountant profile** → `/onboarding/accountant` (resume), even if signup intent is gone.
+4. **New accountant intent** (URL, stored `tax-professional`, or stored/query `next=/onboarding/accountant`) with **no profile yet** → `/onboarding/accountant`. Needed after signup/verify when there is no profile.
+5. Default `/dashboard/client`.
+
+`/dashboard/client`, `/dashboard/accountant`, `/dashboard/services`, and `/chat` require login. An incomplete accountant opening `/dashboard/accountant` is sent to onboarding; a user with no accountant profile is sent to `/dashboard/client`.
 
 Email verification currently lands on `/login?verified=true` with no `intent` query param. Accountant intent is therefore also stored in `localStorage` in the same browser so verify + login can resume onboarding. A verify click from another device will not restore that intent.
 

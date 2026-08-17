@@ -1,8 +1,17 @@
-import { render, screen } from '@testing-library/react';
-import App from './App';
+import { render, screen } from "@testing-library/react";
+import App from "./App";
 
-test('renders learn react link', () => {
+jest.mock("./api/client", () => ({
+  getMe: jest.fn(),
+}));
+
+test("renders the home page with shared navigation", async () => {
   render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+
+  expect(await screen.findByRole("link", { name: "Browse" })).toHaveAttribute(
+    "href",
+    "/accountants"
+  );
+  expect(screen.getByText(/Find tax help, or join as a professional/i)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Log in" })).toBeInTheDocument();
 });

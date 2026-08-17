@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../../auth/AuthProvider";
 import {
   persistIntentFromAuthParams,
   resolvePostAuthPath,
   signupPath,
 } from "../../auth/intent";
+import { setAuthSession } from "../../auth/session";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -21,6 +23,7 @@ export default function LoginPage() {
   const isAccountantIntent = intent === "tax-professional";
 
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
 
   useEffect(() => {
     persistIntentFromAuthParams({ next, intent });
@@ -43,9 +46,12 @@ export default function LoginPage() {
       const refresh = response.data.tokens.refresh;
       const userId = response.data.user.id;
 
-      localStorage.setItem("access_token", access);
-      localStorage.setItem("refresh_token", refresh);
-      localStorage.setItem("user_id", String(userId));
+      setAuthSession({
+        accessToken: access,
+        refreshToken: refresh,
+        userId,
+      });
+      await refreshUser();
 
       navigate(
         resolvePostAuthPath({
