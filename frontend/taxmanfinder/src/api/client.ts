@@ -25,6 +25,16 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   return res;
 }
 
+export type CatalogService = {
+  id: number;
+  name: string;
+  description: string;
+  pricing_type: "fixed" | "hourly" | "consultation_required";
+  indicative_price: string | null;
+  accountant?: number;
+  is_active?: boolean;
+};
+
 export type Booking = {
   id: number;
   inquiry: number;
@@ -109,6 +119,77 @@ export async function cancelBooking(bookingId: number) {
   const res = await apiFetch(`/bookings/${bookingId}/cancel/`, { method: "POST" });
   if (!res.ok) throw new Error(await res.text());
   return (await res.json()) as Booking;
+}
+
+export type AccountantProfilePayload = {
+  user_id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  bio: string | null;
+  credentials: string;
+  years_experience: number;
+  firm_name: string;
+  location: string;
+  services: { id: number; name: string }[];
+  profile_complete: boolean;
+};
+
+export async function getMe() {
+  const res = await apiFetch("/users/me/");
+  if (!res.ok) throw new Error(await res.text());
+  return (await res.json()) as {
+    id: number;
+    email: string;
+    first_name: string;
+    last_name: string;
+    has_accountant_profile: boolean;
+    accountant_profile_complete: boolean;
+  };
+}
+
+export async function getProfileStatus(userId: number) {
+  const res = await fetch(`${API_BASE}/accountants/profile-status/${userId}/`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(await res.text());
+  return (await res.json()) as {
+    profile_info_complete: boolean;
+    services_exist: boolean;
+    profile_complete: boolean;
+  };
+}
+
+export async function getMyAccountantProfile() {
+  const res = await apiFetch("/accountants/me/");
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(await res.text());
+  return (await res.json()) as AccountantProfilePayload;
+}
+
+export async function createAccountantProfile(body: {
+  first_name: string;
+  last_name: string;
+  bio: string;
+  credentials: string;
+  years_experience: number;
+  firm_name: string;
+  location: string;
+  service_name?: string;
+  service_description?: string;
+}) {
+  const res = await apiFetch("/accountants/create/", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(text || "Failed to save accountant profile");
+  return JSON.parse(text) as AccountantProfilePayload;
+}
+
+export async function getMyServices() {
+  const res = await apiFetch("/services/mine/");
+  if (!res.ok) throw new Error(await res.text());
+  return (await res.json()) as CatalogService[];
 }
 
 export { API_BASE };

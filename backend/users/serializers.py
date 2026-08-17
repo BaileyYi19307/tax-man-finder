@@ -2,7 +2,6 @@
 from rest_framework import serializers
 from users.models import User
 from django.contrib.auth import authenticate
-from accountants.models import AccountantProfile
 
 #ModelSerializer classes are shortcut for creating
 #serializer classses -> automatically determined set of fields
@@ -31,29 +30,18 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class SignupSerializer(serializers.ModelSerializer):
-    role = serializers.ChoiceField(choices=["accountant", "client"])
-
     class Meta:
         model = User
-        fields=["email","password","role","id"]
-        #remove password from being included in the response
-        extra_kwargs = {"password": {'write_only':True}}
-        #field may be used when updating or creating an instance, but is not included when serializing the representation
+        fields = ["email", "password", "id"]
+        extra_kwargs = {"password": {"write_only": True}}
 
-    def create(self,validated_data):
-        #pop the password from validated data
+    def create(self, validated_data):
         password = validated_data.pop("password")
-        role = validated_data.pop("role")
-
-
-        #create a user
-        user = User.objects.create_user(password = password,is_verified=False,is_accountant=(role == "accountant"),**validated_data)
-   
-        if role=="accountant":
-            print("Creating an accountant profile now")
-            AccountantProfile.objects.create(user=user)
-
-        return user
+        return User.objects.create_user(
+            password=password,
+            is_verified=False,
+            **validated_data,
+        )
 
 class LoginSerializer(serializers.Serializer):
     email=serializers.EmailField()
@@ -83,6 +71,24 @@ class LoginSerializer(serializers.Serializer):
 
 
 class MeSerializer(serializers.ModelSerializer):
+    has_accountant_profile = serializers.SerializerMethodField()
+    accountant_profile_complete = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ["id", "email"]
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "has_accountant_profile",
+            "accountant_profile_complete",
+        ]
+
+    def get_has_accountant_profile(self, obj):
+        return obj.has_accountant_profile()
+
+    def get_accountant_profile_complete(self, obj):
+        if not obj.has_accountant_profile():
+            return False
+        return obj.accountant_profile.is_complete

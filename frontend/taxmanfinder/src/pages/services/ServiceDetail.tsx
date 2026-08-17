@@ -1,7 +1,8 @@
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { API_BASE, requestConsultation, startConversation } from "../../api/client";
+import { loginPath } from "../../auth/intent";
 
 type Service = {
   id: number;
@@ -49,6 +50,7 @@ const muted = { color: "#6b7280" };
 export default function ServiceDetail() {
   const { serviceId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [service, setService] = useState<Service | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +78,7 @@ export default function ServiceDetail() {
 
   function openMessageForm() {
     if (!token) {
-      navigate("/login");
+      navigate(loginPath({ next: location.pathname }));
       return;
     }
     setError(null);
@@ -91,7 +93,7 @@ export default function ServiceDetail() {
 
   async function sendMessage() {
     if (!token) {
-      navigate("/login");
+      navigate(loginPath({ next: location.pathname }));
       return;
     }
 
@@ -121,7 +123,7 @@ export default function ServiceDetail() {
 
   function openBookingForm() {
     if (!token) {
-      navigate("/login");
+      navigate(loginPath({ next: location.pathname }));
       return;
     }
     setError(null);
@@ -137,7 +139,7 @@ export default function ServiceDetail() {
 
   async function createBookingRequest() {
     if (!token) {
-      navigate("/login");
+      navigate(loginPath({ next: location.pathname }));
       return;
     }
 

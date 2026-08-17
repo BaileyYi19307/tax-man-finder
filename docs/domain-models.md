@@ -121,6 +121,8 @@ user_id
 years_experience
 credentials
 bio
+firm_name
+location
 created_at
 updated_at
 ```

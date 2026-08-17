@@ -1,39 +1,54 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { loginPath, persistIntentFromAuthParams } from "../../auth/intent";
 
 export default function SignUpPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const next = searchParams.get("next");
+  const intent = searchParams.get("intent");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("");
-
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const isAccountantIntent = intent === "tax-professional";
+
+  useEffect(() => {
+    persistIntentFromAuthParams({ next, intent });
+  }, [next, intent]);
 
   async function signupUser(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+
+    if (password !== passwordConfirm) {
+      setError("Passwords do not match.");
+      return;
+    }
+
     setLoading(true);
 
     try {
+      persistIntentFromAuthParams({ next, intent });
       await axios.post(
         "http://127.0.0.1:8000/users/auth/signup/",
-        { email, password, role },
+        { email, password },
         { headers: { "Content-Type": "application/json" } }
       );
 
-      navigate("/login", { replace: true });
+      navigate(loginPath({ next, intent }), { replace: true });
     } catch (err: any) {
-      // DRF often returns field errors: {email: [...], password: [...], role: [...]}
       const data = err.response?.data;
+      const fieldErrors = Object.values(data || {})
+        .flatMap((value) => (Array.isArray(value) ? value : [value]))
+        .filter((value) => typeof value === "string");
       const msg =
-        data?.detail ||
-        data?.message ||
-        data?.email?.[0] ||
-        data?.password?.[0] ||
-        data?.role?.[0] ||
+        (typeof data?.detail === "string" && data.detail) ||
+        (typeof data?.message === "string" && data.message) ||
+        fieldErrors[0] ||
         "Signup failed. Check your inputs.";
       setError(msg);
 
@@ -70,7 +85,9 @@ export default function SignUpPage() {
             Sign up
           </div>
           <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
-            Create an account to message accountants/clients.
+            {isAccountantIntent
+              ? "Create your account, then continue to professional profile setup."
+              : "Create an account to message accountants or request a consultation."}
           </div>
         </div>
 
@@ -122,27 +139,28 @@ export default function SignUpPage() {
           </div>
 
           <div style={{ display: "grid", gap: 6 }}>
-            <label htmlFor="role" style={{ fontSize: 13, color: "#111" }}>
-              Role
+            <label
+              htmlFor="passwordConfirmInput"
+              style={{ fontSize: 13, color: "#111" }}
+            >
+              Confirm password
             </label>
-            <select
-              id="role"
-              name="role"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
+            <input
+              id="passwordConfirmInput"
+              name="password_confirm"
+              type="password"
+              value={passwordConfirm}
+              onChange={(e) => setPasswordConfirm(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="new-password"
               style={{
                 padding: "10px 12px",
                 borderRadius: 8,
                 border: "1px solid #d1d5db",
                 fontSize: 14,
                 outline: "none",
-                background: "#fff",
               }}
-            >
-              <option value="">Select a role</option>
-              <option value="accountant">Accountant</option>
-              <option value="client">Client</option>
-            </select>
+            />
           </div>
 
           {error && (
@@ -162,15 +180,15 @@ export default function SignUpPage() {
 
           <button
             type="submit"
-            disabled={loading || !role}
+            disabled={loading}
             style={{
               padding: "10px 12px",
               borderRadius: 8,
               border: "none",
-              background: loading || !role ? "#93c5fd" : "#2563eb",
+              background: loading ? "#93c5fd" : "#2563eb",
               color: "#fff",
               fontWeight: 600,
-              cursor: loading || !role ? "not-allowed" : "pointer",
+              cursor: loading ? "not-allowed" : "pointer",
             }}
           >
             {loading ? "Creating account..." : "Signup"}
@@ -179,7 +197,10 @@ export default function SignUpPage() {
 
         <div style={{ marginTop: 14, fontSize: 13, color: "#6b7280" }}>
           Already have an account?{" "}
-          <Link to="/login" style={{ color: "#2563eb", textDecoration: "none" }}>
+          <Link
+            to={loginPath({ next, intent })}
+            style={{ color: "#2563eb", textDecoration: "none" }}
+          >
             Login
           </Link>
         </div>

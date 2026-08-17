@@ -64,6 +64,7 @@ class Login(APIView):
         serializer.is_valid(raise_exception=True)
 
         user = serializer.validated_data['user']
+        has_profile = user.has_accountant_profile()
             
 
         refresh = RefreshToken.for_user(user)
@@ -73,6 +74,12 @@ class Login(APIView):
                 "user": {
                     "id": user.id,
                     "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "has_accountant_profile": has_profile,
+                    "accountant_profile_complete": (
+                        has_profile and user.accountant_profile.is_complete
+                    ),
                 },
                 "tokens": {
                     "access": str(refresh.access_token),

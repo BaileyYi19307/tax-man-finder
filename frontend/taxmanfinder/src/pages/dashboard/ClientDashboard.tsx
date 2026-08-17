@@ -193,6 +193,48 @@ export default function ClientDashboard() {
                                 fontSize: "18px",
                             }}
                         >
+                            Offer tax help
+                        </h3>
+
+                        <p
+                            style={{
+                                color: "#666",
+                                lineHeight: 1.5,
+                                fontSize: "14px",
+                                marginBottom: "16px",
+                            }}
+                        >
+                            Add accountant capabilities to this account without signing up again.
+                        </p>
+
+                        <Link
+                            to="/onboarding/accountant"
+                            style={{
+                                color: "#2563eb",
+                                textDecoration: "none",
+                                fontWeight: 600,
+                                fontSize: "14px",
+                            }}
+                        >
+                            Join as a tax professional →
+                        </Link>
+                    </div>
+
+                    {/* Account */}
+                    <div
+                        style={{
+                            backgroundColor: "white",
+                            border: "1px solid #e5e5e5",
+                            borderRadius: "16px",
+                            padding: "24px",
+                        }}
+                    >
+                        <h3
+                            style={{
+                                marginBottom: "10px",
+                                fontSize: "18px",
+                            }}
+                        >
                             Account
                         </h3>
 

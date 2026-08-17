@@ -12,6 +12,8 @@ class AccountantProfile(models.Model):
     years_experience = models.IntegerField(default=0)
     credentials = models.TextField(blank=True, default="")
     bio = models.TextField(blank=True, null=True)
+    firm_name = models.CharField(max_length=255, blank=True, default="")
+    location = models.CharField(max_length=255, blank=True, default="")
     profile_complete = models.BooleanField(default=False)
 
     created_at=models.DateTimeField(auto_now_add=True)

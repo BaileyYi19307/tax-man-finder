@@ -59,7 +59,7 @@ export default function AccountantDashboard() {
         </div>
 
         <div style={{ display: "flex", gap: 16, marginBottom: 24 }}>
-          <Link to="/services" style={{ ...card, textDecoration: "none", color: "#111827", flex: 1 }}>
+          <Link to="/dashboard/services" style={{ ...card, textDecoration: "none", color: "#111827", flex: 1 }}>
             <div style={{ fontWeight: 700 }}>My Services</div>
             <div style={{ ...muted, fontSize: 13, marginTop: 6 }}>
               View and manage your listings

@@ -1,10 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import {
   API_BASE,
   requestConsultation,
   startConversation,
 } from "../../api/client";
+import { loginPath } from "../../auth/intent";
 
 type ProfileService = {
   id: number;
@@ -44,6 +45,7 @@ const muted = { color: "#6b7280" };
 export default function AccountantProfilePage() {
   const { userId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [profile, setProfile] = useState<AccountantProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -87,7 +89,7 @@ export default function AccountantProfilePage() {
 
   function openMessageForm() {
     if (!token) {
-      navigate("/login");
+      navigate(loginPath({ next: location.pathname }));
       return;
     }
     setFormError(null);
@@ -103,7 +105,7 @@ export default function AccountantProfilePage() {
 
   async function sendMessage() {
     if (!token || !profile) {
-      navigate("/login");
+      navigate(loginPath({ next: location.pathname }));
       return;
     }
 
@@ -138,7 +140,7 @@ export default function AccountantProfilePage() {
 
   function openBookingForm() {
     if (!token) {
-      navigate("/login");
+      navigate(loginPath({ next: location.pathname }));
       return;
     }
     setFormError(null);
@@ -155,7 +157,7 @@ export default function AccountantProfilePage() {
 
   async function submitConsultation() {
     if (!token || !profile) {
-      navigate("/login");
+      navigate(loginPath({ next: location.pathname }));
       return;
     }
     const content = bookingNote.trim();

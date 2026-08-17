@@ -24,7 +24,7 @@ export default function BookingsPage() {
         setLoading(true);
         setError(null);
         if (!token) {
-          navigate("/login");
+          navigate("/login?next=/bookings");
           return;
         }
         setBookings(await listMyBookings());

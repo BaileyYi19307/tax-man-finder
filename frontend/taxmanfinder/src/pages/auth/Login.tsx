@@ -1,7 +1,12 @@
-import { useState} from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
+import {
+  persistIntentFromAuthParams,
+  resolvePostAuthPath,
+  signupPath,
+} from "../../auth/intent";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -9,10 +14,17 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const [searchParams, setSearchParams] = useSearchParams();
-  const verified = (searchParams.get("verified") === "true")
+  const [searchParams] = useSearchParams();
+  const verified = searchParams.get("verified") === "true";
+  const next = searchParams.get("next");
+  const intent = searchParams.get("intent");
+  const isAccountantIntent = intent === "tax-professional";
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    persistIntentFromAuthParams({ next, intent });
+  }, [next, intent]);
 
   async function loginUser(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -20,6 +32,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      persistIntentFromAuthParams({ next, intent });
       const response = await axios.post(
         "http://127.0.0.1:8000/users/auth/login/",
         { email, password },
@@ -34,7 +47,14 @@ export default function LoginPage() {
       localStorage.setItem("refresh_token", refresh);
       localStorage.setItem("user_id", String(userId));
 
-      navigate("/dashboard/client");
+      navigate(
+        resolvePostAuthPath({
+          next,
+          intent,
+          hasAccountantProfile: Boolean(response.data.user.has_accountant_profile),
+          profileComplete: Boolean(response.data.user.accountant_profile_complete),
+        })
+      );
     } catch (err: any) {
       const msg =
         err.response?.data?.detail ||
@@ -90,7 +110,9 @@ export default function LoginPage() {
             Login
           </div>
           <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>
-            Sign in to view conversations.
+            {isAccountantIntent
+              ? "Sign in to continue professional profile setup."
+              : "Sign in to view conversations."}
           </div>
         </div>
 
@@ -175,7 +197,10 @@ export default function LoginPage() {
 
         <div style={{ marginTop: 14, fontSize: 13, color: "#6b7280" }}>
           Don’t have an account?{" "}
-          <Link to="/signup" style={{ color: "#2563eb", textDecoration: "none" }}>
+          <Link
+            to={signupPath({ next, intent })}
+            style={{ color: "#2563eb", textDecoration: "none" }}
+          >
             Sign up
           </Link>
         </div>

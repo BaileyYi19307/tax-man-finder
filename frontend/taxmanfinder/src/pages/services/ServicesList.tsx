@@ -1,26 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-
-type Service = {
-  id: number;
-  name: string;
-  description: string;
-  pricing_type: "fixed" | "hourly" | "consultation_required";
-  indicative_price: string | null;
-};
-
-function formatServicePrice(service: Pick<Service, "pricing_type" | "indicative_price">) {
-  if (service.pricing_type === "consultation_required") {
-    return "Consultation required";
-  }
-  if (service.indicative_price == null || service.indicative_price === "") {
-    return "Price on request";
-  }
-  if (service.pricing_type === "hourly") {
-    return `$${service.indicative_price}/hr`;
-  }
-  return `$${service.indicative_price}`;
-}
+import { formatServicePrice, type CatalogService } from "./serviceDisplay";
 
 const page = {
   minHeight: "100vh",
@@ -44,7 +24,7 @@ const card = {
 const muted = { color: "#6b7280" };
 
 export default function ServicesList() {
-  const [services, setServices] = useState<Service[]>([]);
+  const [services, setServices] = useState<CatalogService[]>([]);
 
   useEffect(() => {
     fetch("http://127.0.0.1:8000/services/")
@@ -136,7 +116,6 @@ export default function ServicesList() {
           ))}
         </div>
 
-        {/* simple responsive tweak */}
         <style>
           {`
             @media (max-width: 820px) {

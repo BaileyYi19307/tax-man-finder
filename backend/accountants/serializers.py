@@ -7,9 +7,9 @@ class AccountantProfileSerializer(serializers.ModelSerializer):
     """Validates and creates an Accountant Profile"""
 
     class Meta:
-        model=AccountantProfile
-        fields='__all__'
-        #what fields should be included in the output
+        model = AccountantProfile
+        fields = "__all__"
+        read_only_fields = ["user", "profile_complete", "created_at", "updated_at"]
 
 class AccountantProfileStatusSerializer(serializers.Serializer):
     profile_info_complete = serializers.BooleanField()

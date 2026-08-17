@@ -15,7 +15,6 @@ class SignupTest(TestCase):
         data = {
             "email": "newuser@email.com",
             "password": "StrongPassword123!",
-            "role":"client"
         }
 
         response = self.client.post(self.signup_url, data, format="json")
@@ -50,7 +49,6 @@ class SignupTest(TestCase):
         data = {
             "email": "secure@email.com",
             "password": "SuperSecret123!",
-            "role": "client",
         }
 
 
@@ -81,7 +79,6 @@ class SignupTest(TestCase):
         data = {
             "email": "unverified@email.com",
             "password": "TestPassword123!",
-            "role": "client",
         }
 
 
@@ -99,6 +96,40 @@ class SignupTest(TestCase):
         )
 
         self.assertEqual(login_response.status_code, 400)
+
+    def test_signup_does_not_create_accountant_profile(self):
+        data = {
+            "email": "help@email.com",
+            "password": "StrongPassword123!",
+        }
+        response = self.client.post(self.signup_url, data, format="json")
+        self.assertEqual(response.status_code, 201)
+        user = User.objects.get(email=data["email"])
+        self.assertFalse(user.has_accountant_profile())
+        self.assertFalse(AccountantProfile.objects.filter(user=user).exists())
+
+    def test_signup_ignores_role_and_does_not_create_accountant_profile(self):
+        data = {
+            "email": "pro@email.com",
+            "password": "StrongPassword123!",
+            "role": "accountant",
+        }
+        response = self.client.post(self.signup_url, data, format="json")
+        self.assertEqual(response.status_code, 201)
+        user = User.objects.get(email=data["email"])
+        self.assertFalse(user.has_accountant_profile())
+        self.assertFalse(user.is_accountant)
+
+    def test_client_signup_still_creates_plain_user(self):
+        data = {
+            "email": "browse@email.com",
+            "password": "StrongPassword123!",
+        }
+        response = self.client.post(self.signup_url, data, format="json")
+        self.assertEqual(response.status_code, 201)
+        user = User.objects.get(email=data["email"])
+        self.assertFalse(user.has_accountant_profile())
+        self.assertEqual(AccountantProfile.objects.filter(user=user).count(), 0)
 
 
 class LoginTest(TestCase):
@@ -126,6 +157,8 @@ class LoginTest(TestCase):
         self.assertIn("tokens", response.data)
         self.assertIn("access", response.data["tokens"])
         self.assertIn("refresh", response.data["tokens"])
+        self.assertFalse(response.data["user"]["has_accountant_profile"])
+        self.assertFalse(response.data["user"]["accountant_profile_complete"])
 
 
     def test_login_wrong_password(self):
@@ -175,7 +208,10 @@ class LoginTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["email"], "bailey@email.com")
+        self.assertFalse(response.data["has_accountant_profile"])
+        self.assertFalse(response.data["accountant_profile_complete"])
       
+ 
 
 class RolePermissionTest(TestCase):
 

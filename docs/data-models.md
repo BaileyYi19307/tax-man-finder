@@ -4,14 +4,17 @@
 # User
 - id 
 - email
-- role (CLIENT|Accountant)
+- Accountant capability is an AccountantProfile on the same User, not a mutually exclusive CLIENT|Accountant role
 
 
 # AccountantProfile
 - user (FK)
 - years_experience
 - credentials
-- bio 
+- bio
+- firm_name
+- location
+ 
 
 # Service
 - accountant (FK) 
