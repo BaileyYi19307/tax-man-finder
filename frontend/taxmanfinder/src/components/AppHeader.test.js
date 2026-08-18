@@ -45,6 +45,7 @@ function renderShell(initialPath = "/accountants") {
             <Route path="/bookings" element={<div>Consultations page</div>} />
             <Route path="/dashboard/client" element={<div>Client dash</div>} />
             <Route path="/dashboard/accountant" element={<div>Accountant dash</div>} />
+            <Route path="/dashboard/profile" element={<div>Profile edit</div>} />
             <Route path="/login" element={<div>Login page</div>} />
             <Route path="/signup" element={<div>Signup page</div>} />
           </Route>
@@ -116,6 +117,7 @@ test("client header shows client dashboard and authenticated links", async () =>
   expect(
     screen.queryByRole("link", { name: "Accountant Dashboard" })
   ).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "My profile" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Log in" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Sign up" })).not.toBeInTheDocument();
 });
@@ -128,6 +130,10 @@ test("accountant header uses profile capability, not leftover signup intent", as
   expect(
     await screen.findByRole("link", { name: "Accountant Dashboard" })
   ).toHaveAttribute("href", "/dashboard/accountant");
+  expect(screen.getByRole("link", { name: "My profile" })).toHaveAttribute(
+    "href",
+    "/dashboard/profile"
+  );
   expect(screen.getByRole("link", { name: "Messages" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Consultations" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Browse" })).toBeInTheDocument();

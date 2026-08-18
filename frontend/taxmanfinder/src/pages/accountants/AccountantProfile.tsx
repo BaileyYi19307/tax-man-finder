@@ -7,6 +7,7 @@ import {
   type AccountantProfilePayload,
 } from "../../api/client";
 import { loginPath } from "../../auth/intent";
+import { useAuth } from "../../auth/AuthProvider";
 import { getAccessToken } from "../../auth/session";
 import { accountantDisplayName, accountantFirmLocationLine } from "./displayName";
 
@@ -47,6 +48,8 @@ export default function AccountantProfilePage() {
   const [bookingDate, setBookingDate] = useState("");
 
   const token = getAccessToken();
+  const { user } = useAuth();
+  const isOwnProfile = Boolean(user && profile && user.id === profile.user_id);
 
   useEffect(() => {
     let cancelled = false;
@@ -220,6 +223,16 @@ export default function AccountantProfilePage() {
             <div style={{ fontSize: 22, fontWeight: 700 }}>
               {accountantDisplayName(profile)}
             </div>
+            {isOwnProfile && (
+              <div style={{ marginTop: 8 }}>
+                <Link
+                  to="/dashboard/profile"
+                  style={{ fontSize: 13, color: "#2563eb", textDecoration: "none", fontWeight: 600 }}
+                >
+                  Edit profile
+                </Link>
+              </div>
+            )}
             {subtitle && (
               <div style={{ ...muted, marginTop: 8, fontSize: 14 }}>{subtitle}</div>
             )}

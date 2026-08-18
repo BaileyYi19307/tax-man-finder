@@ -23,3 +23,16 @@ test("My Services routes to the accountant-owned services page", () => {
     "/dashboard/services"
   );
 });
+
+test("My profile routes to the accountant profile editor", () => {
+  render(
+    <MemoryRouter>
+      <AccountantDashboard />
+    </MemoryRouter>
+  );
+
+  expect(screen.getByText("My profile").closest("a")).toHaveAttribute(
+    "href",
+    "/dashboard/profile"
+  );
+});

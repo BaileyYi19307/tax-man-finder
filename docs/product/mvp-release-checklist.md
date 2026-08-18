@@ -55,7 +55,7 @@ The **backend of the core loop is mostly in place**, and several frontend paths 
 - My Services list (read-only)
 - Service ownership checks
 
-What is **not** feature-complete: accountants cannot edit a completed profile or a service from the UI, and several cards over-promise (“manage your listings”). The public directory shows names for complete profiles only. Shared header + logout exist on main app pages. Returning complete accountants log in to `/dashboard/accountant`. Client dashboard “Find a Tax Professional” goes to `/accountants`.
+What is **not** feature-complete: accountants cannot edit a service from the UI, and the My Services card still says “manage.” The public directory shows names for complete profiles only. Shared header + logout exist on main app pages. Returning complete accountants log in to `/dashboard/accountant`. Client dashboard “Find a Tax Professional” goes to `/accountants`. Accountants can view/edit their profile at `/dashboard/profile`.
 
 **Assessment:** core flows are **partially wired**. Not early, not feature-complete locally.
 
@@ -106,7 +106,7 @@ What is **not** feature-complete: accountants cannot edit a completed profile or
 | Feature | Status | Priority | Evidence |
 | --- | --- | --- | --- |
 | Dashboard landing | `PARTIAL` | P0 | `/dashboard/accountant` → `AccountantDashboard.tsx`. **Login-gated**; incomplete profiles → onboarding; no profile → client dashboard. Recent inquiries (first 5) + cards. No loading/error (failed fetch looks like “No inquiries yet”). |
-| Profile card / link | `NOT_STARTED` | P0 | No link to own public profile or an edit page. |
+| Profile card / link | `DONE` | P0 | Dashboard card and header **My profile** → `/dashboard/profile`. Public listing link on the edit page. |
 | My Services card | `PARTIAL` | P0 | Links to `/dashboard/services` (real list). Label “View **and manage** your listings” overpromises — list is read-only. |
 | Inbox card | `DONE` | P0 | Links to `/chat`. |
 | Consultations card | `DONE` | P0 | Links to `/bookings`. |
@@ -117,9 +117,9 @@ What is **not** feature-complete: accountants cannot edit a completed profile or
 | Feature | Status | Priority | Evidence |
 | --- | --- | --- | --- |
 | Onboarding creates / upserts profile | `DONE` | P0 | `POST /accountants/create/` binds `user=request.user`. Name, firm, location, bio, credentials, first service. Tests cover duplicate-safe upsert. |
-| View own profile after complete | `NOT_STARTED` | P0 | `GET /accountants/me/` exists. Complete users are redirected **away** from `/onboarding/accountant`. Dashboard has no profile entry. |
-| Edit after onboarding | `NOT_STARTED` | P0 | Backend POST upsert can still update. UI is create/resume only. Public pages would show edits only after they render name/firm. |
-| Public profile reflects edits | `PARTIAL` | P0 | API would reflect changes; UI currently shows email/bio/credentials/services only. |
+| View own profile after complete | `DONE` | P0 | `/dashboard/profile` loads `GET /accountants/me/`. Complete users are still redirected away from `/onboarding/accountant`. |
+| Edit after onboarding | `DONE` | P0 | Same page saves via `POST /accountants/create/` without creating another service. Tests: `AccountantProfileEdit.test.js`. |
+| Public profile reflects edits | `DONE` | P0 | Public pages show name/firm/location; edit uses the same fields. |
 | Incomplete behavior | `DONE` | P0 | Resume works. Incomplete rows are excluded from the public directory. Direct profile URLs still load. |
 
 **Minimum for Phase 1:** keep using `POST /accountants/create/` as the save API. Add a “My profile” view that shows current fields and allows edit (either reopen a form on a new route or stop bouncing complete users off onboarding). Do not add a second profile model.
@@ -182,7 +182,7 @@ Accepted consultation **is** the confirmed booking. No extra booking-creation st
 
 ### 10. Navigation
 
-Shared header (`AppHeader` via `AppLayout`) is on main app pages. Login, signup, and accountant onboarding stay header-free. Dashboard link uses `GET /users/me/` `has_accountant_profile`, not signup intent. Messages = `/chat`. Consultations = `/bookings`. Profile and My Services are **not** in the header yet (still dashboard cards only).
+Shared header (`AppHeader` via `AppLayout`) is on main app pages. Login, signup, and accountant onboarding stay header-free. Dashboard link uses `GET /users/me/` `has_accountant_profile`, not signup intent. Messages = `/chat`. Consultations = `/bookings`. Complete accountants also get **My profile** → `/dashboard/profile`. My Services stays a dashboard card.
 
 | Role | Needed | Today |
 | --- | --- | --- |
@@ -191,7 +191,7 @@ Shared header (`AppHeader` via `AppLayout`) is on main app pages. Login, signup,
 | Client: Consultations | `/bookings` | Header **Consultations** (and dashboard card) |
 | Client: Logout | clear tokens + Home | Header **Log out** |
 | Accountant: Dashboard | `/dashboard/accountant` | Header **Accountant Dashboard** when `has_accountant_profile`. Home → Log in uses capability (`resolvePostAuthPath`). |
-| Accountant: Profile | own view/edit | `NOT_STARTED` — not in this header slice |
+| Accountant: Profile | own view/edit | Header **My profile** → `/dashboard/profile` when the profile is complete |
 | Accountant: My Services | `/dashboard/services` | Dashboard card only (intentionally not in this header) |
 | Accountant: Messages | `/chat` | Header **Messages** |
 | Accountant: Consultations | `/bookings` | Header **Consultations** |
@@ -203,9 +203,8 @@ Unknown URLs currently render Home (`App.js` `path="*"`). Custom 404 is P2.
 
 ## Phase 1 P0 gaps (product only)
 
-1. **Accountant cannot view or edit their profile after onboarding is complete.**
-2. **Accountant cannot edit the service created at onboarding** (My Services is list-only; card says “manage”).
-3. **Service detail error state never leaves “Loading…”.** Chat send can look successful when the socket is down.
+1. **Accountant cannot edit the service created at onboarding** (My Services is list-only; card says “manage”).
+2. **Service detail error state never leaves “Loading…”.** Chat send can look successful when the socket is down.
 
 ---
 
@@ -219,7 +218,7 @@ Work **vertical product slices**. Do not start Phase 2 items in this list. Order
 | 2 | Auth routing | Returning accountant → `/dashboard/client` | `DONE` | P0 | `intent.ts` `resolvePostAuthPath`; `RequireAuth.tsx`; `Login.tsx` profile flags | Complete accountant → `/dashboard/accountant`. Incomplete profile → onboarding. Message `next` still wins. `/dashboard/*` and `/chat` login-gated. |
 | 3 | Marketplace | Directory/profile show email; list incomplete | `DONE` | P0 | `PublicAccountantDirectoryView`; `displayName.ts`; `AccountantsDirectory.tsx`; `AccountantProfile.tsx` | Directory lists complete profiles only. Public title is name (firm fallback). Firm + location shown. Back to `/accountants`. Inbox link logged-in only. |
 | 4 | Client experience | Find-professional CTA hits service catalog | `DONE` | P0 | `ClientDashboard.tsx`; `ClientDashboard.test.js` | Primary CTA goes to `/accountants`. Raw `user_id` card removed. |
-| 5 | Accountant profile | No view/edit after complete | `NOT_STARTED` | P0 | Onboarding bounces complete profiles; no dashboard link; `POST /accountants/create/` already upserts | Add `/dashboard/profile` (or equivalent): GET me, edit via existing create POST, link from dashboard + header. Public profile must show the same name/firm fields (order 3). |
+| 5 | Accountant profile | No view/edit after complete | `DONE` | P0 | `AccountantProfileEdit.tsx`; header + dashboard links | `/dashboard/profile` loads `GET /accountants/me/` and saves via `POST /accountants/create/`. Public listing uses the same name/firm fields. |
 | 6 | Services | My Services is read-only | `NOT_STARTED` | P0 | `MyServices.tsx` list + public detail only; PATCH already authorized | Edit name/description (and price if shown) for owned services. Fix dashboard copy so it matches. Create/delete still P1. |
 | 7 | Messaging | Failed WS looks sent; dashboard empty vs error | `PARTIAL` | P0 | `ChatLayout.tsx`; `ConversationView.tsx` `sendMessage` | Login redirect for `/chat` is done (`RequireAuth`). Do not append optimistic rows unless send succeeded. Dashboard inquiry fetch: real empty vs error. |
 | 8 | Marketplace | Service detail infinite loading | `BROKEN` | P0 | `ServiceDetail.tsx` catch leaves “Loading…” | Failed fetch → error + back to profile/directory. |
