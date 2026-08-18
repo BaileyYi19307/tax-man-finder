@@ -74,12 +74,16 @@ class PublicAccountantProfileTest(TestCase):
             email="public-acct@test.com",
             password="password123",
             is_accountant=True,
+            first_name="Public",
+            last_name="Acct",
         )
         cls.profile = AccountantProfile.objects.create(
             user=cls.user,
             credentials="CPA",
             bio="Helps with taxes",
             years_experience=5,
+            firm_name="Public Tax",
+            location="Remote",
         )
         cls.service = Service.objects.create(
             accountant=cls.user,
@@ -98,6 +102,9 @@ class PublicAccountantProfileTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["user_id"], self.user.id)
         self.assertEqual(resp.data["email"], "public-acct@test.com")
+        self.assertEqual(resp.data["first_name"], "Public")
+        self.assertEqual(resp.data["firm_name"], "Public Tax")
+        self.assertEqual(resp.data["location"], "Remote")
         self.assertEqual(len(resp.data["services"]), 1)
         self.assertEqual(resp.data["services"][0]["id"], self.service.id)
 
@@ -109,12 +116,33 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
             email="listed@test.com",
             password="password123",
             is_verified=True,
+            first_name="Listed",
+            last_name="Pro",
         )
         AccountantProfile.objects.create(
             user=cls.listed,
             credentials="CPA",
             bio="Helps with taxes",
             years_experience=5,
+            firm_name="Listed Tax",
+            location="Boston, MA",
+        )
+        Service.objects.create(
+            accountant=cls.listed,
+            name="Individual returns",
+            description="Form 1040",
+            pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
+            is_active=True,
+        )
+        cls.incomplete = User.objects.create_user(
+            email="incomplete@test.com",
+            password="password123",
+            is_verified=True,
+        )
+        AccountantProfile.objects.create(
+            user=cls.incomplete,
+            credentials="",
+            bio="",
         )
         cls.client_user = User.objects.create_user(
             email="later-pro@test.com",
@@ -132,6 +160,29 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
         self.assertEqual(len(resp.data), 1)
         self.assertEqual(resp.data[0]["user_id"], self.listed.id)
         self.assertEqual(resp.data[0]["email"], "listed@test.com")
+        self.assertEqual(resp.data[0]["first_name"], "Listed")
+        self.assertEqual(resp.data[0]["firm_name"], "Listed Tax")
+        self.assertEqual(resp.data[0]["location"], "Boston, MA")
+        self.assertTrue(resp.data[0]["profile_complete"])
+
+    def test_directory_excludes_incomplete_profiles(self):
+        bio_only = User.objects.create_user(
+            email="bio-only@test.com",
+            password="password123",
+            is_verified=True,
+        )
+        AccountantProfile.objects.create(
+            user=bio_only,
+            credentials="EA",
+            bio="Almost ready",
+        )
+        url = reverse("accountant-directory")
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+        ids = [row["user_id"] for row in resp.data]
+        self.assertEqual(ids, [self.listed.id])
+        self.assertNotIn(self.incomplete.id, ids)
+        self.assertNotIn(bio_only.id, ids)
 
     def test_create_profile_requires_auth(self):
         url = reverse("create_accountant")

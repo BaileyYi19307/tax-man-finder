@@ -122,10 +122,12 @@ class PublicAccountantDirectoryView(APIView):
 
     def get(self, request):
         profiles = AccountantProfile.objects.select_related("user").order_by("user_id")
-        return Response(
-            [_profile_public_payload(profile) for profile in profiles],
-            status=status.HTTP_200_OK,
-        )
+        listed = [
+            _profile_public_payload(profile)
+            for profile in profiles
+            if profile.is_complete
+        ]
+        return Response(listed, status=status.HTTP_200_OK)
 
 
 class PublicAccountantProfileView(APIView):

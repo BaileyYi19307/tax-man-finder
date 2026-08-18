@@ -1,25 +1,14 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import {
-  API_BASE,
+  getPublicAccountantProfile,
   requestConsultation,
   startConversation,
+  type AccountantProfilePayload,
 } from "../../api/client";
 import { loginPath } from "../../auth/intent";
-
-type ProfileService = {
-  id: number;
-  name: string;
-};
-
-type AccountantProfile = {
-  user_id: number;
-  email: string;
-  bio: string | null;
-  credentials: string;
-  years_experience: number;
-  services: ProfileService[];
-};
+import { getAccessToken } from "../../auth/session";
+import { accountantDisplayName, accountantFirmLocationLine } from "./displayName";
 
 const page = {
   minHeight: "100vh",
@@ -46,7 +35,7 @@ export default function AccountantProfilePage() {
   const { userId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const [profile, setProfile] = useState<AccountantProfile | null>(null);
+  const [profile, setProfile] = useState<AccountantProfilePayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -57,7 +46,7 @@ export default function AccountantProfilePage() {
   const [bookingNote, setBookingNote] = useState("");
   const [bookingDate, setBookingDate] = useState("");
 
-  const token = localStorage.getItem("access_token");
+  const token = getAccessToken();
 
   useEffect(() => {
     let cancelled = false;
@@ -65,10 +54,12 @@ export default function AccountantProfilePage() {
     setLoadError(null);
 
     async function loadProfile() {
+      if (!userId) {
+        if (!cancelled) setLoadError("Could not load accountant profile.");
+        return;
+      }
       try {
-        const res = await fetch(`${API_BASE}/accountants/${userId}/`);
-        if (!res.ok) throw new Error(await res.text());
-        const data = await res.json();
+        const data = await getPublicAccountantProfile(userId);
         if (!cancelled) {
           setProfile(data);
           setLoadError(null);
@@ -198,10 +189,17 @@ export default function AccountantProfilePage() {
     }
   }
 
+  const subtitle = profile ? accountantFirmLocationLine(profile) : null;
+
   if (!profile && !loadError) {
     return (
       <div style={page}>
-        <div style={container}>Loading profile…</div>
+        <div style={container}>
+          <Link to="/accountants" style={{ fontSize: 13, color: "#2563eb" }}>
+            ← Back to accountants
+          </Link>
+          <div style={{ ...muted, marginTop: 16 }}>Loading profile…</div>
+        </div>
       </div>
     );
   }
@@ -209,8 +207,8 @@ export default function AccountantProfilePage() {
   return (
     <div style={page}>
       <div style={container}>
-        <Link to="/services" style={{ fontSize: 13, color: "#2563eb" }}>
-          ← Back to services
+        <Link to="/accountants" style={{ fontSize: 13, color: "#2563eb" }}>
+          ← Back to accountants
         </Link>
 
         {loadError && (
@@ -219,8 +217,13 @@ export default function AccountantProfilePage() {
 
         {profile && (
           <div style={{ ...card, marginTop: 16 }}>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{profile.email}</div>
-            <div style={{ ...muted, marginTop: 8, fontSize: 14 }}>
+            <div style={{ fontSize: 22, fontWeight: 700 }}>
+              {accountantDisplayName(profile)}
+            </div>
+            {subtitle && (
+              <div style={{ ...muted, marginTop: 8, fontSize: 14 }}>{subtitle}</div>
+            )}
+            <div style={{ ...muted, marginTop: subtitle ? 4 : 8, fontSize: 14 }}>
               {profile.years_experience} years experience
             </div>
             {profile.credentials && (
@@ -270,21 +273,23 @@ export default function AccountantProfilePage() {
               <button type="button" onClick={openBookingForm}>
                 Request Consultation
               </button>
-              <Link
-                to="/chat"
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 10,
-                  border: "1px solid #e5e7eb",
-                  background: "#fff",
-                  color: "#111827",
-                  textDecoration: "none",
-                  fontWeight: 700,
-                  fontSize: 14,
-                }}
-              >
-                Go to inbox
-              </Link>
+              {token && (
+                <Link
+                  to="/chat"
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    color: "#111827",
+                    textDecoration: "none",
+                    fontWeight: 700,
+                    fontSize: 14,
+                  }}
+                >
+                  Go to inbox
+                </Link>
+              )}
             </div>
           </div>
         )}
@@ -394,7 +399,7 @@ function ServiceSelect({
   value,
   onChange,
 }: {
-  services: ProfileService[];
+  services: AccountantProfilePayload["services"];
   value: string;
   onChange: (v: string) => void;
 }) {

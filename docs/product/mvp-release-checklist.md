@@ -55,7 +55,7 @@ The **backend of the core loop is mostly in place**, and several frontend paths 
 - My Services list (read-only)
 - Service ownership checks
 
-What is **not** feature-complete: directory/profile show **email** instead of name, incomplete profiles are listed, accountants cannot edit a completed profile or a service from the UI, and several cards over-promise (“manage your listings”). Shared header + logout exist on main app pages. Returning complete accountants log in to `/dashboard/accountant`.
+What is **not** feature-complete: accountants cannot edit a completed profile or a service from the UI, client “Find a Tax Professional” still goes to `/services`, and several cards over-promise (“manage your listings”). The public directory shows names for complete profiles only. Shared header + logout exist on main app pages. Returning complete accountants log in to `/dashboard/accountant`.
 
 **Assessment:** core flows are **partially wired**. Not early, not feature-complete locally.
 
@@ -67,15 +67,15 @@ What is **not** feature-complete: directory/profile show **email** instead of na
 
 | Feature | Status | Priority | Evidence |
 | --- | --- | --- | --- |
-| Accountant directory (`/accountants`) | `PARTIAL` | P0 | `AccountantsDirectory.tsx` → `GET /accountants/directory/` (`PublicAccountantDirectoryView`, `AllowAny`). Cards show **email**. No loading/empty. Error text exists. Lists **all** profiles, including incomplete. |
-| Public profile (`/accountants/:userId`) | `PARTIAL` | P0 | `AccountantProfile.tsx`. Message / Request consultation work when logged in. Title is email. `first_name`, `firm_name`, `location` are in `_profile_public_payload` and unused. Back link says “← Back to services.” “Go to inbox” shows when logged out. |
-| Real name / firm / location (not email) | `NOT_STARTED` | P0 | API already returns the fields. Frontend types omit them. |
-| Hide incomplete profiles | `NOT_STARTED` | P0 | Completeness is `bio` + `credentials` + ≥1 active service (`AccountantProfile.is_complete`). Directory does `AccountantProfile.objects.all()`. |
+| Accountant directory (`/accountants`) | `DONE` | P0 | `AccountantsDirectory.tsx` → `GET /accountants/directory/` (`PublicAccountantDirectoryView`, `AllowAny`). Directory lists only complete profiles. Cards show name (firm fallback), firm + location, credentials, bio. Loading, empty, and error states. Tests: `AccountantsDirectory.test.js`, `test_directory_excludes_incomplete_profiles`. |
+| Public profile (`/accountants/:userId`) | `DONE` | P0 | `AccountantProfile.tsx`. Title is name (firm fallback). Firm + location shown. Back link to `/accountants`. “Go to inbox” only when logged in. Message / Request consultation unchanged. |
+| Real name / firm / location (not email) | `DONE` | P0 | `displayName.ts`. Email stays in the API payload but is not used as the public title. |
+| Hide incomplete profiles | `DONE` | P0 | Completeness is `bio` + `credentials` + ≥1 active service (`AccountantProfile.is_complete`). Directory filters with `profile.is_complete`. Direct `/accountants/:userId` still returns an existing profile. |
 | Services on profile | `DONE` | P0 | Active services only (`id`, `name`) with empty copy. Test: `test_public_profile_lists_active_services`. |
 | Service detail (`/services/:id`) | `PARTIAL` | P0 | `ServiceDetail.tsx` + `AllowAny` retrieve. Message / consult work. Failed fetch stays on **“Loading…”** (`BROKEN` error path). |
 | Public service catalog (`/services`) | `PARTIAL` | P1 | Exists; client dashboard primary CTA goes here instead of `/accountants`. Includes inactive rows. Discovery for MVP is the **accountant directory**, not this catalog. |
 | Search / filters | `DEFER` | P2 | Not needed for a small local directory. |
-| Empty / error / loading | `PARTIAL` | P0 | Directory missing loading/empty; service list has none; service detail error is broken. |
+| Empty / error / loading | `PARTIAL` | P0 | Directory has loading/empty/error. Service list has none; service detail error is broken. |
 
 ### 2. Authentication and product routing
 
@@ -120,7 +120,7 @@ What is **not** feature-complete: directory/profile show **email** instead of na
 | View own profile after complete | `NOT_STARTED` | P0 | `GET /accountants/me/` exists. Complete users are redirected **away** from `/onboarding/accountant`. Dashboard has no profile entry. |
 | Edit after onboarding | `NOT_STARTED` | P0 | Backend POST upsert can still update. UI is create/resume only. Public pages would show edits only after they render name/firm. |
 | Public profile reflects edits | `PARTIAL` | P0 | API would reflect changes; UI currently shows email/bio/credentials/services only. |
-| Incomplete behavior | `PARTIAL` | P0 | Resume works. Incomplete rows still appear in the public directory. |
+| Incomplete behavior | `DONE` | P0 | Resume works. Incomplete rows are excluded from the public directory. Direct profile URLs still load. |
 
 **Minimum for Phase 1:** keep using `POST /accountants/create/` as the save API. Add a “My profile” view that shows current fields and allows edit (either reopen a form on a new route or stop bouncing complete users off onboarding). Do not add a second profile model.
 
@@ -203,11 +203,10 @@ Unknown URLs currently render Home (`App.js` `path="*"`). Custom 404 is P2.
 
 ## Phase 1 P0 gaps (product only)
 
-1. **Directory and public profile present email, not name/firm/location, and include incomplete profiles.**
-2. **Accountant cannot view or edit their profile after onboarding is complete.**
-3. **Accountant cannot edit the service created at onboarding** (My Services is list-only; card says “manage”).
-4. **Client “Find a Tax Professional” goes to `/services`.**
-5. **Service detail error state never leaves “Loading…”.** Chat send can look successful when the socket is down.
+1. **Accountant cannot view or edit their profile after onboarding is complete.**
+2. **Accountant cannot edit the service created at onboarding** (My Services is list-only; card says “manage”).
+3. **Client “Find a Tax Professional” goes to `/services`.**
+4. **Service detail error state never leaves “Loading…”.** Chat send can look successful when the socket is down.
 
 ---
 
@@ -219,7 +218,7 @@ Work **vertical product slices**. Do not start Phase 2 items in this list. Order
 | ----- | ---- | ----------------- | ------ | -------- | -------- | ---------------- |
 | 1 | Navigation | Shared header + logout | `DONE` | P0 | `AppHeader.tsx`, `AuthProvider.tsx`, `auth/session.ts`; tests `AppHeader.test.js`, `Home.test.js` | Header on main app routes. Logout clears session keys and returns to `/`. Home no longer shows Log in/Sign up when authenticated. |
 | 2 | Auth routing | Returning accountant → `/dashboard/client` | `DONE` | P0 | `intent.ts` `resolvePostAuthPath`; `RequireAuth.tsx`; `Login.tsx` profile flags | Complete accountant → `/dashboard/accountant`. Incomplete profile → onboarding. Message `next` still wins. `/dashboard/*` and `/chat` login-gated. |
-| 3 | Marketplace | Directory/profile show email; list incomplete | `PARTIAL` | P0 | `PublicAccountantDirectoryView`; `AccountantsDirectory.tsx`; `AccountantProfile.tsx` | Filter directory to `is_complete`. Display name (fallback firm). Show firm + location. Back link to `/accountants`. Hide “Go to inbox” when logged out. Loading + empty states. |
+| 3 | Marketplace | Directory/profile show email; list incomplete | `DONE` | P0 | `PublicAccountantDirectoryView`; `displayName.ts`; `AccountantsDirectory.tsx`; `AccountantProfile.tsx` | Directory lists complete profiles only. Public title is name (firm fallback). Firm + location shown. Back to `/accountants`. Inbox link logged-in only. |
 | 4 | Client experience | Find-professional CTA hits service catalog | `BROKEN` | P0 | `ClientDashboard.tsx` navigates to `/services` | Point the primary CTA at `/accountants`. Optional: drop raw `user_id` card. |
 | 5 | Accountant profile | No view/edit after complete | `NOT_STARTED` | P0 | Onboarding bounces complete profiles; no dashboard link; `POST /accountants/create/` already upserts | Add `/dashboard/profile` (or equivalent): GET me, edit via existing create POST, link from dashboard + header. Public profile must show the same name/firm fields (order 3). |
 | 6 | Services | My Services is read-only | `NOT_STARTED` | P0 | `MyServices.tsx` list + public detail only; PATCH already authorized | Edit name/description (and price if shown) for owned services. Fix dashboard copy so it matches. Create/delete still P1. |
@@ -316,7 +315,7 @@ These are **not** production-only; they already hold locally and should stay gre
 - `IsServiceOwner` prevents mutating another accountant’s services.
 - Outsiders cannot read/send on others’ inquiries (HTTP 404 / WS 4003).
 
-Residual product/security follow-ups (Phase 2 or later P1): consultation `accountant` queryset is `User.objects.all()` (spam thread against any user); public payload includes email (stop using it as the directory title in Phase 1).
+Residual product/security follow-ups (Phase 2 or later P1): consultation `accountant` queryset is `User.objects.all()` (spam thread against any user); public payload still includes email (no longer used as the directory title).
 
 ## Phase 2 P0 blockers (when you return)
 

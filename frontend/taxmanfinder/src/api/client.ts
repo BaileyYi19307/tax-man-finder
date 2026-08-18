@@ -161,6 +161,18 @@ export async function getProfileStatus(userId: number) {
   };
 }
 
+export async function listPublicAccountants() {
+  const res = await fetch(`${API_BASE}/accountants/directory/`);
+  if (!res.ok) throw new Error(await res.text());
+  return (await res.json()) as AccountantProfilePayload[];
+}
+
+export async function getPublicAccountantProfile(userId: number | string) {
+  const res = await fetch(`${API_BASE}/accountants/${userId}/`);
+  if (!res.ok) throw new Error(await res.text());
+  return (await res.json()) as AccountantProfilePayload;
+}
+
 export async function getMyAccountantProfile() {
   const res = await apiFetch("/accountants/me/");
   if (res.status === 404) return null;
