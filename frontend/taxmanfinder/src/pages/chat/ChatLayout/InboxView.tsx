@@ -6,11 +6,18 @@ import type { InquiryListItem } from "./ChatLayout";
 
 type InboxViewProps={
     inquiries: InquiryListItem[]
+    loading?: boolean;
+    error?: string | null;
     onMarkRead: (inquiryId: number) => void;
 
 };
 
-export default function InboxView({ inquiries = [],onMarkRead }: InboxViewProps) {
+export default function InboxView({
+  inquiries = [],
+  loading = false,
+  error = null,
+  onMarkRead,
+}: InboxViewProps) {
   const currentUserId = Number(localStorage.getItem("user_id"));
 
     return (
@@ -18,7 +25,11 @@ export default function InboxView({ inquiries = [],onMarkRead }: InboxViewProps)
         <h3>Messages</h3>
   
         <ul>
-          {inquiries.length === 0 ? (
+          {loading ? (
+            <li>Loading conversations…</li>
+          ) : error ? (
+            <li style={{ color: "#b91c1c" }}>{error}</li>
+          ) : inquiries.length === 0 ? (
             <li>No conversations yet</li>
           ) : (
             inquiries.map((inquiry) => (

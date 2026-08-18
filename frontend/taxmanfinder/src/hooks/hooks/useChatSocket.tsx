@@ -65,13 +65,12 @@ export function useChatSocket(
   }, [inquiryId, token]);
 
   function sendMessage(text: string) {
-    if (!socketRef.current) {
-      return;
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return false;
     }
-    if (socketRef.current.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    socketRef.current.send(JSON.stringify({ message: text }));
+    socket.send(JSON.stringify({ message: text }));
+    return true;
   }
 
   return { sendMessage };

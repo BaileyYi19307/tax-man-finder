@@ -2,17 +2,18 @@
 import { useState } from "react";
 
 
-type MessageInputProps ={
-    onSend:(text:string) => void; 
-}
-export default function MessageInput({ onSend }: { onSend: (t: string) => void }) {
+export default function MessageInput({
+  onSend,
+}: {
+  onSend: (t: string) => boolean | void;
+}) {
     const [text, setText] = useState("");
   
     function handleSubmit(e: React.FormEvent) {
       e.preventDefault();
       if (!text.trim()) return;
-      onSend(text);
-      setText("");
+      const sent = onSend(text);
+      if (sent !== false) setText("");
     }
   
     return (

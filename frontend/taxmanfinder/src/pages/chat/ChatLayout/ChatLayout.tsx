@@ -24,6 +24,8 @@ export type InquiryListItem = {
 
 export default function ChatLayout() {
   const [inquiries, setInquiries] = useState<InquiryListItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const token = localStorage.getItem("access_token");
 
   function handleMarkRead(inquiryId: number) {
@@ -36,26 +38,44 @@ export default function ChatLayout() {
 
   useEffect(() => {
     if (!token) return;
+    let cancelled = false;
 
-    apiFetch("/api/inquiries/")
-      .then(async (res) => {
+    async function load() {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await apiFetch("/api/inquiries/");
         if (!res.ok) {
-          const text = await res.text();
-          console.error("Inbox fetch failed:", res.status, text);
-          return [];
+          throw new Error(await res.text());
         }
-        return res.json();
-      })
-      .then((data) => {
-        setInquiries(data);
-      })
-      .catch(console.error);
+        const data = await res.json();
+        if (!cancelled) setInquiries(data);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          setInquiries([]);
+          setError("Could not load conversations.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   return (
     <div style={{ display: "flex", flex: 1, minHeight: 0, height: "100%" }}>
       <aside style={{ width: 300, borderRight: "1px solid #e5e7eb" }}>
-        <InboxView inquiries={inquiries} onMarkRead={handleMarkRead} />
+        <InboxView
+          inquiries={inquiries}
+          loading={loading}
+          error={error}
+          onMarkRead={handleMarkRead}
+        />
       </aside>
 
       <main style={{ flex: 1, background: "#fafafa" }}>

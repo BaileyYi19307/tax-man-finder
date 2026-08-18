@@ -70,11 +70,17 @@ export default function ConversationView() {
 
   function handleSend(text: string) {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed) return false;
     if (inquiryStatus === "closed") {
       setActionError("This inquiry is closed. New messages were not sent.");
-      return;
+      return false;
     }
+    const sent = sendMessage(trimmed);
+    if (!sent) {
+      setActionError("Message was not sent. Chat is not connected.");
+      return false;
+    }
+    setActionError(null);
     setMessages((prev) => [
       ...prev,
       {
@@ -84,7 +90,7 @@ export default function ConversationView() {
         created_at: new Date().toISOString(),
       },
     ]);
-    sendMessage(trimmed);
+    return true;
   }
 
   async function refreshBookings() {
@@ -163,9 +169,6 @@ export default function ConversationView() {
       {bookings.length > 0 && (
         <div style={{ padding: "8px 12px", borderBottom: "1px solid #e5e7eb" }}>
           <div style={{ fontWeight: 700, marginBottom: 8 }}>Consultation requests</div>
-          {actionError && (
-            <div style={{ color: "#b91c1c", fontSize: 13, marginBottom: 8 }}>{actionError}</div>
-          )}
           {bookings.map((b) => (
             <div
               key={b.id}
@@ -204,6 +207,9 @@ export default function ConversationView() {
       )}
 
       <MessageList messages={messages} currentUserId={currentUserId} />
+      {actionError && (
+        <div style={{ color: "#b91c1c", fontSize: 13, padding: "8px 12px" }}>{actionError}</div>
+      )}
       {inquiryStatus === "closed" ? (
         <div style={{ padding: 12, fontSize: 13, color: "#6b7280", borderTop: "1px solid #e5e7eb" }}>
           This inquiry is closed. You can still read the conversation.

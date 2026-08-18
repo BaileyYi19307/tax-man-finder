@@ -32,18 +32,37 @@ const muted = { color: "#6b7280" };
 
 export default function AccountantDashboard() {
   const [inquiries, setInquiries] = useState<InquiryRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const token = localStorage.getItem("access_token");
 
   useEffect(() => {
     if (!token) return;
+    let cancelled = false;
 
-    apiFetch("/api/inquiries/")
-      .then(async (r) => {
-        if (!r.ok) throw new Error(await r.text());
-        return r.json();
-      })
-      .then(setInquiries)
-      .catch(console.error);
+    async function load() {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await apiFetch("/api/inquiries/");
+        if (!response.ok) throw new Error(await response.text());
+        const rows = await response.json();
+        if (!cancelled) setInquiries(rows);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          setInquiries([]);
+          setError("Could not load inquiries.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   return (
@@ -91,12 +110,14 @@ export default function AccountantDashboard() {
         <div style={card}>
           <div style={{ fontWeight: 700, marginBottom: 12 }}>Recent inquiries</div>
 
-          {inquiries.length === 0 && (
+          {loading && <div style={{ ...muted, fontSize: 13 }}>Loading inquiries…</div>}
+          {error && <div style={{ color: "#b91c1c", fontSize: 13 }}>{error}</div>}
+          {!loading && !error && inquiries.length === 0 && (
             <div style={{ ...muted, fontSize: 13 }}>No inquiries yet.</div>
           )}
 
           <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {inquiries.slice(0, 5).map((c) => (
+            {!loading && !error && inquiries.slice(0, 5).map((c) => (
               <li key={c.id} style={{ padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}>
                 <Link
                   to={`/chat/${c.id}`}

@@ -50,7 +50,7 @@ The **backend of the core loop is mostly in place**, and several frontend paths 
 - Public directory and profile APIs
 - Signup / login / accountant onboarding (first-time, same browser)
 - Start inquiry from profile/service after login
-- Chat list + conversation + WebSocket replies (when Daphne/Redis are running)
+- Chat list + conversation + WebSocket replies (when Daphne/Redis are running). Failed send no longer looks delivered.
 - Request consultation, accept/decline, `/bookings` for both roles
 - My Services list with edit
 - Service ownership checks
@@ -105,12 +105,12 @@ What is **not** feature-complete: accountants cannot add or delete extra service
 
 | Feature | Status | Priority | Evidence |
 | --- | --- | --- | --- |
-| Dashboard landing | `PARTIAL` | P0 | `/dashboard/accountant` → `AccountantDashboard.tsx`. **Login-gated**; incomplete profiles → onboarding; no profile → client dashboard. Recent inquiries (first 5) + cards. No loading/error (failed fetch looks like “No inquiries yet”). |
+| Dashboard landing | `DONE` | P0 | `/dashboard/accountant` → `AccountantDashboard.tsx`. **Login-gated**; incomplete profiles → onboarding; no profile → client dashboard. Recent inquiries (first 5) + cards. Loading, empty, and error states. |
 | Profile card / link | `DONE` | P0 | Dashboard card and header **My profile** → `/dashboard/profile`. Public listing link on the edit page. |
 | My Services card | `DONE` | P0 | Links to `/dashboard/services`. Label is “View **and edit** your listings.” |
 | Inbox card | `DONE` | P0 | Links to `/chat`. |
 | Consultations card | `DONE` | P0 | Links to `/bookings`. |
-| Incoming inquiries | `PARTIAL` | P0 | List is wired; empty vs error is indistinguishable. |
+| Incoming inquiries | `DONE` | P0 | Recent inquiries list. Empty copy only after a successful fetch. Failed fetch shows an error. Tests in `AccountantDashboard.test.js`. |
 
 ### 5. Accountant profile management
 
@@ -144,11 +144,11 @@ What is **not** feature-complete: accountants cannot add or delete extra service
 | --- | --- | --- | --- |
 | Client sends inquiry from profile/service | `DONE` | P0 | `startConversation` → `POST /api/inquiries/`. Client from `request.user`. Reuses open inquiry. |
 | Client sees conversation | `DONE` | P0 | Navigate to `/chat/:inquiryId`. History via `GET /api/inquiries/:id/`. |
-| Accountant receives / opens / replies | `PARTIAL` | P0 | Dashboard + `/chat` list. Reply is WebSocket-only (`useChatSocket` → `ws://127.0.0.1:8000/...`). Works **locally** with Daphne + Redis/memory. HTTP `POST .../messages/` is unused. Optimistic bubble still shows if the socket is not open. |
+| Accountant receives / opens / replies | `PARTIAL` | P0 | Dashboard + `/chat` list. Reply is WebSocket-only (`useChatSocket` → `ws://127.0.0.1:8000/...`). Works **locally** with Daphne + Redis/memory. HTTP `POST .../messages/` is unused. Failed send does not add a bubble. |
 | Client sees reply | `DONE` | P0 | Same socket / history refresh, assuming WS is up. |
 | Permissions | `DONE` | P0 | Participant queryset → outsider 404. WS outsider close 4003. |
 | Chat when logged out | `DONE` | P0 | `RequireAuth` on `/chat` redirects to login with `next`. `ChatLayout` still no-ops without a token if reached another way. |
-| Empty / error states | `PARTIAL` | P1 | Inbox can be empty for the right reason. Dashboard errors look like empty. |
+| Empty / error states | `DONE` | P1 | Inbox and dashboard distinguish empty from a failed fetch. |
 | Close inquiry UI | `DEFER` | P2 | |
 
 For Phase 1, keep WebSocket send locally. Add login redirect on `/chat` and do not treat failed WS sends as success. HTTP fallback is P1 (helps when Redis is down). Moving WS off localhost is Phase 2.
@@ -203,7 +203,7 @@ Unknown URLs currently render Home (`App.js` `path="*"`). Custom 404 is P2.
 
 ## Phase 1 P0 gaps (product only)
 
-1. **Service detail error state never leaves “Loading…”.** Chat send can look successful when the socket is down.
+1. **Service detail error state never leaves “Loading…”.**
 
 ---
 
@@ -219,7 +219,7 @@ Work **vertical product slices**. Do not start Phase 2 items in this list. Order
 | 4 | Client experience | Find-professional CTA hits service catalog | `DONE` | P0 | `ClientDashboard.tsx`; `ClientDashboard.test.js` | Primary CTA goes to `/accountants`. Raw `user_id` card removed. |
 | 5 | Accountant profile | No view/edit after complete | `DONE` | P0 | `AccountantProfileEdit.tsx`; header + dashboard links | `/dashboard/profile` loads `GET /accountants/me/` and saves via `POST /accountants/create/`. Public listing uses the same name/firm fields. |
 | 6 | Services | My Services is read-only | `DONE` | P0 | `MyServices.tsx` + `updateMyService`; dashboard copy | Edit name/description (and price if shown) for owned services. Create/delete still P1. |
-| 7 | Messaging | Failed WS looks sent; dashboard empty vs error | `PARTIAL` | P0 | `ChatLayout.tsx`; `ConversationView.tsx` `sendMessage` | Login redirect for `/chat` is done (`RequireAuth`). Do not append optimistic rows unless send succeeded. Dashboard inquiry fetch: real empty vs error. |
+| 7 | Messaging | Failed WS looks sent; dashboard empty vs error | `DONE` | P0 | `useChatSocket` returns send success; `ConversationView.tsx`; dashboard + inbox error states | Failed WS send keeps the draft and shows an error (no fake bubble). Inquiry fetch empty vs error on dashboard and inbox. HTTP fallback still P1. |
 | 8 | Marketplace | Service detail infinite loading | `BROKEN` | P0 | `ServiceDetail.tsx` catch leaves “Loading…” | Failed fetch → error + back to profile/directory. |
 | 9 | Signup UX | Verify required; UI dumps user on login | `PARTIAL` | P1 | `Signup.tsx` navigates to login; console mail | After signup, show “Open the verify link from the Django console, then log in” while keeping `next` / intent. Not SMTP. |
 | 10 | Services | Add a second listing | `NOT_STARTED` | P1 | `POST /services/` unused by UI | Create form on My Services after edit exists. |
