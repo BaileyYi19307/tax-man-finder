@@ -52,10 +52,10 @@ The **backend of the core loop is mostly in place**, and several frontend paths 
 - Start inquiry from profile/service after login
 - Chat list + conversation + WebSocket replies (when Daphne/Redis are running)
 - Request consultation, accept/decline, `/bookings` for both roles
-- My Services list (read-only)
+- My Services list with edit
 - Service ownership checks
 
-What is **not** feature-complete: accountants cannot edit a service from the UI, and the My Services card still says “manage.” The public directory shows names for complete profiles only. Shared header + logout exist on main app pages. Returning complete accountants log in to `/dashboard/accountant`. Client dashboard “Find a Tax Professional” goes to `/accountants`. Accountants can view/edit their profile at `/dashboard/profile`.
+What is **not** feature-complete: accountants cannot add or delete extra services from the UI. The public directory shows names for complete profiles only. Shared header + logout exist on main app pages. Returning complete accountants log in to `/dashboard/accountant`. Client dashboard “Find a Tax Professional” goes to `/accountants`. Accountants can view/edit their profile at `/dashboard/profile` and edit an existing service from My Services.
 
 **Assessment:** core flows are **partially wired**. Not early, not feature-complete locally.
 
@@ -107,7 +107,7 @@ What is **not** feature-complete: accountants cannot edit a service from the UI,
 | --- | --- | --- | --- |
 | Dashboard landing | `PARTIAL` | P0 | `/dashboard/accountant` → `AccountantDashboard.tsx`. **Login-gated**; incomplete profiles → onboarding; no profile → client dashboard. Recent inquiries (first 5) + cards. No loading/error (failed fetch looks like “No inquiries yet”). |
 | Profile card / link | `DONE` | P0 | Dashboard card and header **My profile** → `/dashboard/profile`. Public listing link on the edit page. |
-| My Services card | `PARTIAL` | P0 | Links to `/dashboard/services` (real list). Label “View **and manage** your listings” overpromises — list is read-only. |
+| My Services card | `DONE` | P0 | Links to `/dashboard/services`. Label is “View **and edit** your listings.” |
 | Inbox card | `DONE` | P0 | Links to `/chat`. |
 | Consultations card | `DONE` | P0 | Links to `/bookings`. |
 | Incoming inquiries | `PARTIAL` | P0 | List is wired; empty vs error is indistinguishable. |
@@ -132,7 +132,7 @@ What is **not** feature-complete: accountants cannot edit a service from the UI,
 | My Services list (owned only) | `DONE` | P0 | `GET /services/mine/` + `MyServices.tsx`. Tests in `services/tests.py` and `MyServices.test.js`. Login redirect exists. |
 | Ownership authorization | `DONE` | P0 | `IsServiceOwner`; create binds `request.user`; serializer `accountant` read-only. Tests cover spoofed owner and other-accountant PATCH/DELETE. |
 | Create additional service UI | `NOT_STARTED` | P1 | API `POST /services/` exists. First service from onboarding is enough for a one-listing MVP. |
-| Edit service UI | `NOT_STARTED` | P0 | PATCH exists. Without edit, a typo in the onboarding service is permanent in the product. |
+| Edit service UI | `DONE` | P0 | `MyServices.tsx` Edit form PATCHes name/description (and indicative price when shown). Tests: `MyServices.test.js`. Create/delete still P1. |
 | Delete / deactivate UI | `NOT_STARTED` | P1 | DELETE/PATCH `is_active` exist. Defer unless an accountant ships a bad listing they must hide. Filter public catalog to `is_active=True` if deactivation is added. |
 | Public catalog vs My Services | `DONE` | P1 | They are separate routes. Keep it that way. Point clients at `/accountants`, not `/services`. |
 
@@ -203,8 +203,7 @@ Unknown URLs currently render Home (`App.js` `path="*"`). Custom 404 is P2.
 
 ## Phase 1 P0 gaps (product only)
 
-1. **Accountant cannot edit the service created at onboarding** (My Services is list-only; card says “manage”).
-2. **Service detail error state never leaves “Loading…”.** Chat send can look successful when the socket is down.
+1. **Service detail error state never leaves “Loading…”.** Chat send can look successful when the socket is down.
 
 ---
 
@@ -219,7 +218,7 @@ Work **vertical product slices**. Do not start Phase 2 items in this list. Order
 | 3 | Marketplace | Directory/profile show email; list incomplete | `DONE` | P0 | `PublicAccountantDirectoryView`; `displayName.ts`; `AccountantsDirectory.tsx`; `AccountantProfile.tsx` | Directory lists complete profiles only. Public title is name (firm fallback). Firm + location shown. Back to `/accountants`. Inbox link logged-in only. |
 | 4 | Client experience | Find-professional CTA hits service catalog | `DONE` | P0 | `ClientDashboard.tsx`; `ClientDashboard.test.js` | Primary CTA goes to `/accountants`. Raw `user_id` card removed. |
 | 5 | Accountant profile | No view/edit after complete | `DONE` | P0 | `AccountantProfileEdit.tsx`; header + dashboard links | `/dashboard/profile` loads `GET /accountants/me/` and saves via `POST /accountants/create/`. Public listing uses the same name/firm fields. |
-| 6 | Services | My Services is read-only | `NOT_STARTED` | P0 | `MyServices.tsx` list + public detail only; PATCH already authorized | Edit name/description (and price if shown) for owned services. Fix dashboard copy so it matches. Create/delete still P1. |
+| 6 | Services | My Services is read-only | `DONE` | P0 | `MyServices.tsx` + `updateMyService`; dashboard copy | Edit name/description (and price if shown) for owned services. Create/delete still P1. |
 | 7 | Messaging | Failed WS looks sent; dashboard empty vs error | `PARTIAL` | P0 | `ChatLayout.tsx`; `ConversationView.tsx` `sendMessage` | Login redirect for `/chat` is done (`RequireAuth`). Do not append optimistic rows unless send succeeded. Dashboard inquiry fetch: real empty vs error. |
 | 8 | Marketplace | Service detail infinite loading | `BROKEN` | P0 | `ServiceDetail.tsx` catch leaves “Loading…” | Failed fetch → error + back to profile/directory. |
 | 9 | Signup UX | Verify required; UI dumps user on login | `PARTIAL` | P1 | `Signup.tsx` navigates to login; console mail | After signup, show “Open the verify link from the Django console, then log in” while keeping `next` / intent. Not SMTP. |

@@ -1,10 +1,12 @@
 import { MemoryRouter } from "react-router-dom";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import MyServices from "./MyServices";
-import { getMyServices } from "../../api/client";
+import { getMyServices, updateMyService } from "../../api/client";
 
 jest.mock("../../api/client", () => ({
   getMyServices: jest.fn(),
+  updateMyService: jest.fn(),
 }));
 
 jest.mock("../../auth/intent", () => ({
@@ -14,6 +16,7 @@ jest.mock("../../auth/intent", () => ({
 beforeEach(() => {
   localStorage.clear();
   getMyServices.mockReset();
+  updateMyService.mockReset();
 });
 
 test("My Services calls the authenticated own-services API", async () => {
@@ -59,6 +62,51 @@ test("only returned own-service rows are rendered", async () => {
     "href",
     "/services/7"
   );
+});
+
+test("accountant can edit name and description of an owned service", async () => {
+  localStorage.setItem("access_token", "token");
+  getMyServices.mockResolvedValue([
+    {
+      id: 7,
+      name: "My Returns",
+      description: "Owned by this accountant",
+      pricing_type: "consultation_required",
+      indicative_price: null,
+    },
+  ]);
+  updateMyService.mockResolvedValue({
+    id: 7,
+    name: "Updated Returns",
+    description: "Corrected description",
+    pricing_type: "consultation_required",
+    indicative_price: null,
+  });
+
+  render(
+    <MemoryRouter>
+      <MyServices />
+    </MemoryRouter>
+  );
+
+  expect(await screen.findByText("My Returns")).toBeInTheDocument();
+  userEvent.click(screen.getByRole("button", { name: "Edit" }));
+  const nameInput = await screen.findByDisplayValue("My Returns");
+  const descriptionInput = screen.getByDisplayValue("Owned by this accountant");
+  userEvent.clear(nameInput);
+  userEvent.type(nameInput, "Updated Returns");
+  userEvent.clear(descriptionInput);
+  userEvent.type(descriptionInput, "Corrected description");
+  userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  await waitFor(() => {
+    expect(updateMyService).toHaveBeenCalledWith(7, {
+      name: "Updated Returns",
+      description: "Corrected description",
+    });
+  });
+  expect(await screen.findByText("Updated Returns")).toBeInTheDocument();
+  expect(screen.getByText("Corrected description")).toBeInTheDocument();
 });
 
 test("empty state works", async () => {

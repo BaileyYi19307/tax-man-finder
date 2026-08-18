@@ -206,4 +206,22 @@ export async function getMyServices() {
   return (await res.json()) as CatalogService[];
 }
 
+export async function updateMyService(
+  serviceId: number,
+  body: {
+    name: string;
+    description: string;
+    pricing_type?: CatalogService["pricing_type"];
+    indicative_price?: string | null;
+  }
+) {
+  const res = await apiFetch(`/services/${serviceId}/`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(text || "Failed to update service");
+  return JSON.parse(text) as CatalogService;
+}
+
 export { API_BASE };
