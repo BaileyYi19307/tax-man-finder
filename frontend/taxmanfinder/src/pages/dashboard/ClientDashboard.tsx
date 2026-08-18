@@ -1,10 +1,6 @@
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 export default function ClientDashboard() {
-    const navigate = useNavigate();
-
-    const user_id = localStorage.getItem("user_id");
-
     return (
         <div
             style={{
@@ -74,9 +70,10 @@ export default function ClientDashboard() {
                         Browse available accountants and request consultations.
                     </p>
 
-                    <button
-                        onClick={() => navigate("/services")}
+                    <Link
+                        to="/accountants"
                         style={{
+                            display: "inline-block",
                             padding: "12px 18px",
                             borderRadius: "10px",
                             border: "none",
@@ -85,10 +82,11 @@ export default function ClientDashboard() {
                             cursor: "pointer",
                             fontSize: "15px",
                             fontWeight: 600,
+                            textDecoration: "none",
                         }}
                     >
-                        Browse Services
-                    </button>
+                        Browse accountants
+                    </Link>
                 </div>
 
                 {/* Dashboard Cards */}
@@ -218,48 +216,6 @@ export default function ClientDashboard() {
                         >
                             Join as a tax professional →
                         </Link>
-                    </div>
-
-                    {/* Account */}
-                    <div
-                        style={{
-                            backgroundColor: "white",
-                            border: "1px solid #e5e5e5",
-                            borderRadius: "16px",
-                            padding: "24px",
-                        }}
-                    >
-                        <h3
-                            style={{
-                                marginBottom: "10px",
-                                fontSize: "18px",
-                            }}
-                        >
-                            Account
-                        </h3>
-
-                        <p
-                            style={{
-                                color: "#666",
-                                lineHeight: 1.5,
-                                fontSize: "14px",
-                                marginBottom: "16px",
-                            }}
-                        >
-                            Logged in as user:
-                        </p>
-
-                        <div
-                            style={{
-                                backgroundColor: "#f3f3f3",
-                                padding: "10px 12px",
-                                borderRadius: "8px",
-                                fontSize: "13px",
-                                wordBreak: "break-all",
-                            }}
-                        >
-                            {user_id || "No user found"}
-                        </div>
                     </div>
                 </div>
             </div>

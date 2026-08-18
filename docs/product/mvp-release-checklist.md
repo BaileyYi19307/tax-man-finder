@@ -55,7 +55,7 @@ The **backend of the core loop is mostly in place**, and several frontend paths 
 - My Services list (read-only)
 - Service ownership checks
 
-What is **not** feature-complete: accountants cannot edit a completed profile or a service from the UI, client “Find a Tax Professional” still goes to `/services`, and several cards over-promise (“manage your listings”). The public directory shows names for complete profiles only. Shared header + logout exist on main app pages. Returning complete accountants log in to `/dashboard/accountant`.
+What is **not** feature-complete: accountants cannot edit a completed profile or a service from the UI, and several cards over-promise (“manage your listings”). The public directory shows names for complete profiles only. Shared header + logout exist on main app pages. Returning complete accountants log in to `/dashboard/accountant`. Client dashboard “Find a Tax Professional” goes to `/accountants`.
 
 **Assessment:** core flows are **partially wired**. Not early, not feature-complete locally.
 
@@ -73,7 +73,7 @@ What is **not** feature-complete: accountants cannot edit a completed profile or
 | Hide incomplete profiles | `DONE` | P0 | Completeness is `bio` + `credentials` + ≥1 active service (`AccountantProfile.is_complete`). Directory filters with `profile.is_complete`. Direct `/accountants/:userId` still returns an existing profile. |
 | Services on profile | `DONE` | P0 | Active services only (`id`, `name`) with empty copy. Test: `test_public_profile_lists_active_services`. |
 | Service detail (`/services/:id`) | `PARTIAL` | P0 | `ServiceDetail.tsx` + `AllowAny` retrieve. Message / consult work. Failed fetch stays on **“Loading…”** (`BROKEN` error path). |
-| Public service catalog (`/services`) | `PARTIAL` | P1 | Exists; client dashboard primary CTA goes here instead of `/accountants`. Includes inactive rows. Discovery for MVP is the **accountant directory**, not this catalog. |
+| Public service catalog (`/services`) | `PARTIAL` | P1 | Exists; includes inactive rows. Discovery for MVP is the **accountant directory**, not this catalog. Client dashboard CTA now goes to `/accountants`. |
 | Search / filters | `DEFER` | P2 | Not needed for a small local directory. |
 | Empty / error / loading | `PARTIAL` | P0 | Directory has loading/empty/error. Service list has none; service detail error is broken. |
 
@@ -95,10 +95,10 @@ What is **not** feature-complete: accountants cannot edit a completed profile or
 
 | Feature | Status | Priority | Evidence |
 | --- | --- | --- | --- |
-| Client home | `PARTIAL` | P0 | `/dashboard/client` → `ClientDashboard.tsx`. Static cards. **Login-gated** (`RequireAuth`). Primary CTA “Browse Services” → `/services` (wrong discovery surface). Account card shows raw `user_id`. |
+| Client home | `DONE` | P0 | `/dashboard/client` → `ClientDashboard.tsx`. Static cards. **Login-gated** (`RequireAuth`). Primary CTA **Browse accountants** → `/accountants`. Raw `user_id` card removed. Test: `ClientDashboard.test.js`. |
 | Sent inquiries / conversations | `PARTIAL` | P0 | Messages card → `/chat`. List works if a token exists. Unauthenticated `/chat` redirects to login with `next`. |
 | Consultation / booking status | `DONE` | P0 | Bookings card → `/bookings` (`BookingsPage.tsx`) with login redirect, list, status, cancel. |
-| Navigate to accountant discovery | `BROKEN` | P0 | Copy says “Find a Tax Professional”; button goes to the service catalog. |
+| Navigate to accountant discovery | `DONE` | P0 | Find a Tax Professional CTA links to `/accountants`. |
 | Client profile onboarding | `DEFER` | P2 | Not required. Do not invent a `ClientProfile`. |
 
 ### 4. Accountant dashboard
@@ -205,8 +205,7 @@ Unknown URLs currently render Home (`App.js` `path="*"`). Custom 404 is P2.
 
 1. **Accountant cannot view or edit their profile after onboarding is complete.**
 2. **Accountant cannot edit the service created at onboarding** (My Services is list-only; card says “manage”).
-3. **Client “Find a Tax Professional” goes to `/services`.**
-4. **Service detail error state never leaves “Loading…”.** Chat send can look successful when the socket is down.
+3. **Service detail error state never leaves “Loading…”.** Chat send can look successful when the socket is down.
 
 ---
 
@@ -219,7 +218,7 @@ Work **vertical product slices**. Do not start Phase 2 items in this list. Order
 | 1 | Navigation | Shared header + logout | `DONE` | P0 | `AppHeader.tsx`, `AuthProvider.tsx`, `auth/session.ts`; tests `AppHeader.test.js`, `Home.test.js` | Header on main app routes. Logout clears session keys and returns to `/`. Home no longer shows Log in/Sign up when authenticated. |
 | 2 | Auth routing | Returning accountant → `/dashboard/client` | `DONE` | P0 | `intent.ts` `resolvePostAuthPath`; `RequireAuth.tsx`; `Login.tsx` profile flags | Complete accountant → `/dashboard/accountant`. Incomplete profile → onboarding. Message `next` still wins. `/dashboard/*` and `/chat` login-gated. |
 | 3 | Marketplace | Directory/profile show email; list incomplete | `DONE` | P0 | `PublicAccountantDirectoryView`; `displayName.ts`; `AccountantsDirectory.tsx`; `AccountantProfile.tsx` | Directory lists complete profiles only. Public title is name (firm fallback). Firm + location shown. Back to `/accountants`. Inbox link logged-in only. |
-| 4 | Client experience | Find-professional CTA hits service catalog | `BROKEN` | P0 | `ClientDashboard.tsx` navigates to `/services` | Point the primary CTA at `/accountants`. Optional: drop raw `user_id` card. |
+| 4 | Client experience | Find-professional CTA hits service catalog | `DONE` | P0 | `ClientDashboard.tsx`; `ClientDashboard.test.js` | Primary CTA goes to `/accountants`. Raw `user_id` card removed. |
 | 5 | Accountant profile | No view/edit after complete | `NOT_STARTED` | P0 | Onboarding bounces complete profiles; no dashboard link; `POST /accountants/create/` already upserts | Add `/dashboard/profile` (or equivalent): GET me, edit via existing create POST, link from dashboard + header. Public profile must show the same name/firm fields (order 3). |
 | 6 | Services | My Services is read-only | `NOT_STARTED` | P0 | `MyServices.tsx` list + public detail only; PATCH already authorized | Edit name/description (and price if shown) for owned services. Fix dashboard copy so it matches. Create/delete still P1. |
 | 7 | Messaging | Failed WS looks sent; dashboard empty vs error | `PARTIAL` | P0 | `ChatLayout.tsx`; `ConversationView.tsx` `sendMessage` | Login redirect for `/chat` is done (`RequireAuth`). Do not append optimistic rows unless send succeeded. Dashboard inquiry fetch: real empty vs error. |
