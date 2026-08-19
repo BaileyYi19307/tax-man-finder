@@ -52,6 +52,8 @@ export default function ServiceDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const [service, setService] = useState<Service | null>(null);
+  const [fetchLoading, setFetchLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,15 +67,33 @@ export default function ServiceDetail() {
   const token = localStorage.getItem("access_token");
 
   useEffect(() => {
+    let cancelled = false;
+
     async function getService() {
+      setFetchLoading(true);
+      setFetchError(null);
       try {
         const response = await axios.get(`${API_BASE}/services/${serviceId}/`);
-        setService(response.data);
+        if (!cancelled) {
+          setService(response.data);
+        }
       } catch (err) {
-        console.log("error is", err);
+        console.error(err);
+        if (!cancelled) {
+          setService(null);
+          setFetchError("Could not load this service.");
+        }
+      } finally {
+        if (!cancelled) {
+          setFetchLoading(false);
+        }
       }
     }
+
     getService();
+    return () => {
+      cancelled = true;
+    };
   }, [serviceId]);
 
   function openMessageForm() {
@@ -173,7 +193,41 @@ export default function ServiceDetail() {
     }
   }
 
-  if (!service) return <div style={{ padding: 24 }}>Loading…</div>;
+  if (fetchLoading) {
+    return (
+      <div style={page}>
+        <div style={container}>
+          <div style={{ ...muted, fontSize: 14 }}>Loading service…</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (fetchError || !service) {
+    return (
+      <div style={page}>
+        <div style={container}>
+          <div style={{ color: "#b91c1c", marginBottom: 12, fontSize: 14 }}>
+            {fetchError || "This service could not be found."}
+          </div>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <Link
+              to="/accountants"
+              style={{ fontSize: 13, color: "#2563eb", textDecoration: "none", fontWeight: 600 }}
+            >
+              Browse tax professionals
+            </Link>
+            <Link
+              to="/services"
+              style={{ fontSize: 13, color: "#2563eb", textDecoration: "none", fontWeight: 600 }}
+            >
+              Back to services
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={page}>

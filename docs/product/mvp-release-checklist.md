@@ -57,7 +57,7 @@ The **backend of the core loop is mostly in place**, and several frontend paths 
 
 What is **not** feature-complete: accountants cannot add or delete extra services from the UI. The public directory shows names for complete profiles only. Shared header + logout exist on main app pages. Returning complete accountants log in to `/dashboard/accountant`. Client dashboard “Find a Tax Professional” goes to `/accountants`. Accountants can view/edit their profile at `/dashboard/profile` and edit an existing service from My Services.
 
-**Assessment:** core flows are **partially wired**. Not early, not feature-complete locally.
+**Assessment:** core flows are **mostly wired locally**. Remaining Phase 1 work is mostly P1 polish (signup verify screen, extra service create, HTTP chat fallback).
 
 ---
 
@@ -72,10 +72,10 @@ What is **not** feature-complete: accountants cannot add or delete extra service
 | Real name / firm / location (not email) | `DONE` | P0 | `displayName.ts`. Email stays in the API payload but is not used as the public title. |
 | Hide incomplete profiles | `DONE` | P0 | Completeness is `bio` + `credentials` + ≥1 active service (`AccountantProfile.is_complete`). Directory filters with `profile.is_complete`. Direct `/accountants/:userId` still returns an existing profile. |
 | Services on profile | `DONE` | P0 | Active services only (`id`, `name`) with empty copy. Test: `test_public_profile_lists_active_services`. |
-| Service detail (`/services/:id`) | `PARTIAL` | P0 | `ServiceDetail.tsx` + `AllowAny` retrieve. Message / consult work. Failed fetch stays on **“Loading…”** (`BROKEN` error path). |
+| Service detail (`/services/:id`) | `DONE` | P0 | `ServiceDetail.tsx` + `AllowAny` retrieve. Message / consult work. Failed fetch shows an error with links back to `/accountants` and `/services`. Tests: `ServiceDetail.test.js`. |
 | Public service catalog (`/services`) | `PARTIAL` | P1 | Exists; includes inactive rows. Discovery for MVP is the **accountant directory**, not this catalog. Client dashboard CTA now goes to `/accountants`. |
 | Search / filters | `DEFER` | P2 | Not needed for a small local directory. |
-| Empty / error / loading | `PARTIAL` | P0 | Directory has loading/empty/error. Service list has none; service detail error is broken. |
+| Empty / error / loading | `PARTIAL` | P0 | Directory has loading/empty/error. Service detail has loading/error. Service list has none. |
 
 ### 2. Authentication and product routing
 
@@ -203,7 +203,7 @@ Unknown URLs currently render Home (`App.js` `path="*"`). Custom 404 is P2.
 
 ## Phase 1 P0 gaps (product only)
 
-1. **Service detail error state never leaves “Loading…”.**
+None. Remaining backlog items are P1 or deferred.
 
 ---
 
@@ -220,7 +220,7 @@ Work **vertical product slices**. Do not start Phase 2 items in this list. Order
 | 5 | Accountant profile | No view/edit after complete | `DONE` | P0 | `AccountantProfileEdit.tsx`; header + dashboard links | `/dashboard/profile` loads `GET /accountants/me/` and saves via `POST /accountants/create/`. Public listing uses the same name/firm fields. |
 | 6 | Services | My Services is read-only | `DONE` | P0 | `MyServices.tsx` + `updateMyService`; dashboard copy | Edit name/description (and price if shown) for owned services. Create/delete still P1. |
 | 7 | Messaging | Failed WS looks sent; dashboard empty vs error | `DONE` | P0 | `useChatSocket` returns send success; `ConversationView.tsx`; dashboard + inbox error states | Failed WS send keeps the draft and shows an error (no fake bubble). Inquiry fetch empty vs error on dashboard and inbox. HTTP fallback still P1. |
-| 8 | Marketplace | Service detail infinite loading | `BROKEN` | P0 | `ServiceDetail.tsx` catch leaves “Loading…” | Failed fetch → error + back to profile/directory. |
+| 8 | Marketplace | Service detail infinite loading | `DONE` | P0 | `ServiceDetail.tsx` fetch loading/error | Failed fetch → error + links to `/accountants` and `/services`. |
 | 9 | Signup UX | Verify required; UI dumps user on login | `PARTIAL` | P1 | `Signup.tsx` navigates to login; console mail | After signup, show “Open the verify link from the Django console, then log in” while keeping `next` / intent. Not SMTP. |
 | 10 | Services | Add a second listing | `NOT_STARTED` | P1 | `POST /services/` unused by UI | Create form on My Services after edit exists. |
 | 11 | Messaging | HTTP send unused | `PARTIAL` | P1 | `POST /api/inquiries/<id>/messages/` | Fallback when WS is not `OPEN` so local chat still works without Redis. |
