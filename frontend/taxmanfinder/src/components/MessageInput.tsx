@@ -5,15 +5,16 @@ import { useState } from "react";
 export default function MessageInput({
   onSend,
 }: {
-  onSend: (t: string) => boolean | void;
+  onSend: (t: string) => boolean | void | Promise<boolean | void>;
 }) {
     const [text, setText] = useState("");
   
     function handleSubmit(e: React.FormEvent) {
       e.preventDefault();
       if (!text.trim()) return;
-      const sent = onSend(text);
-      if (sent !== false) setText("");
+      void Promise.resolve(onSend(text)).then((sent) => {
+        if (sent !== false) setText("");
+      });
     }
   
     return (

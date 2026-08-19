@@ -9,6 +9,7 @@ import {
   cancelBooking,
   declineBooking,
   listInquiryBookings,
+  sendInquiryMessage,
   type Booking,
 } from "../../../api/client";
 
@@ -68,29 +69,46 @@ export default function ConversationView() {
     handleSocketClose
   );
 
-  function handleSend(text: string) {
+  async function handleSend(text: string) {
     const trimmed = text.trim();
     if (!trimmed) return false;
     if (inquiryStatus === "closed") {
       setActionError("This inquiry is closed. New messages were not sent.");
       return false;
     }
-    const sent = sendMessage(trimmed);
-    if (!sent) {
-      setActionError("Message was not sent. Chat is not connected.");
+
+    if (sendMessage(trimmed)) {
+      setActionError(null);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          content: trimmed,
+          sender_id: currentUserId,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+      return true;
+    }
+
+    try {
+      setActionError(null);
+      const created = await sendInquiryMessage(inquiryId!, trimmed);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: created.message_id,
+          content: trimmed,
+          sender_id: currentUserId,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+      return true;
+    } catch (e) {
+      console.error(e);
+      setActionError("Message was not sent. Please try again.");
       return false;
     }
-    setActionError(null);
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        content: trimmed,
-        sender_id: currentUserId,
-        created_at: new Date().toISOString(),
-      },
-    ]);
-    return true;
   }
 
   async function refreshBookings() {

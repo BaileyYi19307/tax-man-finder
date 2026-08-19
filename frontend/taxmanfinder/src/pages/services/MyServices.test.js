@@ -2,11 +2,12 @@ import { MemoryRouter } from "react-router-dom";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MyServices from "./MyServices";
-import { getMyServices, updateMyService } from "../../api/client";
+import { getMyServices, updateMyService, createMyService } from "../../api/client";
 
 jest.mock("../../api/client", () => ({
   getMyServices: jest.fn(),
   updateMyService: jest.fn(),
+  createMyService: jest.fn(),
 }));
 
 jest.mock("../../auth/intent", () => ({
@@ -17,6 +18,7 @@ beforeEach(() => {
   localStorage.clear();
   getMyServices.mockReset();
   updateMyService.mockReset();
+  createMyService.mockReset();
 });
 
 test("My Services calls the authenticated own-services API", async () => {
@@ -122,4 +124,49 @@ test("empty state works", async () => {
   expect(
     await screen.findByText("You have not listed any services yet.")
   ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Add service" })).toBeInTheDocument();
+});
+
+test("accountant can create an additional service", async () => {
+  localStorage.setItem("access_token", "token");
+  getMyServices.mockResolvedValue([
+    {
+      id: 7,
+      name: "My Returns",
+      description: "Owned by this accountant",
+      pricing_type: "consultation_required",
+      indicative_price: null,
+    },
+  ]);
+  createMyService.mockResolvedValue({
+    id: 8,
+    name: "Business taxes",
+    description: "S-corp and partnership returns",
+    pricing_type: "consultation_required",
+    indicative_price: null,
+  });
+
+  render(
+    <MemoryRouter>
+      <MyServices />
+    </MemoryRouter>
+  );
+
+  expect(await screen.findByText("My Returns")).toBeInTheDocument();
+  userEvent.click(screen.getByRole("button", { name: "Add service" }));
+  expect(await screen.findByText("New service")).toBeInTheDocument();
+  const nameInput = screen.getAllByRole("textbox")[0];
+  const descriptionInput = screen.getAllByRole("textbox")[1];
+  userEvent.type(nameInput, "Business taxes");
+  userEvent.type(descriptionInput, "S-corp and partnership returns");
+  userEvent.click(screen.getByRole("button", { name: "Create service" }));
+
+  await waitFor(() => {
+    expect(createMyService).toHaveBeenCalledWith({
+      name: "Business taxes",
+      description: "S-corp and partnership returns",
+      pricing_type: "consultation_required",
+    });
+  });
+  expect(await screen.findByText("Business taxes")).toBeInTheDocument();
 });

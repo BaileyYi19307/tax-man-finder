@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getMyServices, updateMyService } from "../../api/client";
+import { getMyServices, updateMyService, createMyService } from "../../api/client";
 import { loginPath } from "../../auth/intent";
 import { formatServicePrice, type CatalogService } from "./serviceDisplay";
 
@@ -42,11 +42,15 @@ export default function MyServices() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
+  const [createName, setCreateName] = useState("");
+  const [createDescription, setCreateDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -79,6 +83,45 @@ export default function MyServices() {
   function cancelEdit() {
     setEditingId(null);
     setSaveError(null);
+  }
+
+  function startCreate() {
+    setShowCreateForm(true);
+    setEditingId(null);
+    setCreateName("");
+    setCreateDescription("");
+    setCreateError(null);
+  }
+
+  function cancelCreate() {
+    setShowCreateForm(false);
+    setCreateError(null);
+  }
+
+  async function saveCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!createName.trim() || !createDescription.trim()) {
+      setCreateError("Name and description are required.");
+      return;
+    }
+    setSaving(true);
+    setCreateError(null);
+    try {
+      const created = await createMyService({
+        name: createName.trim(),
+        description: createDescription.trim(),
+        pricing_type: "consultation_required",
+      });
+      setServices((rows) => [...rows, created].sort((a, b) => a.name.localeCompare(b.name)));
+      setShowCreateForm(false);
+      setCreateName("");
+      setCreateDescription("");
+    } catch (err) {
+      console.error(err);
+      setCreateError("Could not create this service. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function saveEdit(service: CatalogService) {
@@ -121,17 +164,85 @@ export default function MyServices() {
           My Services
         </div>
         <div style={{ ...muted, fontSize: 13, marginTop: 4, marginBottom: 16 }}>
-          Edit the services listed on your public profile.
+          Manage the services listed on your public profile.
         </div>
+
+        {!loading && !error && (
+          <div style={{ marginBottom: 16 }}>
+            {!showCreateForm ? (
+              <button
+                type="button"
+                onClick={startCreate}
+                disabled={editingId !== null}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: editingId !== null ? "#93c5fd" : "#2563eb",
+                  color: "#fff",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: editingId !== null ? "not-allowed" : "pointer",
+                }}
+              >
+                Add service
+              </button>
+            ) : (
+              <form
+                onSubmit={saveCreate}
+                style={{ ...card, display: "grid", gap: 10, marginBottom: 0 }}
+              >
+                <div style={{ fontWeight: 700, color: "#111827" }}>New service</div>
+                <label style={{ fontSize: 13, color: "#111827" }}>
+                  Name
+                  <input
+                    value={createName}
+                    onChange={(e) => setCreateName(e.target.value)}
+                    required
+                    style={{ ...field, marginTop: 6 }}
+                  />
+                </label>
+                <label style={{ fontSize: 13, color: "#111827" }}>
+                  Description
+                  <textarea
+                    value={createDescription}
+                    onChange={(e) => setCreateDescription(e.target.value)}
+                    required
+                    rows={3}
+                    style={{ ...field, marginTop: 6, resize: "vertical" }}
+                  />
+                </label>
+                {createError && (
+                  <div style={{ color: "#b91c1c", fontSize: 13 }}>{createError}</div>
+                )}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    style={{
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      border: "none",
+                      background: saving ? "#93c5fd" : "#2563eb",
+                      color: "#fff",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: saving ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {saving ? "Creating..." : "Create service"}
+                  </button>
+                  <button type="button" onClick={cancelCreate} disabled={saving}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
 
         {loading && <div style={{ ...muted, fontSize: 13 }}>Loading…</div>}
         {error && <div style={{ color: "#b91c1c", fontSize: 13, marginBottom: 12 }}>{error}</div>}
-
-        {!loading && !error && services.length === 0 && (
-          <div style={{ ...muted, fontSize: 14 }}>
-            You have not listed any services yet.
-          </div>
-        )}
 
         {!loading && !error && services.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
@@ -262,6 +373,12 @@ export default function MyServices() {
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {!loading && !error && services.length === 0 && !showCreateForm && (
+          <div style={{ ...muted, fontSize: 14 }}>
+            You have not listed any services yet.
           </div>
         )}
       </div>

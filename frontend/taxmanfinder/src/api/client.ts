@@ -224,4 +224,32 @@ export async function updateMyService(
   return JSON.parse(text) as CatalogService;
 }
 
+export async function createMyService(body: {
+  name: string;
+  description: string;
+  pricing_type?: CatalogService["pricing_type"];
+  indicative_price?: string | null;
+}) {
+  const res = await apiFetch("/services/", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(text || "Failed to create service");
+  return JSON.parse(text) as CatalogService;
+}
+
+export async function sendInquiryMessage(
+  inquiryId: number | string,
+  content: string
+) {
+  const res = await apiFetch(`/api/inquiries/${inquiryId}/messages/`, {
+    method: "POST",
+    body: JSON.stringify({ content }),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(text || "Failed to send message");
+  return JSON.parse(text) as { message_id: number };
+}
+
 export { API_BASE };
