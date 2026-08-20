@@ -2,12 +2,13 @@ import { MemoryRouter } from "react-router-dom";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MyServices from "./MyServices";
-import { getMyServices, updateMyService, createMyService } from "../../api/client";
+import { getMyServices, updateMyService, createMyService, deactivateMyService } from "../../api/client";
 
 jest.mock("../../api/client", () => ({
   getMyServices: jest.fn(),
   updateMyService: jest.fn(),
   createMyService: jest.fn(),
+  deactivateMyService: jest.fn(),
 }));
 
 jest.mock("../../auth/intent", () => ({
@@ -19,6 +20,7 @@ beforeEach(() => {
   getMyServices.mockReset();
   updateMyService.mockReset();
   createMyService.mockReset();
+  deactivateMyService.mockReset();
 });
 
 test("My Services calls the authenticated own-services API", async () => {
@@ -169,4 +171,43 @@ test("accountant can create an additional service", async () => {
     });
   });
   expect(await screen.findByText("Business taxes")).toBeInTheDocument();
+});
+
+test("accountant can remove a service from their public profile", async () => {
+  localStorage.setItem("access_token", "token");
+  getMyServices.mockResolvedValue([
+    {
+      id: 7,
+      name: "My Returns",
+      description: "Owned by this accountant",
+      pricing_type: "consultation_required",
+      indicative_price: null,
+      is_active: true,
+    },
+  ]);
+  deactivateMyService.mockResolvedValue({
+    id: 7,
+    name: "My Returns",
+    description: "Owned by this accountant",
+    pricing_type: "consultation_required",
+    indicative_price: null,
+    is_active: false,
+  });
+  jest.spyOn(window, "confirm").mockReturnValue(true);
+
+  render(
+    <MemoryRouter>
+      <MyServices />
+    </MemoryRouter>
+  );
+
+  expect(await screen.findByText("My Returns")).toBeInTheDocument();
+  userEvent.click(screen.getByRole("button", { name: "Remove" }));
+
+  await waitFor(() => {
+    expect(deactivateMyService).toHaveBeenCalledWith(7);
+  });
+  expect(await screen.findByText("Hidden")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
+  window.confirm.mockRestore();
 });

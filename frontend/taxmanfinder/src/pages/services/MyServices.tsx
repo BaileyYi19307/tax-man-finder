@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { getMyServices, updateMyService, createMyService } from "../../api/client";
+import {
+  getMyServices,
+  updateMyService,
+  createMyService,
+  deactivateMyService,
+} from "../../api/client";
 import { loginPath } from "../../auth/intent";
 import { formatServicePrice, type CatalogService } from "./serviceDisplay";
 
@@ -51,6 +56,8 @@ export default function MyServices() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<number | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -121,6 +128,30 @@ export default function MyServices() {
       setCreateError("Could not create this service. Please try again.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function removeService(service: CatalogService) {
+    if (
+      !window.confirm(
+        `Remove "${service.name}" from your public profile? Clients will no longer see this service.`
+      )
+    ) {
+      return;
+    }
+    setRemovingId(service.id);
+    setRemoveError(null);
+    try {
+      const updated = await deactivateMyService(service.id);
+      setServices((rows) => rows.map((row) => (row.id === service.id ? updated : row)));
+      if (editingId === service.id) {
+        setEditingId(null);
+      }
+    } catch (err) {
+      console.error(err);
+      setRemoveError("Could not remove this service. Please try again.");
+    } finally {
+      setRemovingId(null);
     }
   }
 
@@ -243,6 +274,9 @@ export default function MyServices() {
 
         {loading && <div style={{ ...muted, fontSize: 13 }}>Loading…</div>}
         {error && <div style={{ color: "#b91c1c", fontSize: 13, marginBottom: 12 }}>{error}</div>}
+        {removeError && (
+          <div style={{ color: "#b91c1c", fontSize: 13, marginBottom: 12 }}>{removeError}</div>
+        )}
 
         {!loading && !error && services.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
@@ -317,57 +351,98 @@ export default function MyServices() {
                       <div style={{ fontSize: 16, fontWeight: 700, color: "#111827" }}>
                         {s.name}
                       </div>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 700,
-                          color: "#111827",
-                          background: "#f3f4f6",
-                          border: "1px solid #e5e7eb",
-                          padding: "4px 8px",
-                          borderRadius: 999,
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {formatServicePrice(s)}
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                        {s.is_active === false && (
+                          <div
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: "#92400e",
+                              background: "#fef3c7",
+                              border: "1px solid #fcd34d",
+                              padding: "4px 8px",
+                              borderRadius: 999,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            Hidden
+                          </div>
+                        )}
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: "#111827",
+                            background: "#f3f4f6",
+                            border: "1px solid #e5e7eb",
+                            padding: "4px 8px",
+                            borderRadius: 999,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {formatServicePrice(s)}
+                        </div>
                       </div>
                     </div>
                     <div style={{ ...muted, fontSize: 13, marginTop: 8, lineHeight: 1.4 }}>
                       {s.description}
                     </div>
                     <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <button
-                        type="button"
-                        onClick={() => startEdit(s)}
-                        style={{
-                          padding: "8px 10px",
-                          borderRadius: 8,
-                          border: "1px solid #e5e7eb",
-                          background: "#fff",
-                          color: "#111827",
-                          fontSize: 13,
-                          fontWeight: 600,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <Link
-                        to={`/services/${s.id}`}
-                        style={{
-                          display: "inline-block",
-                          padding: "8px 10px",
-                          borderRadius: 8,
-                          border: "1px solid #e5e7eb",
-                          background: "#fff",
-                          color: "#111827",
-                          textDecoration: "none",
-                          fontSize: 13,
-                          fontWeight: 600,
-                        }}
-                      >
-                        View details
-                      </Link>
+                      {s.is_active !== false && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => startEdit(s)}
+                            disabled={removingId !== null || showCreateForm}
+                            style={{
+                              padding: "8px 10px",
+                              borderRadius: 8,
+                              border: "1px solid #e5e7eb",
+                              background: "#fff",
+                              color: "#111827",
+                              fontSize: 13,
+                              fontWeight: 600,
+                              cursor:
+                                removingId !== null || showCreateForm ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <Link
+                            to={`/services/${s.id}`}
+                            style={{
+                              display: "inline-block",
+                              padding: "8px 10px",
+                              borderRadius: 8,
+                              border: "1px solid #e5e7eb",
+                              background: "#fff",
+                              color: "#111827",
+                              textDecoration: "none",
+                              fontSize: 13,
+                              fontWeight: 600,
+                            }}
+                          >
+                            View details
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => void removeService(s)}
+                            disabled={removingId === s.id}
+                            style={{
+                              padding: "8px 10px",
+                              borderRadius: 8,
+                              border: "1px solid #fecaca",
+                              background: removingId === s.id ? "#fee2e2" : "#fff",
+                              color: "#b91c1c",
+                              fontSize: 13,
+                              fontWeight: 600,
+                              cursor: removingId === s.id ? "not-allowed" : "pointer",
+                            }}
+                          >
+                            {removingId === s.id ? "Removing..." : "Remove"}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </>
                 )}

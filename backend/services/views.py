@@ -15,6 +15,12 @@ class ServicesViewSet(viewsets.ModelViewSet):
     queryset = Service.objects.all()
     serializer_class = ServiceSerializer
 
+    def get_queryset(self):
+        qs = Service.objects.all()
+        if self.action in ("list", "retrieve"):
+            return qs.filter(is_active=True)
+        return qs
+
     def get_permissions(self):
         if self.action in ["list", "retrieve"]:
             return [AllowAny()]

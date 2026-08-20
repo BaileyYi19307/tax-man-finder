@@ -154,11 +154,29 @@ class ServiceMineAndOwnershipTest(TestCase):
         self.assertEqual(ids, [self.service_b.id])
         self.assertNotIn(self.service_a.id, ids)
 
-    def test_public_catalog_still_returns_all_services(self):
+    def test_public_catalog_excludes_inactive_services(self):
+        self.service_b.is_active = False
+        self.service_b.save(update_fields=["is_active"])
         resp = self.client.get(self.list_url)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         ids = {row["id"] for row in resp.data}
-        self.assertEqual(ids, {self.service_a.id, self.service_b.id})
+        self.assertEqual(ids, {self.service_a.id})
+        self.assertNotIn(self.service_b.id, ids)
+
+    def test_public_retrieve_inactive_service_not_found(self):
+        self.service_a.is_active = False
+        self.service_a.save(update_fields=["is_active"])
+        url = reverse("service-detail", args=[self.service_a.id])
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_accountant_can_deactivate_own_service(self):
+        self.authenticate(self.accountant_a)
+        url = reverse("service-detail", args=[self.service_a.id])
+        resp = self.client.patch(url, {"is_active": False}, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.service_a.refresh_from_db()
+        self.assertFalse(self.service_a.is_active)
 
     def test_accountant_can_update_own_service(self):
         self.authenticate(self.accountant_a)

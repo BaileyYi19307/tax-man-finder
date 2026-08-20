@@ -239,6 +239,16 @@ export async function createMyService(body: {
   return JSON.parse(text) as CatalogService;
 }
 
+export async function deactivateMyService(serviceId: number) {
+  const res = await apiFetch(`/services/${serviceId}/`, {
+    method: "PATCH",
+    body: JSON.stringify({ is_active: false }),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(text || "Failed to deactivate service");
+  return JSON.parse(text) as CatalogService;
+}
+
 export async function sendInquiryMessage(
   inquiryId: number | string,
   content: string
