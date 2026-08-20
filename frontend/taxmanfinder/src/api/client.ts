@@ -167,6 +167,12 @@ export async function listPublicAccountants() {
   return (await res.json()) as AccountantProfilePayload[];
 }
 
+export async function listPublicServices() {
+  const res = await fetch(`${API_BASE}/services/`);
+  if (!res.ok) throw new Error(await res.text());
+  return (await res.json()) as CatalogService[];
+}
+
 export async function getPublicAccountantProfile(userId: number | string) {
   const res = await fetch(`${API_BASE}/accountants/${userId}/`);
   if (!res.ok) throw new Error(await res.text());

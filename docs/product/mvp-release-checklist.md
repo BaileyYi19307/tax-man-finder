@@ -45,19 +45,21 @@ Local email verification may stay on the console backend. Phase 1 does **not** i
 
 ## Current local state
 
-The **backend of the core loop is mostly in place**, and several frontend paths are already wired:
+Phase 1 local MVP is **feature-complete** for the core loop:
 
 - Public directory and profile APIs
-- Signup / login / accountant onboarding (first-time, same browser)
+- Signup / login / accountant onboarding (first-time, same browser). Email verification uses the Django console; no dedicated post-signup screen.
 - Start inquiry from profile/service after login
-- Chat list + conversation + WebSocket replies (when Daphne/Redis are running). Failed send no longer looks delivered.
-- Request consultation, accept/decline, `/bookings` for both roles
-- My Services list with edit
-- Service ownership checks
+- Chat list + conversation + WebSocket replies (when Daphne/Redis are running). Failed send no longer looks delivered. HTTP fallback when WS is down.
+- Request consultation, accept/decline/cancel, `/bookings` for both roles
+- My Services: list, create, edit, remove (deactivate)
+- Service ownership checks; public catalog shows active services only
 
-What is **not** feature-complete: search, password reset, signup verify screen polish, and other deferred items below. Delete remains P1/deferred. The public directory shows names for complete profiles only. Shared header + logout exist on main app pages. Returning complete accountants log in to `/dashboard/accountant`. Client dashboard “Find a Tax Professional” goes to `/accountants`. Accountants can view/edit their profile at `/dashboard/profile` and manage services from My Services.
+**Not in Phase 1:** search, password reset, in-chat consultation form, custom 404, SMTP/hosting (Phase 2).
 
-**Assessment:** core flows are **mostly wired locally**. Remaining Phase 1 work is mostly P1 polish (signup verify screen).
+Shared header + logout exist on main app pages. Returning complete accountants log in to `/dashboard/accountant`. Client dashboard “Find a Tax Professional” goes to `/accountants`. Accountants can view/edit their profile at `/dashboard/profile` and manage services from My Services.
+
+**Assessment:** Phase 1 product work is **complete**. Next milestone is Phase 2 (production readiness) or running the local acceptance test below.
 
 ---
 
@@ -73,9 +75,9 @@ What is **not** feature-complete: search, password reset, signup verify screen p
 | Hide incomplete profiles | `DONE` | P0 | Completeness is `bio` + `credentials` + ≥1 active service (`AccountantProfile.is_complete`). Directory filters with `profile.is_complete`. Direct `/accountants/:userId` still returns an existing profile. |
 | Services on profile | `DONE` | P0 | Active services only (`id`, `name`) with empty copy. Test: `test_public_profile_lists_active_services`. |
 | Service detail (`/services/:id`) | `DONE` | P0 | `ServiceDetail.tsx` + `AllowAny` retrieve. Message / consult work. Failed fetch shows an error with links back to `/accountants` and `/services`. Tests: `ServiceDetail.test.js`. |
-| Public service catalog (`/services`) | `PARTIAL` | P1 | Exists; includes inactive rows. Discovery for MVP is the **accountant directory**, not this catalog. Client dashboard CTA now goes to `/accountants`. |
+| Public service catalog (`/services`) | `DONE` | P1 | `ServicesList.tsx` → `listPublicServices()`; active rows only (`is_active=True` on API). Loading, empty, error states. Tests: `ServicesList.test.js`. Discovery for MVP is still the **accountant directory**. |
 | Search / filters | `DEFER` | P2 | Not needed for a small local directory. |
-| Empty / error / loading | `PARTIAL` | P0 | Directory has loading/empty/error. Service detail has loading/error. Service list has none. |
+| Empty / error / loading | `DONE` | P0 | Directory, service detail, and service list all have loading/empty/error. |
 
 ### 2. Authentication and product routing
 
@@ -89,14 +91,13 @@ What is **not** feature-complete: search, password reset, signup verify screen p
 | Incomplete accountant resumes onboarding | `DONE` | P0 | `GET /accountants/me/` prefills; complete profiles skip to accountant dashboard. Tests in `accountants/tests.py`. |
 | Message / Request consultation `next` | `DONE` | P0 | `loginPath({ next: location.pathname })`. Explicit `next` is not stolen by leftover accountant intent (`intent.test.js`). Composer does not reopen (acceptable). |
 | Password reset | `DEFER` | P2 | Not required to call the local MVP feature-complete. |
-| Check-email after signup | `PARTIAL` | P1 | API says verify; UI goes straight to `/login`, which then fails until the console verify link is clicked. Local console mail is enough for Phase 1; a one-screen “check the server console / email” is polish. SMTP is Phase 2. |
 
 ### 3. Client dashboard / client experience
 
 | Feature | Status | Priority | Evidence |
 | --- | --- | --- | --- |
 | Client home | `DONE` | P0 | `/dashboard/client` → `ClientDashboard.tsx`. Static cards. **Login-gated** (`RequireAuth`). Primary CTA **Browse accountants** → `/accountants`. Raw `user_id` card removed. Test: `ClientDashboard.test.js`. |
-| Sent inquiries / conversations | `PARTIAL` | P0 | Messages card → `/chat`. List works if a token exists. Unauthenticated `/chat` redirects to login with `next`. |
+| Sent inquiries / conversations | `DONE` | P0 | Messages card → `/chat` (`RequireAuth`). Inbox loading/empty/error via `ChatLayout` + `InboxView`. Tests: `ChatLayout.test.js`. |
 | Consultation / booking status | `DONE` | P0 | Bookings card → `/bookings` (`BookingsPage.tsx`) with login redirect, list, status, cancel. |
 | Navigate to accountant discovery | `DONE` | P0 | Find a Tax Professional CTA links to `/accountants`. |
 | Client profile onboarding | `DEFER` | P2 | Not required. Do not invent a `ClientProfile`. |
@@ -136,7 +137,7 @@ What is **not** feature-complete: search, password reset, signup verify screen p
 | Delete / deactivate UI | `DONE` | P1 | `deactivateMyService`; Remove on `MyServices.tsx`. Public list/retrieve only `is_active=True`. |
 | Public catalog vs My Services | `DONE` | P1 | They are separate routes. Keep it that way. Point clients at `/accountants`, not `/services`. |
 
-**Phase 1 minimum:** owned list (done) + **edit** the existing service. Extra create/delete can wait.
+**Phase 1 minimum:** owned list + edit + create + deactivate (all done).
 
 ### 7. Inquiry and messaging
 
@@ -203,7 +204,11 @@ Unknown URLs currently render Home (`App.js` `path="*"`). Custom 404 is P2.
 
 ## Phase 1 P0 gaps (product only)
 
-None. Remaining backlog items are P1 or deferred.
+None.
+
+## Phase 1 product backlog status
+
+All Phase 1 backlog items (orders 1–8, 10–13) are **done**. Orders 14–16 are explicitly deferred to P2 / Phase 2. Post-signup verify screen polish was intentionally skipped; console verification remains the local workflow.
 
 ---
 
@@ -221,7 +226,6 @@ Work **vertical product slices**. Do not start Phase 2 items in this list. Order
 | 6 | Services | My Services is read-only | `DONE` | P0 | `MyServices.tsx` + `updateMyService`; dashboard copy | Edit name/description (and price if shown) for owned services. Create/remove added in items 10 and 13. |
 | 7 | Messaging | Failed WS looks sent; dashboard empty vs error | `DONE` | P0 | `useChatSocket` returns send success; `ConversationView.tsx`; dashboard + inbox error states | Failed WS send keeps the draft and shows an error (no fake bubble). Inquiry fetch empty vs error on dashboard and inbox. HTTP fallback added in item 11. |
 | 8 | Marketplace | Service detail infinite loading | `DONE` | P0 | `ServiceDetail.tsx` fetch loading/error | Failed fetch → error + links to `/accountants` and `/services`. |
-| 9 | Signup UX | Verify required; UI dumps user on login | `PARTIAL` | P1 | `Signup.tsx` navigates to login; console mail | After signup, show “Open the verify link from the Django console, then log in” while keeping `next` / intent. Not SMTP. |
 | 10 | Services | Add a second listing | `DONE` | P1 | `createMyService`; `MyServices.tsx` | Add service form on My Services. Default pricing is consultation required. |
 | 11 | Messaging | HTTP send unused | `DONE` | P1 | `sendInquiryMessage`; `ConversationView.tsx` | WS first; HTTP fallback when socket is not open. Tests: `ConversationView.test.js`. |
 | 12 | Bookings | Cancel untested; double-submit | `DONE` | P1 | `BookingsPage.tsx`; `bookings/tests.py` cancel cases | Disable Accept/Decline/Cancel in flight. Client/accountant cancel tests; outsider 404; declined cancel 400. |
