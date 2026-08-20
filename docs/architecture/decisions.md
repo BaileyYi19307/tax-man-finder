@@ -1,76 +1,132 @@
 # Architecture decisions
 
-Concise record of architectural product decisions. Prefer updating this file over scattering decisions across scratch notes.
+Record of meaningful architectural choices. Status values:
 
-Statuses:
-
-- **Accepted** — agreed; follow this when building
-- **Open** — unresolved; do not invent a solution in docs as if decided
+- **Accepted** — current guidance for the system
+- **Open** — not yet decided
 - **Superseded** — replaced by a later decision
+
+Related domain detail: [domain-model.md](./domain-model.md). Product status: [../product/current-requirements.md](../product/current-requirements.md).
 
 ---
 
 ## Accepted
 
-### Inquiry is the durable engagement workspace
+### Inquiry as the engagement workspace
 
-**Status:** Accepted (implemented)
+**Status:** Accepted (implemented)  
+**Date:** 2026-08-20
 
-- One Inquiry = one client + one accountant conversation/workspace, optionally tied to a service
-- Messages and bookings belong to the Inquiry
-- Participant identity is the authorization boundary for chat and participant booking access
-- Booking lifecycle does not end the Inquiry; after decline/cancel, another booking may be requested on the same Inquiry
+**Context**
 
-Details: [`domain-model.md`](./domain-model.md).
+Clients and accountants often communicate before any consultation exists. A booking may be confirmed, declined, or cancelled without ending the relationship, and another consultation may be requested later in the same thread.
+
+**Decision**
+
+`Inquiry` represents the durable engagement workspace between one client and one accountant (optionally tied to a service).
+
+**Consequences**
+
+- Messages belong to the Inquiry.
+- Bookings represent appointments within the Inquiry.
+- Shared attachments will belong to the Inquiry when file sharing is built.
+- Booking lifecycle changes do not end the workspace.
+- A separate Workspace model is unnecessary because Inquiry already defines that boundary.
+- Participant identity on the Inquiry is the authorization boundary for chat and participant booking access.
+
+---
 
 ### Accountant capability via AccountantProfile
 
-**Status:** Accepted (implemented)
+**Status:** Accepted (implemented)  
+**Date:** 2026-08-20
 
-- Offering services requires an `AccountantProfile` on the same `User`
-- Signup intent is routing-only, not a permanent CLIENT/ACCOUNTANT role
-- No `ClientProfile` model
-- `User.is_accountant` is legacy and must not remain a second source of truth for permissions
+**Context**
 
-Details: [`../product/signup-onboarding.md`](../product/signup-onboarding.md).
+Early designs treated client and accountant as mutually exclusive signup roles. The product needs a single account that can seek help, offer services later, or do both in different engagements.
+
+**Decision**
+
+Offering services is a capability on a normal `User`, represented by an `AccountantProfile`. Signup intent only influences routing and onboarding. There is no `ClientProfile` model.
+
+**Consequences**
+
+- Signup creates a User only.
+- Permissions for accountant actions check for an AccountantProfile.
+- `User.is_accountant` remains as a legacy field and is not the authoritative capability indicator.
+
+---
 
 ### Indicative service pricing
 
-**Status:** Accepted (implemented)
+**Status:** Accepted (implemented)  
+**Date:** 2026-08-20
 
-- `pricing_type`: fixed / hourly / consultation_required
-- `indicative_price` required for fixed and hourly; optional for consultation_required
-- Indicative prices are not binding quotes
+**Context**
 
-### Consultation bookings are 30-minute Bookings on an Inquiry
+Some offerings have a predictable fee; others cannot be priced until the accountant understands scope.
 
-**Status:** Accepted (implemented)
+**Decision**
 
-- Client selects `starts_at`; `ends_at = starts_at + 30 minutes`
-- Statuses: pending / confirmed / declined / cancelled
-- At most one active (pending|confirmed) booking per Inquiry
+Services use `pricing_type` (`fixed`, `hourly`, `consultation_required`) plus optional `indicative_price`. Prices are indicative, not binding quotes. Fixed and hourly require an indicative price; consultation-required may omit it.
+
+---
+
+### Consultation bookings are fixed-duration appointments on an Inquiry
+
+**Status:** Accepted (implemented)  
+**Date:** 2026-08-20
+
+**Context**
+
+The MVP consultation is a short scheduled call that needs accountant approval, without becoming a full calendar product.
+
+**Decision**
+
+A consultation is a `Booking` on an Inquiry. The client selects `starts_at`; `ends_at` is start plus 30 minutes. Statuses are pending, confirmed, declined, and cancelled. At most one active (pending or confirmed) booking exists per Inquiry.
+
+---
 
 ### Profile completeness for public directory
 
-**Status:** Accepted (implemented)
+**Status:** Accepted (implemented)  
+**Date:** 2026-08-20
 
-- Complete = non-empty `bio` + `credentials` + ≥1 active service
-- `years_experience` is collected but not required for completeness (earlier draft domain text that required it is superseded by this implemented rule)
+**Context**
+
+The directory should show accountants who are ready to be contacted, without requiring every optional field.
+
+**Decision**
+
+A profile is complete when `bio` and `credentials` are present and the accountant has at least one active service. Years of experience, firm name, and location may be collected and displayed but are not required for completeness.
+
+---
 
 ### Inquiry-owned shared documents
 
-**Status:** Accepted — **not yet implemented**
+**Status:** Accepted — not yet implemented  
+**Date:** 2026-08-20
 
-When file sharing is implemented:
+**Context**
 
-- `Inquiry` remains the durable workspace
-- Attachments belong to `Inquiry`
-- An attachment may optionally be associated with a `Message` for timeline presentation
-- Attachments do **not** belong to `Booking`
-- Do **not** introduce a separate `Workspace` model merely for file sharing
-- Booking status transitions must **not** determine attachment lifetime (files survive decline, cancel, confirm, and later booking requests on the same Inquiry)
+Participants need to exchange documents as part of an engagement. Documents may be introduced through chat, but they outlive any single booking. Booking decline, cancellation, confirmation, and later booking requests on the same Inquiry must not discard shared files. Inquiry already defines the durable client–accountant boundary.
 
-Do not treat this as shipped. Product gap: [`../product/current-requirements.md`](../product/current-requirements.md).
+**Decision**
+
+When file sharing is built:
+
+- Attachments are owned by `Inquiry`.
+- An attachment may optionally be associated with a `Message` for timeline presentation.
+- Attachments are not owned by `Booking`.
+- No separate Workspace entity is introduced for file sharing.
+
+**Consequences**
+
+- File lifetime follows the Inquiry, independent of booking status.
+- Authorization for attachments aligns with Inquiry participant rules (same boundary as messages).
+- How file-only chat rows are represented (for example empty message content with attachments) remains an open implementation detail under this decision.
+
+Product status: [current-requirements.md](../product/current-requirements.md).
 
 ---
 
@@ -78,24 +134,24 @@ Do not treat this as shipped. Product gap: [`../product/current-requirements.md`
 
 ### Map-based accountant discovery
 
-**Status:** Open (required product gap; design not locked here)
+**Status:** Open  
+**Date:** 2026-08-20
 
-- Location is currently free-text on `AccountantProfile`
-- Map/geocoding/search approach is not specified in this file
+Location is free-text on `AccountantProfile` today. Map, geocoding, and search approach are not specified yet. This capability is listed as remaining product work.
 
-### File-only chat messages (when implementing attachments)
+### Representation of file-only chat messages
 
-**Status:** Open (implementation detail under the accepted Inquiry-owned attachments decision)
+**Status:** Open  
+**Date:** 2026-08-20
 
-- Today `Message.content` cannot be blank
-- How file-only timeline rows are represented (empty content allowed with attachments vs other approach) is decided at implementation time; follow Inquiry/Message authorization patterns
+Message content is currently required to be non-blank. Under Inquiry-owned attachments, the exact representation of attachment-only timeline entries is still undecided.
 
 ### Closing an Inquiry from the product
 
-**Status:** Open / deferred
+**Status:** Open  
+**Date:** 2026-08-20
 
-- `closed` status and send/booking guards exist
-- No HTTP API or UI to close an Inquiry yet
+Closed status and send/booking guards exist. There is no user-facing close flow or dedicated close API yet.
 
 ---
 
@@ -103,12 +159,12 @@ Do not treat this as shipped. Product gap: [`../product/current-requirements.md`
 
 ### Signup role creates AccountantProfile immediately
 
-**Superseded by:** Accountant capability via AccountantProfile (intent + later onboarding)
+Replaced by accountant capability via AccountantProfile (intent plus later onboarding).
 
-### Separate Conversation model / inquiry statuses `responded` | `booked`
+### Separate Conversation model and Inquiry statuses `responded` / `booked`
 
-**Superseded by:** Inquiry `open` | `closed` with Messages directly on Inquiry
+Replaced by Inquiry `open` / `closed` with Messages belonging directly to the Inquiry.
 
-### Binding `Service.price` as the only pricing field
+### Single binding `Service.price` field
 
-**Superseded by:** Indicative pricing (`pricing_type` + `indicative_price`)
+Replaced by indicative pricing (`pricing_type` + `indicative_price`).

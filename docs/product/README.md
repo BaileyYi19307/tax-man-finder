@@ -1,12 +1,12 @@
-# Product & architecture docs
+# Product and architecture documentation
 
-Where to look (humans and coding agents):
+Index for engineers working on TaxManFinder.
 
-| Need | Document |
+| Topic | Document |
 | --- | --- |
-| What the product is expected to do now, what is required next, and what is deferred | [`current-requirements.md`](./current-requirements.md) |
-| Signup, intent, accountant capability, and onboarding/routing | [`signup-onboarding.md`](./signup-onboarding.md) |
-| Domain entities and engagement rules (Inquiry, Message, Booking, …) | [`../architecture/domain-model.md`](../architecture/domain-model.md) |
-| Accepted and open architecture decisions (including not-yet-built work) | [`../architecture/decisions.md`](../architecture/decisions.md) |
+| Current product behavior, remaining work, and deferred features | [current-requirements.md](./current-requirements.md) |
+| Signup, intent, accountant capability, and onboarding | [signup-onboarding.md](./signup-onboarding.md) |
+| Domain entities and engagement rules | [../architecture/domain-model.md](../architecture/domain-model.md) |
+| Architecture decision records | [../architecture/decisions.md](../architecture/decisions.md) |
 
-Local run instructions stay in the repository root [`README.md`](../../README.md).
+Local run instructions: [../../README.md](../../README.md).

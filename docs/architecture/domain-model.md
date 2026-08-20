@@ -1,296 +1,237 @@
 # Domain model
 
-Source of truth for marketplace **domain rules as implemented** in this repository, plus a few accepted behaviors that the code already enforces even when a product UI is incomplete (called out explicitly).
-
-For product scope (what to build next), see [`../product/current-requirements.md`](../product/current-requirements.md). For architecture decisions (including not-yet-built file sharing), see [`decisions.md`](./decisions.md).
+Technical description of the marketplace domain as implemented in this repository. Product status and planned work: [../product/current-requirements.md](../product/current-requirements.md). Decision rationale: [decisions.md](./decisions.md).
 
 ---
 
 ## Overview
 
-The platform connects clients and accountants.
+TaxManFinder connects people seeking tax help with accountants.
 
-- Every authenticated person is a **User**
-- A **Client** is not a separate database model; it means a user acting as the client in a particular inquiry or booking
-- An **Accountant** is a user who has an **AccountantProfile** and may offer **Services**
-- An **Inquiry** is the durable client–accountant engagement: conversation **and** workspace
-- A **Message** is a piece of communication in an inquiry
-- A **Booking** is a scheduled consultation appointment tied to an inquiry
+| Concept | Meaning |
+| --- | --- |
+| **User** | Every authenticated person |
+| **Client** | A user acting as the client on a given Inquiry or Booking (not a separate table) |
+| **Accountant** | A user who has an AccountantProfile and may offer Services |
+| **Inquiry** | Durable engagement between one client and one accountant (conversation and workspace) |
+| **Message** | A communication event on an Inquiry |
+| **Booking** | A scheduled consultation appointment belonging to an Inquiry |
 
-A user may act as both an accountant and a client in different inquiries or bookings, but cannot be both the client and the accountant in the same inquiry or booking.
+A user may be a client in some engagements and an accountant in others, but never both parties on the same Inquiry or Booking.
 
-**Implemented:** Inquiry participant identity (`client` or `accountant`) is the authorization boundary for reading/sending on that inquiry and for participant booking actions.
+Authorization for chat and participant booking actions is scoped to the Inquiry’s two participants.
 
 ---
 
 ## User
 
-### Purpose
+A User is the shared identity used for authentication and for participation in engagements.
 
-- Authentication and shared identity for every person on the platform
-- May participate in inquiries/bookings as a client
-- May offer services only when an accountant profile exists
+**Relationships**
 
-### Creation (implemented)
+- May optionally have one AccountantProfile
+- May own Services when acting as an accountant
+- May appear as client or accountant on Inquiries and Bookings
+- May send Messages
 
-- Created through signup with email + password
-- Email verification required before login
-- Signup does **not** create an `AccountantProfile` or set a permanent role
+**Lifecycle**
 
-### Rules
+- Created at signup with email and password
+- Must verify email before login
+- Signup does not create an AccountantProfile or assign a permanent marketplace role
 
-- Unique email
-- No separate client profile model
-- Accountant eligibility = presence of `AccountantProfile` (`User.has_accountant_profile()` / `IsAccountant`)
-- `User.is_accountant` remains on the model as a **legacy** field; permissions and product routing do **not** use it as the source of truth
+**Invariants**
 
-### Fields (implemented)
+- Email is unique
+- There is no ClientProfile model
+- Accountant eligibility is determined by the presence of an AccountantProfile
+- `User.is_accountant` exists as a legacy column; product permissions and routing use AccountantProfile presence instead
+
+**Fields**
 
 ```text
-User
------
-id
-email
-password
-first_name
-last_name
-phone_number
-is_active
-is_verified
-is_mobile_verified
-is_accountant          # legacy; not product SoT
-date_joined
-updated_at
+id, email, password, first_name, last_name, phone_number,
+is_active, is_verified, is_mobile_verified, is_accountant,
+date_joined, updated_at
 ```
 
 ---
 
 ## AccountantProfile
 
-### Purpose
+Stores professional information for users who offer accounting services and marks that capability on the User account.
 
-- Professional information for users who offer accounting services
-- Capability marker: having this profile makes the user eligible to act as an accountant
+**Relationships**
 
-### Creation (implemented)
+- Belongs to exactly one User
+- A User has at most one AccountantProfile
 
-- Created/updated via authenticated onboarding (`POST /accountants/create/`) for `request.user`
-- Upsert-safe; does not create a second profile for the same user
-- May create a first service when `service_name` is provided and the user has no active services yet
+**Lifecycle**
 
-### Completeness (implemented)
+- Created or updated during accountant onboarding for the authenticated user
+- May create an initial Service when onboarding supplies a primary service and the user has none yet
+- Later edits update the same profile rather than creating another
 
-Public “complete” (directory listing) means:
+**Completeness**
 
-- Non-empty `bio` and `credentials`
-- At least one **active** service owned by the user
+A profile is complete for public directory listing when:
 
-`years_experience`, `firm_name`, and `location` are collected in onboarding but are **not** required for `is_complete`. A Boolean DB column `profile_complete` exists but API/product completeness uses the computed `is_complete` property.
+- `bio` and `credentials` are non-empty, and
+- the user has at least one active Service
 
-### Directory (implemented)
+`years_experience`, `firm_name`, and `location` are stored and shown when present; they are not required for completeness. A Boolean `profile_complete` column exists in the database; APIs and listing logic use the computed completeness property instead.
 
-- Public directory lists only complete profiles
-- Public profile detail may return an existing incomplete profile by id
-- Payload includes name fields, firm, location, bio, credentials, years_experience, active services (`id`, `name`), and `profile_complete`
+**Public visibility**
 
-### Fields (implemented)
+- The directory lists complete profiles only
+- Profile detail by id may return an incomplete profile if it exists
+
+**Fields**
 
 ```text
-AccountantProfile
------------------
-id
-user_id
-years_experience
-credentials
-bio
-firm_name
-location
-profile_complete       # legacy DB flag; not the completeness SoT
-created_at
-updated_at
+id, user_id, years_experience, credentials, bio,
+firm_name, location, profile_complete, created_at, updated_at
 ```
 
 ---
 
 ## Service
 
-### Purpose
+A Service is an offering listed by an accountant, with indicative (non-binding) pricing.
 
-- What an accountant offers, with **indicative** (non-binding) pricing
+**Relationships**
 
-### Rules (implemented)
+- Owned by a User who has an AccountantProfile
+- May optionally be referenced by an Inquiry
 
-- Owned by a user who has an accountant profile
-- `pricing_type`: `fixed` | `hourly` | `consultation_required`
-- `indicative_price` required for fixed and hourly; optional for consultation-required
-- `is_active` defaults true; public list/retrieve only active services
-- Accountants manage only their own services (`IsServiceOwner`); create binds `accountant=request.user`
-- `GET /services/mine/` returns the owner’s services including inactive
+**Lifecycle**
 
-### Fields (implemented)
+- Created during onboarding or from My Services
+- May be edited by the owning accountant
+- Deactivation (`is_active = false`) hides the service from public list and retrieve; the owner can still see it in their managed list
+
+**Invariants**
+
+- `pricing_type` is one of `fixed`, `hourly`, or `consultation_required`
+- `indicative_price` is required for fixed and hourly; optional for consultation-required
+- Mutations are limited to the owning accountant; create always assigns the authenticated user as owner
+
+**Fields**
 
 ```text
-Service
--------
-id
-accountant_id          # User
-name
-description
-pricing_type
-indicative_price
-is_active
-created_at
-updated_at
+id, accountant_id, name, description, pricing_type,
+indicative_price, is_active, created_at, updated_at
 ```
 
 ---
 
 ## Inquiry
 
-### Purpose
+An Inquiry represents the durable engagement between a client and an accountant. It is the conversation thread and the workspace for that relationship.
 
-**Inquiry is the durable client–accountant engagement/workspace.**
+**Relationships**
 
-It is the long-lived thread between one client and one accountant. Messages and bookings hang off the Inquiry. Booking lifecycle (pending → confirmed / declined / cancelled, and later requests) does **not** end the Inquiry.
+- Belongs to one client User and one accountant User
+- May reference one Service (optional)
+- Contains Messages
+- Contains Booking history
+- Will contain shared attachments when file sharing is built ([decisions.md](./decisions.md))
 
-### Participants (implemented)
+**Lifecycle**
 
-- Exactly one `client` and one `accountant` (different users)
-- Only those participants may list, read, or message on the inquiry (outsiders → HTTP 404 on inquiry APIs; WS non-participants rejected)
-- Optional `service` must belong to the inquiry’s accountant when set
-- `service` null = general inquiry; `service` set = service-specific inquiry
+- Status is `open` (default) or `closed`
+- Created when a client sends a non-blank first message from a profile or service entry point, or when a matching open Inquiry is reused and a new message is appended
+- Opening a message composer without sending does not create an Inquiry
+- Booking confirmation, decline, cancellation, and later booking requests do not change Inquiry status or end the engagement
+- Closed inquiries reject new messages and new bookings; a later contact creates a new Inquiry instead of reusing the closed one
+- Users cannot currently close an Inquiry through the product UI or a dedicated API; closed-status enforcement exists when status is set
 
-### Statuses (implemented)
+**Reuse rules**
 
-- `open` (default)
-- `closed`
+- At most one open general Inquiry per client–accountant pair (`service` null)
+- At most one open Inquiry per client–accountant–service triple when a service is set
+- Separate open inquiries are allowed for different services with the same accountant
 
-Closed inquiries reject new messages and new bookings. Matching a later Message Accountant / Request Consultation entry point does **not** reuse a closed row; a **new** Inquiry is created.
+**Authorization**
 
-**Product gap:** there is no HTTP API or UI to set an inquiry to `closed` yet; enforcement exists when status is closed.
+- Only the two participants may read or send on the Inquiry
+- Non-participants receive not-found responses on HTTP inquiry surfaces and are rejected on the chat WebSocket
 
-### Creation and reuse (implemented)
+**Invariants**
 
-One operation: start conversation with required non-blank first message (`POST /api/inquiries/`).
+- `client_id ≠ accountant_id`
+- If `service` is set, it belongs to the Inquiry’s accountant
 
-1. Reject blank/whitespace-only content (no Inquiry created)
-2. Find matching **open** inquiry:
-   - General: same client + accountant + `service` null
-   - Service: same client + accountant + that service
-3. If found → append Message; return existing `inquiry_id` (HTTP 200)
-4. Else → atomically create Inquiry + Message (HTTP 201)
-5. Opening a composer without Send creates nothing
-
-A client may have multiple open inquiries with the same accountant for **different** services, plus at most one open general inquiry.
-
-### Relationships (implemented)
-
-- Has many Messages
-- Has many Bookings (at most one **active** booking at a time)
-- Booking status changes do not change Inquiry status
-
-### Fields (implemented)
+**Fields**
 
 ```text
-Inquiry
--------
-id
-status                 # open | closed
-client_id
-accountant_id
-service_id             # nullable
-created_at
-updated_at
+id, status, client_id, accountant_id, service_id (nullable),
+created_at, updated_at
 ```
 
 ---
 
 ## Message
 
-### Purpose
+A Message is a communication event within an Inquiry.
 
-- Communication event on an Inquiry
+**Relationships**
 
-### Rules (implemented)
+- Belongs to one Inquiry
+- Has one sender (must be an Inquiry participant)
 
-- Belongs to exactly one Inquiry; sender must be a participant
-- Content cannot be blank (HTTP and WebSocket)
-- Cannot send to a closed inquiry (HTTP 403; WS close with domain code)
-- Not editable/deletable in the current product
-- Ordered by `created_at` (and `id` as tie-breaker in UI practice)
-- First message is created with the Inquiry (or appended on reuse)
+**Lifecycle**
 
-Unread / last-read tracking may exist for inbox UX; it is not a separate Conversation model.
+- Created with the Inquiry’s first message, or appended when an open Inquiry is reused
+- Further messages may be sent over WebSocket or HTTP while the Inquiry is open
+- Messages are not edited or deleted in the current product
 
-### Fields (implemented)
+**Invariants**
+
+- Content is non-blank
+- Sender is the Inquiry client or accountant
+- Closed inquiries reject new messages
+
+**Fields**
 
 ```text
-Message
--------
-id
-inquiry_id
-sender_id
-content
-created_at
+id, inquiry_id, sender_id, content, created_at
 ```
+
+Inbox unread behavior may track last-read state; there is no separate Conversation entity.
 
 ---
 
 ## Booking
 
-### Purpose
+A Booking is a scheduled consultation between the Inquiry’s client and accountant. It is an appointment inside the engagement, not a replacement for the Inquiry workspace.
 
-- A scheduled **consultation** between the Inquiry’s client and accountant
-- Not the entire accounting engagement; the Inquiry remains the workspace around it
+**Relationships**
 
-### Creation (implemented)
+- Belongs to exactly one Inquiry
+- Client and accountant match the Inquiry’s parties (derived from the Inquiry at creation)
+- Optional service context is modeled on the Inquiry; a nullable `Booking.service` may still be copied from the Inquiry for historical reasons
 
-- Always belongs to an Inquiry; client/accountant are derived from the Inquiry (not arbitrary payload IDs)
-- User-facing path: `POST /bookings/request-consultation/` → get-or-create open Inquiry + message + pending Booking
-- API also supports creating a booking on an existing open Inquiry (`POST /bookings/`) when there is no active booking
-- Fixed duration: `ends_at = starts_at + 30 minutes`
-- Starts as `pending`
+**Lifecycle**
 
-### Statuses (implemented)
+- Created as `pending` when a client requests a consultation (from profile/service, or via API on an existing open Inquiry with no active booking)
+- Duration is fixed at 30 minutes: `ends_at = starts_at + 30 minutes`
+- Accountant may accept (`confirmed`) or decline (`declined`) a pending booking
+- Either participant may cancel a pending or confirmed booking (`cancelled`)
+- After decline or cancel, another booking may be requested on the same Inquiry
 
-| Status | Meaning |
-| --- | --- |
-| `pending` | Requested; accountant has not accepted/declined |
-| `confirmed` | Accountant accepted |
-| `declined` | Accountant declined |
-| `cancelled` | Cancelled while pending or confirmed |
+**Invariants**
 
-**Active** = `pending` or `confirmed`. At most one active booking per Inquiry (DB-enforced). After decline or cancel, another booking may be requested on the **same** Inquiry.
+- At most one active booking per Inquiry (`pending` or `confirmed`)
+- Confirmed bookings for the same accountant cannot overlap (enforced on accept)
+- Booking status changes do not close the Inquiry
 
-Accept/decline: accountant only. Cancel: either participant. Confirmed bookings for the same accountant cannot overlap (checked on accept).
-
-### Inquiry relationship (implemented)
-
-- Booking cannot exist without an Inquiry
-- Inquiry may exist without a booking
-- Decline / cancel / confirm do **not** close the Inquiry
-- Participants continue messaging while the Inquiry is open
-
-### Service association
-
-- Product rule: service context lives on the **Inquiry**
-- Implementation note: a nullable `Booking.service` may still be populated from `inquiry.service` on create (legacy denormalization). Prefer Inquiry as the source of service context.
-
-### Fields (implemented)
+**Fields**
 
 ```text
-Booking
--------
-id
-status
-inquiry_id
-client_id
-accountant_id
-service_id             # legacy nullable; prefer inquiry.service
-starts_at
-ends_at
-created_at
-updated_at
+id, status, inquiry_id, client_id, accountant_id,
+service_id (nullable, legacy), starts_at, ends_at,
+created_at, updated_at
 ```
 
 ---
@@ -305,47 +246,32 @@ User
  ├── (as sender) Message
  └── (as client or accountant) Booking
 
-Inquiry → User (client)
-Inquiry → User (accountant)
-Inquiry → Service (optional)
+Inquiry → User (client), User (accountant), Service? 
 Message → Inquiry
 Booking → Inquiry
 ```
 
-Consistency:
+---
 
-- For every inquiry and booking: `client_id ≠ accountant_id`
-- If an inquiry has a service, that service belongs to the inquiry’s accountant
-- Booking client/accountant match the related inquiry
+## Entry flows
+
+### Starting a conversation
+
+Profile “Message accountant” and service-page messaging share one create/reuse path: required first message content, optional or implied service, then navigation to `/chat/<inquiry_id>`.
+
+### Requesting a consultation
+
+From profile or service, the client chooses a start time and supplies a brief note. The system creates or reuses an open Inquiry, stores the note as a message, creates a pending Booking, and opens the Inquiry chat. Accept/decline and status appear in the conversation and on `/bookings`.
 
 ---
 
-## Starting a conversation (Message Accountant)
-
-**Implemented** entry points share one backend operation (`POST /api/inquiries/` with required `content`, plus `service` and/or `accountant`):
-
-- Profile: Message Accountant (optional service pick)
-- Service page: message about that service
-
-See Inquiry creation/reuse above. Client navigates to `/chat/<inquiry_id>`.
-
----
-
-## Request consultation
-
-**Implemented** from profile/service: client chooses start time and a brief note → Inquiry (create or reuse) + Message + pending Booking → `/chat/<inquiry_id>`. Accountant accept/decline; both parties see status on `/bookings` and in the conversation.
-
-In-chat request UI is deferred; attaching a booking to an existing open Inquiry is available via API.
-
----
-
-## Authorization summary (implemented)
+## Authorization summary
 
 | Surface | Rule |
 | --- | --- |
-| Inquiry list/detail/messages | Authenticated + participant; outsiders 404 |
-| Send message | Participant + open inquiry |
-| WebSocket chat | JWT; non-participant rejected; closed rejects send |
-| Bookings | Participant queryset; accept/decline accountant-only |
-| Services mutate | Accountant profile + ownership |
-| Public directory/profile/services | AllowAny with completeness/active filters as above |
+| Inquiry list, detail, messages | Authenticated participant; others not found |
+| Send message | Participant and open Inquiry |
+| Chat WebSocket | Authenticated participant; closed Inquiry rejects send |
+| Bookings | Participant access; accept/decline restricted to accountant |
+| Service mutations | Accountant profile and ownership |
+| Public directory, profile, active services | Public read with completeness / active filters above |
