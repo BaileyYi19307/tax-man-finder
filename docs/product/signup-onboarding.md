@@ -1,8 +1,29 @@
 # Signup & Onboarding
 
+Canonical source for signup, intent, capability, and onboarding/routing. Product scope and deferred work: [`current-requirements.md`](./current-requirements.md). Domain entities: [`../architecture/domain-model.md`](../architecture/domain-model.md).
+
 ## Goal
 
 Reduce signup friction and make onboarding reflect the user's **intent**, not a permanent identity. Signup creates a `User` account. Accountant onboarding adds an `AccountantProfile` capability to that same user.
+
+## Core user journeys
+
+### Looking for tax help
+
+1. Homepage → “Find an accountant” → browse public listings (no account)
+2. Open a profile (and optionally a service)
+3. Sign up or log in only to message or request a consultation
+4. Return to the same page (`next`) and continue
+5. Without a deeper `next`, land on `/dashboard/client` after login
+
+### Tax professional
+
+1. Homepage → “Join as a tax professional” / tax-professional intent
+2. Create a normal `User` (email + password) if not signed in
+3. Verify email, log in → `/onboarding/accountant` (never client-profile onboarding first)
+4. Complete profile + primary service → accountant dashboard
+5. Existing incomplete profiles resume and prefill; complete profiles go to the dashboard
+6. Signed-in users may add accountant capability later without a second account
 
 ## Architectural distinction
 

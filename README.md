@@ -2,6 +2,8 @@
 
 Find and book accounting services. Django/DRF backend, React frontend.
 
+Product and architecture documentation: [`docs/product/README.md`](docs/product/README.md).
+
 ## Backend
 
 Needs Python 3.12. Use a single venv at `backend/.venv`.
