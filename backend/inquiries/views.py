@@ -10,8 +10,22 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .serializers import InquiryCreateSerializer, InquirySerializer
-from chats.serializers import MessageSerializer, MessageCreateSerializer
-from django.db import IntegrityError,transaction
+from chats.serializers import (
+    AttachmentSerializer,
+    MessageSerializer,
+)
+from chats.message_rules import MessageSendDenied
+from chats.attachment_service import (
+    collect_upload_files,
+    create_attachments,
+    create_message_with_attachments,
+    get_participant_inquiry,
+    validate_upload_files,
+)
+from chats.models import Attachment
+from django.db import IntegrityError, transaction
+from django.http import FileResponse
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 
 
 #get all the inquiries
@@ -113,6 +127,7 @@ class ReadSpecificInquiryView(APIView):
         
         messages = (
             Message.objects.select_related("sender")
+            .prefetch_related("attachments", "attachments__uploaded_by")
             .filter(inquiry=inquiry)
             .order_by("created_at")
         )
@@ -145,32 +160,104 @@ class ReadSpecificInquiryView(APIView):
         )
         
 
-class SendMessageView(APIView): # user passes in content, backend fills out 
+class SendMessageView(APIView):
+    """Send a chat message: JSON text-only, or multipart text and/or files."""
+
     permission_classes = [IsAuthenticated]
-    
-    def post(self,request, inquiry_id):
-        #we get the user who made the requesst to post the message
-        sender = request.user 
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
 
-        #we want the inquiry where either the user is the client or the accountant, and from those, get the inquiry with it's id 
-        #only give me this inquiry if the current user is part of it 
-        inquiry= get_object_or_404(Inquiry,Q(client=sender)|Q(accountant=sender),id=inquiry_id)
+    def post(self, request, inquiry_id):
+        sender = request.user
+        inquiry = get_participant_inquiry(sender, inquiry_id)
+        files = collect_upload_files(request)
+        content = request.data.get("content", "")
+        if content is None:
+            content = ""
 
+        try:
+            message = create_message_with_attachments(
+                inquiry=inquiry,
+                sender=sender,
+                content=content,
+                files=files,
+            )
+        except MessageSendDenied as exc:
+            if exc.code == "closed":
+                return Response(
+                    {"detail": exc.detail},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            if exc.code == "blank":
+                return Response(
+                    {"detail": exc.detail},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            return Response(
+                {"detail": exc.detail},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "message_id": message.id,
+                "message": MessageSerializer(message).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class InquiryAttachmentListCreateView(APIView):
+    """List Inquiry attachments; upload without a Message (Shared Files library)."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get(self, request, inquiry_id):
+        inquiry = get_participant_inquiry(request.user, inquiry_id)
+        attachments = (
+            Attachment.objects.filter(inquiry=inquiry)
+            .select_related("uploaded_by")
+            .order_by("uploaded_at", "id")
+        )
+        return Response(
+            AttachmentSerializer(attachments, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request, inquiry_id):
+        inquiry = get_participant_inquiry(request.user, inquiry_id)
         if inquiry.status == Inquiry.StatusChoices.CLOSED:
             return Response(
-                {"detail": "Cannot send messages to a closed inquiry."},
+                {"detail": "Cannot upload files to a closed inquiry."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        
-        message_serializer = MessageCreateSerializer(data= request.data)
-        message_serializer.is_valid(raise_exception=True)
-                                    
-        #make the message
-        message = Message.objects.create(sender = sender, content = message_serializer.validated_data["content"], inquiry = inquiry)
-        
+        files = validate_upload_files(collect_upload_files(request))
+        created = create_attachments(
+            inquiry=inquiry,
+            uploaded_by=request.user,
+            files=files,
+            message=None,
+        )
         return Response(
-            {"message_id":message.id},
-            status = status.HTTP_201_CREATED
+            AttachmentSerializer(created, many=True).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class InquiryAttachmentDownloadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, inquiry_id, attachment_id):
+        inquiry = get_participant_inquiry(request.user, inquiry_id)
+        attachment = get_object_or_404(
+            Attachment.objects.select_related("inquiry"),
+            id=attachment_id,
+            inquiry=inquiry,
+        )
+        return FileResponse(
+            attachment.file.open("rb"),
+            as_attachment=True,
+            filename=attachment.original_filename,
         )
 
 

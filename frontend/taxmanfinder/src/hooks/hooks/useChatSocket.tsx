@@ -5,6 +5,14 @@ type IncomingMessage = {
   content: string;
   sender_id: number;
   created_at: string;
+  attachments?: Array<{
+    id: number;
+    message_id: number | null;
+    uploaded_by_id: number;
+    uploaded_by_email: string;
+    original_filename: string;
+    uploaded_at: string;
+  }>;
 };
 
 export function useChatSocket(

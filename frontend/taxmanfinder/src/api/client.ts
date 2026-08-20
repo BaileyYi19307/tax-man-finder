@@ -23,6 +23,12 @@ export function authHeaders(extra: HeadersInit = {}): HeadersInit {
   };
 }
 
+/** Auth headers without Content-Type (for FormData multipart uploads). */
+export function authBearerHeaders(): HeadersInit {
+  const token = getAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export async function apiFetch(path: string, init: RequestInit = {}) {
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
@@ -265,7 +271,98 @@ export async function sendInquiryMessage(
   });
   const text = await res.text();
   if (!res.ok) throw new Error(text || "Failed to send message");
-  return JSON.parse(text) as { message_id: number };
+  return JSON.parse(text) as { message_id: number; message?: ChatMessagePayload };
+}
+
+export type AttachmentPayload = {
+  id: number;
+  inquiry_id?: number;
+  message_id: number | null;
+  uploaded_by_id: number;
+  uploaded_by_email: string;
+  original_filename: string;
+  uploaded_at: string;
+};
+
+export type ChatMessagePayload = {
+  id: number;
+  sender_id: number;
+  sender_email?: string;
+  content: string;
+  created_at: string;
+  attachments?: AttachmentPayload[];
+};
+
+export async function sendInquiryMessageWithFiles(
+  inquiryId: number | string,
+  content: string,
+  files: File[]
+) {
+  const form = new FormData();
+  form.append("content", content);
+  files.forEach((file) => form.append("files", file));
+  const res = await fetch(`${API_BASE}/api/inquiries/${inquiryId}/messages/`, {
+    method: "POST",
+    headers: authBearerHeaders(),
+    body: form,
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(text || "Failed to send message with files");
+  return JSON.parse(text) as { message_id: number; message: ChatMessagePayload };
+}
+
+export async function listInquiryAttachments(inquiryId: number | string) {
+  const res = await apiFetch(`/api/inquiries/${inquiryId}/attachments/`);
+  if (!res.ok) throw new Error(await res.text());
+  return (await res.json()) as AttachmentPayload[];
+}
+
+export function isImageAttachmentFilename(filename: string): boolean {
+  const lower = (filename || "").toLowerCase();
+  return (
+    lower.endsWith(".jpg") ||
+    lower.endsWith(".jpeg") ||
+    lower.endsWith(".png")
+  );
+}
+
+export function isPdfAttachmentFilename(filename: string): boolean {
+  return (filename || "").toLowerCase().endsWith(".pdf");
+}
+
+/** Types we can render inline in chat (auth blob URL). */
+export function isPreviewableAttachmentFilename(filename: string): boolean {
+  return (
+    isImageAttachmentFilename(filename) || isPdfAttachmentFilename(filename)
+  );
+}
+
+export async function fetchInquiryAttachmentBlob(
+  inquiryId: number | string,
+  attachmentId: number
+): Promise<Blob> {
+  const res = await fetch(
+    `${API_BASE}/api/inquiries/${inquiryId}/attachments/${attachmentId}/download/`,
+    { headers: authBearerHeaders() }
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return res.blob();
+}
+
+export async function downloadInquiryAttachment(
+  inquiryId: number | string,
+  attachmentId: number,
+  filename: string
+) {
+  const blob = await fetchInquiryAttachmentBlob(inquiryId, attachmentId);
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 export { API_BASE };

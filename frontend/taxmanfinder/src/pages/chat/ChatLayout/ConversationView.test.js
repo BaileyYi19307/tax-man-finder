@@ -3,7 +3,12 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ConversationView from "./ConversationView";
 import { useChatSocket } from "../../../hooks/hooks/useChatSocket";
-import { apiFetch, listInquiryBookings, sendInquiryMessage } from "../../../api/client";
+import {
+  apiFetch,
+  listInquiryAttachments,
+  listInquiryBookings,
+  sendInquiryMessage,
+} from "../../../api/client";
 
 jest.mock("../../../hooks/hooks/useChatSocket", () => ({
   useChatSocket: jest.fn(),
@@ -12,7 +17,10 @@ jest.mock("../../../hooks/hooks/useChatSocket", () => ({
 jest.mock("../../../api/client", () => ({
   apiFetch: jest.fn(),
   listInquiryBookings: jest.fn(),
+  listInquiryAttachments: jest.fn(),
   sendInquiryMessage: jest.fn(),
+  sendInquiryMessageWithFiles: jest.fn(),
+  downloadInquiryAttachment: jest.fn(),
   acceptBooking: jest.fn(),
   declineBooking: jest.fn(),
   cancelBooking: jest.fn(),
@@ -41,6 +49,7 @@ beforeEach(() => {
   window.HTMLElement.prototype.scrollIntoView = jest.fn();
   apiFetch.mockReset();
   listInquiryBookings.mockReset();
+  listInquiryAttachments.mockReset();
   sendInquiryMessage.mockReset();
   useChatSocket.mockReset();
   apiFetch.mockImplementation(async (path) => {
@@ -53,6 +62,7 @@ beforeEach(() => {
     };
   });
   listInquiryBookings.mockResolvedValue([]);
+  listInquiryAttachments.mockResolvedValue([]);
 });
 
 test("failed send shows an error when websocket and HTTP both fail", async () => {

@@ -1,33 +1,34 @@
 import MessageBubble from "./MessageBubble";
-import {useRef,useEffect} from 'react';
+import { useRef, useEffect } from "react";
+import type { AttachmentPayload } from "../api/client";
 
-type Message={
-    id:number;
-    content: string; 
-    sender_id: number, 
-    created_at:string; 
-}
-    
-type MessageListProps={
-    messages:Message[];
-    currentUserId: number;
-}
+type Message = {
+  id: number;
+  content: string;
+  sender_id: number;
+  created_at: string;
+  attachments?: AttachmentPayload[];
+};
 
+type MessageListProps = {
+  messages: Message[];
+  currentUserId: number;
+  inquiryId?: string | number;
+  onDownloadAttachment?: (attachment: AttachmentPayload) => void;
+};
 
-export default function MessageList({messages,currentUserId}:MessageListProps) {
-  //create message bubbles
-  const bottomRef = useRef<HTMLDivElement|null>(null);
+export default function MessageList({
+  messages,
+  currentUserId,
+  inquiryId,
+  onDownloadAttachment,
+}: MessageListProps) {
+  const bottomRef = useRef<HTMLDivElement | null>(null);
 
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-  console.log(
-    messages.map(m => ({
-      id: m.id,
-      sender_id: m.sender_id,
-      isMine: m.sender_id === currentUserId
-    }))
-  );
-
-  useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"})},[messages])
   return (
     <div
       style={{
@@ -42,9 +43,12 @@ export default function MessageList({messages,currentUserId}:MessageListProps) {
           key={message.id}
           text={message.content}
           isMine={message.sender_id === currentUserId}
+          inquiryId={inquiryId}
+          attachments={message.attachments}
+          onDownload={onDownloadAttachment}
         />
       ))}
       <div ref={bottomRef} />
     </div>
   );
-}  
+}

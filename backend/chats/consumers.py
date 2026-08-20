@@ -103,6 +103,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         "content": message.content,
                         "sender_id": sender.id,
                         "created_at": message.created_at.isoformat(),
+                        "attachments": [],
                     },
                 )
 
@@ -110,8 +111,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             "id": event["id"],
             "content": event["content"],
-            "sender_id": event["sender_id"], 
-            "created_at": event["created_at"]
+            "sender_id": event["sender_id"],
+            "created_at": event["created_at"],
+            "attachments": event.get("attachments") or [],
         }))
 
     async def disconnect(self,close_code):
