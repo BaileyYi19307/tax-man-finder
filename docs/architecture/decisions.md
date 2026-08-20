@@ -134,10 +134,10 @@ Product status: [current-requirements.md](../product/current-requirements.md).
 
 ### Map-based accountant discovery
 
-**Status:** Open  
+**Status:** Accepted — not yet implemented (see ADR)  
 **Date:** 2026-08-20
 
-Location is free-text on `AccountantProfile` today. Map, geocoding, and search approach are not specified yet. This capability is listed as remaining product work.
+MVP decisions for flat-list vs map eligibility, fixed-radius search, and remote/nationwide service indicators are recorded in [decisions/001-accountant-map-discovery.md](./decisions/001-accountant-map-discovery.md).
 
 ### Representation of file-only chat messages
 
