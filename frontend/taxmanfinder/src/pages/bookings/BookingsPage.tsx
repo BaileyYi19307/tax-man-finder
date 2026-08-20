@@ -15,6 +15,7 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actingBookingId, setActingBookingId] = useState<number | null>(null);
   const navigate = useNavigate();
   const currentUserId = Number(localStorage.getItem("user_id"));
 
@@ -43,16 +44,21 @@ export default function BookingsPage() {
   }
 
   async function runBookingAction(
+    bookingId: number,
     action: () => Promise<unknown>,
     failureMessage: string
   ) {
+    if (actingBookingId !== null) return;
     try {
+      setActingBookingId(bookingId);
       setActionError(null);
       await action();
       await refresh();
     } catch (e) {
       console.error(e);
       setActionError(failureMessage);
+    } finally {
+      setActingBookingId(null);
     }
   }
 
@@ -69,7 +75,9 @@ export default function BookingsPage() {
         <p>No bookings yet.</p>
       ) : (
         <ul className="bookings-list">
-          {bookings.map((b) => (
+          {bookings.map((b) => {
+            const rowBusy = actingBookingId === b.id;
+            return (
             <li key={b.id} className="booking-card">
               <div>
                 <strong>{b.status_label}</strong> with{" "}
@@ -87,8 +95,10 @@ export default function BookingsPage() {
                   <>
                     <button
                       type="button"
+                      disabled={rowBusy}
                       onClick={() =>
                         runBookingAction(
+                          b.id,
                           () => acceptBooking(b.id),
                           "Could not accept booking. It may overlap another confirmed consultation."
                         )
@@ -98,8 +108,10 @@ export default function BookingsPage() {
                     </button>
                     <button
                       type="button"
+                      disabled={rowBusy}
                       onClick={() =>
                         runBookingAction(
+                          b.id,
                           () => declineBooking(b.id),
                           "Could not decline booking."
                         )
@@ -112,8 +124,10 @@ export default function BookingsPage() {
                 {(b.status === "pending" || b.status === "confirmed") && (
                   <button
                     type="button"
+                    disabled={rowBusy}
                     onClick={() =>
                       runBookingAction(
+                        b.id,
                         () => cancelBooking(b.id),
                         "Could not cancel booking."
                       )
@@ -124,7 +138,8 @@ export default function BookingsPage() {
                 )}
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>

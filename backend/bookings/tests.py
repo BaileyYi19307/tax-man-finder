@@ -428,3 +428,47 @@ class BookingDomainTests(TestCase):
             ).count(),
             1,
         )
+
+    def _create_pending_booking(self):
+        self._auth(self.client_user)
+        response = self.client.post(
+            self.create_url,
+            {"inquiry": self.inquiry.id, "starts_at": self.starts.isoformat()},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        return response.data["id"]
+
+    def test_client_can_cancel_pending_booking(self):
+        booking_id = self._create_pending_booking()
+        self._auth(self.client_user)
+        response = self.client.post(reverse("bookings-cancel", args=[booking_id]))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], BookingStatus.CANCELLED)
+        self.assertEqual(Booking.objects.get(pk=booking_id).status, BookingStatus.CANCELLED)
+
+    def test_accountant_can_cancel_confirmed_booking(self):
+        booking_id = self._create_pending_booking()
+        self._auth(self.accountant_user)
+        accept = self.client.post(reverse("bookings-accept", args=[booking_id]))
+        self.assertEqual(accept.status_code, status.HTTP_200_OK)
+        cancel = self.client.post(reverse("bookings-cancel", args=[booking_id]))
+        self.assertEqual(cancel.status_code, status.HTTP_200_OK)
+        self.assertEqual(cancel.data["status"], BookingStatus.CANCELLED)
+
+    def test_outsider_cannot_cancel_booking(self):
+        booking_id = self._create_pending_booking()
+        self._auth(self.outsider)
+        response = self.client.post(reverse("bookings-cancel", args=[booking_id]))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(Booking.objects.get(pk=booking_id).status, BookingStatus.PENDING)
+
+    def test_cancel_already_declined_booking_rejected(self):
+        booking_id = self._create_pending_booking()
+        self._auth(self.accountant_user)
+        decline = self.client.post(reverse("bookings-decline", args=[booking_id]))
+        self.assertEqual(decline.status_code, status.HTTP_200_OK)
+        self._auth(self.client_user)
+        cancel = self.client.post(reverse("bookings-cancel", args=[booking_id]))
+        self.assertEqual(cancel.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Booking.objects.get(pk=booking_id).status, BookingStatus.DECLINED)

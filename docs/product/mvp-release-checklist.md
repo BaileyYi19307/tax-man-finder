@@ -55,9 +55,9 @@ The **backend of the core loop is mostly in place**, and several frontend paths 
 - My Services list with edit
 - Service ownership checks
 
-What is **not** feature-complete: accountants cannot delete/deactivate extra services from the UI. Delete remains P1/deferred. The public directory shows names for complete profiles only. Shared header + logout exist on main app pages. Returning complete accountants log in to `/dashboard/accountant`. Client dashboard “Find a Tax Professional” goes to `/accountants`. Accountants can view/edit their profile at `/dashboard/profile` and manage services from My Services.
+What is **not** feature-complete: search, password reset, signup verify screen polish, and other deferred items below. Delete remains P1/deferred. The public directory shows names for complete profiles only. Shared header + logout exist on main app pages. Returning complete accountants log in to `/dashboard/accountant`. Client dashboard “Find a Tax Professional” goes to `/accountants`. Accountants can view/edit their profile at `/dashboard/profile` and manage services from My Services.
 
-**Assessment:** core flows are **mostly wired locally**. Remaining Phase 1 work is mostly P1 polish (signup verify screen, extra service create, HTTP chat fallback).
+**Assessment:** core flows are **mostly wired locally**. Remaining Phase 1 work is mostly P1 polish (signup verify screen).
 
 ---
 
@@ -132,8 +132,8 @@ What is **not** feature-complete: accountants cannot delete/deactivate extra ser
 | My Services list (owned only) | `DONE` | P0 | `GET /services/mine/` + `MyServices.tsx`. Tests in `services/tests.py` and `MyServices.test.js`. Login redirect exists. |
 | Ownership authorization | `DONE` | P0 | `IsServiceOwner`; create binds `request.user`; serializer `accountant` read-only. Tests cover spoofed owner and other-accountant PATCH/DELETE. |
 | Create additional service UI | `DONE` | P1 | `MyServices.tsx` Add service form → `POST /services/`. Tests: `MyServices.test.js`. |
-| Edit service UI | `DONE` | P0 | `MyServices.tsx` Edit form PATCHes name/description (and indicative price when shown). Tests: `MyServices.test.js`. Create/delete still P1. |
-| Delete / deactivate UI | `NOT_STARTED` | P1 | DELETE/PATCH `is_active` exist. Defer unless an accountant ships a bad listing they must hide. Filter public catalog to `is_active=True` if deactivation is added. |
+| Edit service UI | `DONE` | P0 | `MyServices.tsx` Edit form PATCHes name/description (and indicative price when shown). Tests: `MyServices.test.js`. |
+| Delete / deactivate UI | `DONE` | P1 | `deactivateMyService`; Remove on `MyServices.tsx`. Public list/retrieve only `is_active=True`. |
 | Public catalog vs My Services | `DONE` | P1 | They are separate routes. Keep it that way. Point clients at `/accountants`, not `/services`. |
 
 **Phase 1 minimum:** owned list (done) + **edit** the existing service. Extra create/delete can wait.
@@ -175,7 +175,7 @@ Consultation **is** a pending `Booking` attached to an inquiry.
 | Belongs to inquiry; parties derived | `DONE` | P0 | FK required; client/accountant copied from inquiry, not the payload. |
 | Statuses | `DONE` | P0 | `pending` → `confirmed` (accept) / `declined` / `cancelled`. |
 | Client + accountant views | `DONE` | P0 | Shared `/bookings` page, participant queryset. |
-| Cancel | `PARTIAL` | P1 | UI + `POST /bookings/:id/cancel/`. No backend cancel tests. Double-submit not guarded. |
+| Cancel | `DONE` | P1 | UI + `POST /bookings/:id/cancel/`. Buttons disable in flight on `BookingsPage`. Tests in `bookings/tests.py` and `BookingsPage.test.js`. |
 | Confirmed overlap | `DONE` | P2 | Enforced on accept only. |
 
 Accepted consultation **is** the confirmed booking. No extra booking-creation step is needed for Phase 1.
@@ -218,14 +218,14 @@ Work **vertical product slices**. Do not start Phase 2 items in this list. Order
 | 3 | Marketplace | Directory/profile show email; list incomplete | `DONE` | P0 | `PublicAccountantDirectoryView`; `displayName.ts`; `AccountantsDirectory.tsx`; `AccountantProfile.tsx` | Directory lists complete profiles only. Public title is name (firm fallback). Firm + location shown. Back to `/accountants`. Inbox link logged-in only. |
 | 4 | Client experience | Find-professional CTA hits service catalog | `DONE` | P0 | `ClientDashboard.tsx`; `ClientDashboard.test.js` | Primary CTA goes to `/accountants`. Raw `user_id` card removed. |
 | 5 | Accountant profile | No view/edit after complete | `DONE` | P0 | `AccountantProfileEdit.tsx`; header + dashboard links | `/dashboard/profile` loads `GET /accountants/me/` and saves via `POST /accountants/create/`. Public listing uses the same name/firm fields. |
-| 6 | Services | My Services is read-only | `DONE` | P0 | `MyServices.tsx` + `updateMyService`; dashboard copy | Edit name/description (and price if shown) for owned services. Create/delete still P1. |
+| 6 | Services | My Services is read-only | `DONE` | P0 | `MyServices.tsx` + `updateMyService`; dashboard copy | Edit name/description (and price if shown) for owned services. Create/remove added in items 10 and 13. |
 | 7 | Messaging | Failed WS looks sent; dashboard empty vs error | `DONE` | P0 | `useChatSocket` returns send success; `ConversationView.tsx`; dashboard + inbox error states | Failed WS send keeps the draft and shows an error (no fake bubble). Inquiry fetch empty vs error on dashboard and inbox. HTTP fallback added in item 11. |
 | 8 | Marketplace | Service detail infinite loading | `DONE` | P0 | `ServiceDetail.tsx` fetch loading/error | Failed fetch → error + links to `/accountants` and `/services`. |
 | 9 | Signup UX | Verify required; UI dumps user on login | `PARTIAL` | P1 | `Signup.tsx` navigates to login; console mail | After signup, show “Open the verify link from the Django console, then log in” while keeping `next` / intent. Not SMTP. |
 | 10 | Services | Add a second listing | `DONE` | P1 | `createMyService`; `MyServices.tsx` | Add service form on My Services. Default pricing is consultation required. |
 | 11 | Messaging | HTTP send unused | `DONE` | P1 | `sendInquiryMessage`; `ConversationView.tsx` | WS first; HTTP fallback when socket is not open. Tests: `ConversationView.test.js`. |
-| 12 | Bookings | Cancel untested; double-submit | `PARTIAL` | P1 | `BookingsPage.tsx`; no `test_cancel` | Disable buttons in flight; add a cancel permission test. |
-| 13 | Services | Extra create is enough; delete optional | `NOT_STARTED` | P1 | DELETE / `is_active` | Deactivate or delete own service; public list only `is_active`. |
+| 12 | Bookings | Cancel untested; double-submit | `DONE` | P1 | `BookingsPage.tsx`; `bookings/tests.py` cancel cases | Disable Accept/Decline/Cancel in flight. Client/accountant cancel tests; outsider 404; declined cancel 400. |
+| 13 | Services | Extra create is enough; delete optional | `DONE` | P1 | `deactivateMyService`; `MyServices.tsx` Remove | PATCH `is_active=false`; public catalog hides inactive; Hidden badge on My Services. |
 | 14 | Marketplace | Search / filters | `DEFER` | P2 | None | Do not build. |
 | 15 | Consultations | In-chat request form | `NOT_STARTED` | P2 | `POST /bookings/` API-only | Skip; profile/service already start the flow. |
 | 16 | Auth | Password reset | `NOT_STARTED` | P2 | None | Phase 1 defer; revisit in Phase 2 with real mail. |
