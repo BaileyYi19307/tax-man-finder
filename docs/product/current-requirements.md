@@ -15,7 +15,7 @@ TaxManFinder is a marketplace that connects people seeking tax help with account
 
 Visitors can browse public accountant listings without an account. Messaging an accountant or requesting a consultation requires authentication. The durable relationship between a client and an accountant is an **Inquiry**; scheduled consultations are **Bookings** attached to that Inquiry.
 
-The core local product loop—discover → message → request consultation → accept/decline/cancel—is implemented. Remaining product work and deferred items are listed below.
+The core local product loop—discover → message → share files → request consultation → accept/decline/cancel—is implemented. Deferred items are listed below.
 
 ---
 
@@ -34,14 +34,15 @@ Offering accounting services is represented by the presence of an `AccountantPro
 ### Current behavior
 
 - The public directory lists complete profiles only. Completeness means non-empty bio and credentials plus at least one active service.
-- A public profile shows display name (firm name as fallback), firm, location, bio, credentials, and active services.
+- A public profile shows display name (firm name as fallback), firm, location, bio, credentials, service scope when remote/nationwide, and active services.
 - Incomplete profiles are omitted from the directory but may still load if opened by direct URL.
-- Primary discovery is the accountant directory. A public services catalog lists active services only; inactive services are not publicly retrievable.
-- Location on a profile is free-text. There is no map, geocoding, or location-based search.
+- Primary discovery is the accountant directory with an integrated map. A public services catalog lists active services only; inactive services are not publicly retrievable.
+- Profiles may store optional latitude/longitude for map pins. Free-text location remains the human-readable base location. Visitors can search a place and filter map pins by fixed radius in miles.
+- Accountants without coordinates still appear in the flat directory; they do not appear as pins or in radius-filtered geographic results.
 
 ### Planned
 
-- **Map-based accountant discovery**, so visitors can find accountants by geography rather than browsing a flat directory alone.
+No additional discovery product features are currently required beyond the map MVP described above. Architecture and a future styleable-map evaluation note: [001-accountant-map-discovery.md](../architecture/decisions/001-accountant-map-discovery.md).
 
 ---
 
@@ -51,13 +52,15 @@ Offering accounting services is represented by the presence of an `AccountantPro
 
 - Clients start a conversation from a public profile or service page by sending a non-blank first message. That creates an Inquiry (or reuses a matching open one) and opens the chat workspace.
 - Matching open inquiries are reused; a later contact after an Inquiry is closed starts a new Inquiry rather than reopening the closed one.
-- Only the Inquiry’s client and accountant can read or send on that conversation. Blank messages are rejected. Closed inquiries reject new messages.
+- Only the Inquiry’s client and accountant can read or send on that conversation. Closed inquiries reject new messages.
+- Participants can share files on an open Inquiry: attach files when sending a chat message, or upload to the Inquiry’s shared-files library without a message. Allowed types include PDF, JPEG, PNG, and common Office documents, with a per-file size limit. Downloads require Inquiry participant authorization. JPEG, PNG, and PDF support in-chat preview via authenticated download. Architecture: [decisions.md](../architecture/decisions.md).
+- Chat messages may include text, attachments, or both. Text-only sends still require non-blank content; attachment-only messages use blank content.
 - Live chat uses a WebSocket when available, with HTTP send as a fallback.
-- The data model supports an Inquiry status of `closed`, but the product does not yet expose a way for users to close an Inquiry.
+- The data model supports an Inquiry status of `closed`, but the product does not yet expose a way for users to close an Inquiry. Closed inquiries remain readable and files remain downloadable.
 
 ### Planned
 
-- **File and document sharing** on an Inquiry, so participants can exchange documents as part of the engagement. Ownership and lifetime of shared files follow the Inquiry workspace model described in [decisions.md](../architecture/decisions.md) (accepted architecture; not built yet).
+No additional messaging product features are currently required beyond Inquiry file sharing described above.
 
 ---
 
@@ -73,7 +76,7 @@ Offering accounting services is represented by the presence of an `AccountantPro
 
 ### Planned
 
-No additional consultation product features are currently required beyond the engagement work listed under Product Work Remaining (shared documents may appear in the same chat workspace).
+No additional consultation product features are currently required.
 
 ---
 
@@ -88,16 +91,13 @@ No additional consultation product features are currently required beyond the en
 
 ### Planned
 
-No additional accountant/service product features are currently required for the next product milestone beyond discovery and file sharing.
+No additional accountant/service product features are currently required for the next product milestone.
 
 ---
 
 ## Product Work Remaining
 
-These capabilities are part of the intended product and are **not yet implemented**:
-
-1. **Map-based accountant discovery** — see Accountant Discovery → Planned.
-2. **File / document sharing on an Inquiry** — see Messaging and Inquiries → Planned; architecture in [decisions.md](../architecture/decisions.md).
+No intended product capabilities are currently marked unimplemented beyond deferred items below. Map discovery and Inquiry file sharing are implemented; see Messaging and Inquiries and [001-accountant-map-discovery.md](../architecture/decisions/001-accountant-map-discovery.md).
 
 ---
 
@@ -105,7 +105,7 @@ These capabilities are part of the intended product and are **not yet implemente
 
 The following are intentionally out of the near-term product scope:
 
-- Directory search and advanced filters beyond the current complete-profile list
+- Advanced directory filters beyond the current complete-profile list and place/radius map search
 - In-chat “request consultation” UI
 - Password reset
 - User-facing close-inquiry flow
@@ -121,4 +121,4 @@ The following are intentionally out of the near-term product scope:
 
 Hosting, HTTPS, production email (SMTP), hardened secrets and CORS, production database, static asset serving, and deploy runbooks are **infrastructure concerns**, separate from the product features above. Local development currently uses console email and localhost API/WebSocket URLs; see the root [README.md](../../README.md) for running the stack.
 
-Production deployment remains deferred until the remaining product work is in a coherent place.
+Production deployment remains deferred until infrastructure and deploy concerns are ready; see the deferred and production sections above.

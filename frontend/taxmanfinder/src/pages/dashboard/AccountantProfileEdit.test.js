@@ -106,6 +106,7 @@ test("saving updates the profile and opens the public listing", async () => {
       credentials: "CPA",
       firm_name: "Pro Tax",
       location: "Boston, MA",
+      service_scope: "local",
     })
   );
   expect(createAccountantProfile.mock.calls[0][0].service_name).toBeUndefined();

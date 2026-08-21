@@ -10,8 +10,10 @@
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.14.0",
     "jwt-decode": "^4.0.0",
+    "leaflet": "^1.9.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-leaflet": "^4.2.1",
     "react-router-dom": "^6.22.3",
     "react-scripts": "5.0.1",
     "tailwindcss": "^4.1.18",
@@ -40,5 +42,8 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.22"
   }
 }

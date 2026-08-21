@@ -213,3 +213,9 @@ MEDIA_ROOT = BASE_DIR / "media"
 # Align upload limits with attachment validation (see chats.file_validation).
 DATA_UPLOAD_MAX_MEMORY_SIZE = 12 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 12 * 1024 * 1024
+
+# Nominatim requires a descriptive User-Agent (no API key for light MVP use).
+GEOCODER_USER_AGENT = os.environ.get(
+    "GEOCODER_USER_AGENT",
+    "TaxManFinder/0.1 (local development; contact via project repo)",
+)

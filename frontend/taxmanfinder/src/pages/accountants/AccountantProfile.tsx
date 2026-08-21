@@ -236,6 +236,12 @@ export default function AccountantProfilePage() {
             {subtitle && (
               <div style={{ ...muted, marginTop: 8, fontSize: 14 }}>{subtitle}</div>
             )}
+            {(profile.service_scope === "remote" ||
+              profile.service_scope === "nationwide") && (
+              <div style={{ marginTop: 8, fontSize: 13, color: "#065f46" }}>
+                {profile.service_scope === "remote" ? "Remote" : "Nationwide"}
+              </div>
+            )}
             <div style={{ ...muted, marginTop: subtitle ? 4 : 8, fontSize: 14 }}>
               {profile.years_experience} years experience
             </div>

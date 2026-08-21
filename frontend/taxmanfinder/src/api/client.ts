@@ -136,6 +136,8 @@ export async function cancelBooking(bookingId: number) {
   return (await res.json()) as Booking;
 }
 
+export type AccountantServiceScope = "local" | "remote" | "nationwide";
+
 export type AccountantProfilePayload = {
   user_id: number;
   email: string;
@@ -146,8 +148,23 @@ export type AccountantProfilePayload = {
   years_experience: number;
   firm_name: string;
   location: string;
-  services: { id: number; name: string }[];
+  latitude?: number | null;
+  longitude?: number | null;
+  service_scope?: AccountantServiceScope;
+  map_eligible?: boolean;
+  services: {
+    id: number;
+    name: string;
+    pricing_type?: "fixed" | "hourly" | "consultation_required";
+    indicative_price?: string | null;
+  }[];
   profile_complete: boolean;
+};
+
+export type GeocodeResult = {
+  latitude: number;
+  longitude: number;
+  display_name: string;
 };
 
 export async function getMe() {
@@ -167,10 +184,36 @@ export async function getProfileStatus(userId: number) {
   };
 }
 
-export async function listPublicAccountants() {
-  const res = await fetch(`${API_BASE}/accountants/directory/`);
+export type DirectoryGeoQuery = {
+  latitude: number;
+  longitude: number;
+  radius_miles?: number;
+};
+
+export async function listPublicAccountants(geo?: DirectoryGeoQuery) {
+  const params = new URLSearchParams();
+  if (geo) {
+    params.set("latitude", String(geo.latitude));
+    params.set("longitude", String(geo.longitude));
+    if (geo.radius_miles != null) {
+      params.set("radius_miles", String(geo.radius_miles));
+    }
+  }
+  const qs = params.toString();
+  const res = await fetch(
+    `${API_BASE}/accountants/directory/${qs ? `?${qs}` : ""}`
+  );
   if (!res.ok) throw new Error(await res.text());
   return (await res.json()) as AccountantProfilePayload[];
+}
+
+export async function geocodePlace(query: string) {
+  const params = new URLSearchParams({ q: query });
+  const res = await fetch(`${API_BASE}/accountants/geocode/?${params}`);
+  const text = await res.text();
+  if (res.status === 404) throw new Error("No results for that location.");
+  if (!res.ok) throw new Error(text || "Geocoding failed");
+  return JSON.parse(text) as GeocodeResult;
 }
 
 export async function listPublicServices() {
@@ -200,6 +243,7 @@ export async function createAccountantProfile(body: {
   years_experience: number;
   firm_name: string;
   location: string;
+  service_scope?: AccountantServiceScope;
   service_name?: string;
   service_description?: string;
 }) {

@@ -29,7 +29,7 @@ Clients and accountants often communicate before any consultation exists. A book
 
 - Messages belong to the Inquiry.
 - Bookings represent appointments within the Inquiry.
-- Shared attachments will belong to the Inquiry when file sharing is built.
+- Shared attachments belong to the Inquiry.
 - Booking lifecycle changes do not end the workspace.
 - A separate Workspace model is unnecessary because Inquiry already defines that boundary.
 - Participant identity on the Inquiry is the authorization boundary for chat and participant booking access.
@@ -104,7 +104,7 @@ A profile is complete when `bio` and `credentials` are present and the accountan
 
 ### Inquiry-owned shared documents
 
-**Status:** Accepted — not yet implemented  
+**Status:** Accepted — implemented (MVP)  
 **Date:** 2026-08-20
 
 **Context**
@@ -113,38 +113,35 @@ Participants need to exchange documents as part of an engagement. Documents may 
 
 **Decision**
 
-When file sharing is built:
-
 - Attachments are owned by `Inquiry`.
 - An attachment may optionally be associated with a `Message` for timeline presentation.
 - Attachments are not owned by `Booking`.
 - No separate Workspace entity is introduced for file sharing.
+- A chat message may have blank `content` when it has one or more attachments; text-only messages still require non-blank content.
 
 **Consequences**
 
 - File lifetime follows the Inquiry, independent of booking status.
 - Authorization for attachments aligns with Inquiry participant rules (same boundary as messages).
-- How file-only chat rows are represented (for example empty message content with attachments) remains an open implementation detail under this decision.
+- Participants can upload into an Inquiry shared-files library without creating a Message, or attach files when sending a Message.
+- Downloads go through authenticated Inquiry-scoped endpoints; the product does not expose permanent public file URLs for marketplace documents.
 
-Product status: [current-requirements.md](../product/current-requirements.md).
+Product status: [current-requirements.md](../product/current-requirements.md). Domain: [domain-model.md](./domain-model.md).
+
+---
+
+## Accepted
+
+### Map-based accountant discovery
+
+**Status:** Accepted — implemented (MVP)  
+**Date:** 2026-08-20
+
+Flat-list vs map eligibility, fixed-radius search, remote/nationwide service scope, current Leaflet/OSM/Nominatim architecture, and a future styleable-map evaluation note are recorded in [decisions/001-accountant-map-discovery.md](./decisions/001-accountant-map-discovery.md).
 
 ---
 
 ## Open
-
-### Map-based accountant discovery
-
-**Status:** Accepted — not yet implemented (see ADR)  
-**Date:** 2026-08-20
-
-MVP decisions for flat-list vs map eligibility, fixed-radius search, and remote/nationwide service indicators are recorded in [decisions/001-accountant-map-discovery.md](./decisions/001-accountant-map-discovery.md).
-
-### Representation of file-only chat messages
-
-**Status:** Open  
-**Date:** 2026-08-20
-
-Message content is currently required to be non-blank. Under Inquiry-owned attachments, the exact representation of attachment-only timeline entries is still undecided.
 
 ### Closing an Inquiry from the product
 

@@ -1,8 +1,10 @@
 from django.test import TestCase
+from unittest.mock import patch
 from rest_framework.test import APIClient
 
 from users.models import User
 from accountants.models import AccountantProfile
+from accountants.geo import haversine_miles, DEFAULT_RADIUS_MILES
 from services.models import Service
 from django.urls import reverse
 
@@ -352,20 +354,26 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
         self.assertEqual(own.status_code, 200)
         self.assertFalse(own.data["profile_complete"])
 
-        resp = self.client.post(
-            reverse("create_accountant"),
-            {
-                "first_name": "Casey",
-                "last_name": "Taxes",
-                "bio": "Now complete.",
-                "credentials": "CPA",
-                "years_experience": 6,
-                "firm_name": "Casey CPA",
-                "location": "Boston, MA",
-                "service_name": "Tax planning",
-            },
-            format="json",
-        )
+        with patch("accountants.views.geocode_query") as mock_geocode:
+            mock_geocode.return_value = {
+                "latitude": 42.3601,
+                "longitude": -71.0589,
+                "display_name": "Boston, MA",
+            }
+            resp = self.client.post(
+                reverse("create_accountant"),
+                {
+                    "first_name": "Casey",
+                    "last_name": "Taxes",
+                    "bio": "Now complete.",
+                    "credentials": "CPA",
+                    "years_experience": 6,
+                    "firm_name": "Casey CPA",
+                    "location": "Boston, MA",
+                    "service_name": "Tax planning",
+                },
+                format="json",
+            )
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(AccountantProfile.objects.filter(user=empty).count(), 1)
         empty.accountant_profile.refresh_from_db()
@@ -381,4 +389,334 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["user_id"], self.listed.id)
         self.assertEqual(AccountantProfile.objects.count(), before)
+
+
+class MapDiscoveryDirectoryTest(TestCase):
+    """Fixed-radius directory filter + map eligibility (ADR 001)."""
+
+    # Center: City Hall, Philadelphia
+    PHILLY_LAT = 39.9526
+    PHILLY_LNG = -75.1652
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.near = User.objects.create_user(
+            email="near-philly@test.com",
+            password="password123",
+            is_verified=True,
+            first_name="Near",
+            last_name="Philly",
+        )
+        AccountantProfile.objects.create(
+            user=cls.near,
+            credentials="CPA",
+            bio="Near City Hall",
+            firm_name="Near Tax",
+            location="Philadelphia, PA",
+            latitude=39.9500,
+            longitude=-75.1600,
+            service_scope=AccountantProfile.ServiceScope.LOCAL,
+        )
+        Service.objects.create(
+            accountant=cls.near,
+            name="Returns",
+            description="1040",
+            pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
+            is_active=True,
+        )
+
+        cls.far = User.objects.create_user(
+            email="far-la@test.com",
+            password="password123",
+            is_verified=True,
+            first_name="Far",
+            last_name="LA",
+        )
+        AccountantProfile.objects.create(
+            user=cls.far,
+            credentials="EA",
+            bio="Los Angeles based",
+            firm_name="LA Tax",
+            location="Los Angeles, CA",
+            latitude=34.0522,
+            longitude=-118.2437,
+            service_scope=AccountantProfile.ServiceScope.NATIONWIDE,
+        )
+        Service.objects.create(
+            accountant=cls.far,
+            name="Business",
+            description="Biz",
+            pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
+            is_active=True,
+        )
+
+        cls.no_coords = User.objects.create_user(
+            email="no-coords@test.com",
+            password="password123",
+            is_verified=True,
+            first_name="No",
+            last_name="Coords",
+        )
+        AccountantProfile.objects.create(
+            user=cls.no_coords,
+            credentials="CPA",
+            bio="Complete but no map pin",
+            firm_name="Text Only Tax",
+            location="Philadelphia, PA",
+            latitude=None,
+            longitude=None,
+            service_scope=AccountantProfile.ServiceScope.REMOTE,
+        )
+        Service.objects.create(
+            accountant=cls.no_coords,
+            name="Remote consult",
+            description="Zoom",
+            pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
+            is_active=True,
+        )
+
+        cls.incomplete = User.objects.create_user(
+            email="incomplete-map@test.com",
+            password="password123",
+            is_verified=True,
+        )
+        AccountantProfile.objects.create(
+            user=cls.incomplete,
+            credentials="CPA",
+            bio="Has coords but incomplete (no service)",
+            latitude=39.95,
+            longitude=-75.16,
+        )
+
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse("accountant-directory")
+
+    def test_flat_directory_includes_complete_without_coordinates(self):
+        resp = self.client.get(self.url)
+        self.assertEqual(resp.status_code, 200)
+        ids = {row["user_id"] for row in resp.data}
+        self.assertIn(self.near.id, ids)
+        self.assertIn(self.far.id, ids)
+        self.assertIn(self.no_coords.id, ids)
+        self.assertNotIn(self.incomplete.id, ids)
+
+        no_coords_row = next(r for r in resp.data if r["user_id"] == self.no_coords.id)
+        self.assertIsNone(no_coords_row["latitude"])
+        self.assertIsNone(no_coords_row["longitude"])
+        self.assertFalse(no_coords_row["map_eligible"])
+        self.assertEqual(no_coords_row["service_scope"], "remote")
+
+        far_row = next(r for r in resp.data if r["user_id"] == self.far.id)
+        self.assertTrue(far_row["map_eligible"])
+        self.assertEqual(far_row["service_scope"], "nationwide")
+
+    def test_geo_search_returns_only_in_radius_map_eligible(self):
+        resp = self.client.get(
+            self.url,
+            {
+                "latitude": self.PHILLY_LAT,
+                "longitude": self.PHILLY_LNG,
+                "radius_miles": 25,
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        ids = [row["user_id"] for row in resp.data]
+        self.assertEqual(ids, [self.near.id])
+        self.assertNotIn(self.far.id, ids)
+        self.assertNotIn(self.no_coords.id, ids)
+        self.assertNotIn(self.incomplete.id, ids)
+
+    def test_geo_search_excludes_outside_radius(self):
+        distance = haversine_miles(
+            self.PHILLY_LAT, self.PHILLY_LNG, 34.0522, -118.2437
+        )
+        self.assertGreater(distance, DEFAULT_RADIUS_MILES)
+        resp = self.client.get(
+            self.url,
+            {
+                "latitude": self.PHILLY_LAT,
+                "longitude": self.PHILLY_LNG,
+                "radius_miles": DEFAULT_RADIUS_MILES,
+            },
+        )
+        ids = [row["user_id"] for row in resp.data]
+        self.assertNotIn(self.far.id, ids)
+
+    def test_geo_search_boundary_includes_point_at_exact_radius(self):
+        # ~10 miles east of center
+        point_lat = 39.9526
+        point_lng = -74.9750
+        dist = haversine_miles(self.PHILLY_LAT, self.PHILLY_LNG, point_lat, point_lng)
+        self.assertLess(dist, 15)
+        self.assertGreater(dist, 5)
+
+        edge_user = User.objects.create_user(
+            email="edge@test.com",
+            password="password123",
+            is_verified=True,
+        )
+        AccountantProfile.objects.create(
+            user=edge_user,
+            credentials="CPA",
+            bio="Edge",
+            latitude=point_lat,
+            longitude=point_lng,
+        )
+        Service.objects.create(
+            accountant=edge_user,
+            name="Edge svc",
+            description="x",
+            pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
+            is_active=True,
+        )
+
+        inside = self.client.get(
+            self.url,
+            {
+                "latitude": self.PHILLY_LAT,
+                "longitude": self.PHILLY_LNG,
+                "radius_miles": dist + 0.5,
+            },
+        )
+        outside = self.client.get(
+            self.url,
+            {
+                "latitude": self.PHILLY_LAT,
+                "longitude": self.PHILLY_LNG,
+                "radius_miles": max(1, dist - 0.5),
+            },
+        )
+        self.assertIn(edge_user.id, [r["user_id"] for r in inside.data])
+        self.assertNotIn(edge_user.id, [r["user_id"] for r in outside.data])
+
+    def test_geo_search_requires_both_coordinates(self):
+        resp = self.client.get(self.url, {"latitude": self.PHILLY_LAT})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_geo_search_rejects_invalid_latitude(self):
+        resp = self.client.get(
+            self.url,
+            {"latitude": 999, "longitude": self.PHILLY_LNG, "radius_miles": 10},
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    def test_geo_search_rejects_invalid_radius(self):
+        resp = self.client.get(
+            self.url,
+            {
+                "latitude": self.PHILLY_LAT,
+                "longitude": self.PHILLY_LNG,
+                "radius_miles": 0,
+            },
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    @patch("accountants.views.geocode_query")
+    def test_profile_save_stores_coordinates_from_location(self, mock_geocode):
+        mock_geocode.return_value = {
+            "latitude": 39.9526,
+            "longitude": -75.1652,
+            "display_name": "Philadelphia, PA",
+        }
+        user = User.objects.create_user(
+            email="geocode-save@test.com",
+            password="password123",
+            is_verified=True,
+        )
+        self.client.force_authenticate(user=user)
+        resp = self.client.post(
+            reverse("create_accountant"),
+            {
+                "bio": "Bio",
+                "credentials": "CPA",
+                "location": "Philadelphia, PA",
+                "service_scope": "remote",
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 201)
+        profile = AccountantProfile.objects.get(user=user)
+        self.assertAlmostEqual(float(profile.latitude), 39.9526, places=4)
+        self.assertAlmostEqual(float(profile.longitude), -75.1652, places=4)
+        self.assertEqual(profile.service_scope, "remote")
+        self.assertTrue(resp.data["map_eligible"])
+        mock_geocode.assert_called()
+
+    @patch("accountants.views.geocode_query")
+    def test_blank_location_clears_coordinates(self, mock_geocode):
+        user = User.objects.create_user(
+            email="clear-coords@test.com",
+            password="password123",
+            is_verified=True,
+        )
+        AccountantProfile.objects.create(
+            user=user,
+            credentials="CPA",
+            bio="Bio",
+            location="Philadelphia, PA",
+            latitude=39.95,
+            longitude=-75.16,
+        )
+        self.client.force_authenticate(user=user)
+        resp = self.client.post(
+            reverse("create_accountant"),
+            {
+                "bio": "Bio",
+                "credentials": "CPA",
+                "location": "",
+                "service_scope": "local",
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        user.accountant_profile.refresh_from_db()
+        self.assertIsNone(user.accountant_profile.latitude)
+        self.assertIsNone(user.accountant_profile.longitude)
+        mock_geocode.assert_not_called()
+
+    @patch("accountants.views.geocode_query")
+    def test_geocode_endpoint_returns_coordinates(self, mock_geocode):
+        mock_geocode.return_value = {
+            "latitude": 39.9526,
+            "longitude": -75.1652,
+            "display_name": "Philadelphia, Pennsylvania, USA",
+        }
+        resp = self.client.get(reverse("accountant-geocode"), {"q": "Philadelphia, PA"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertAlmostEqual(resp.data["latitude"], 39.9526, places=4)
+        self.assertEqual(resp.data["display_name"], "Philadelphia, Pennsylvania, USA")
+
+    def test_geocode_endpoint_requires_query(self):
+        resp = self.client.get(reverse("accountant-geocode"))
+        self.assertEqual(resp.status_code, 400)
+
+    @patch("accountants.views.geocode_query")
+    def test_onboarding_with_boston_location_mocked(self, mock_geocode):
+        """Regression: resume save with location does not require live Nominatim."""
+        mock_geocode.return_value = {
+            "latitude": 42.3601,
+            "longitude": -71.0589,
+            "display_name": "Boston, MA",
+        }
+        empty = User.objects.create_user(
+            email="resume-geo@test.com",
+            password="password123",
+            is_verified=True,
+        )
+        AccountantProfile.objects.create(user=empty, credentials="", bio="")
+        self.client.force_authenticate(user=empty)
+        resp = self.client.post(
+            reverse("create_accountant"),
+            {
+                "bio": "Now complete.",
+                "credentials": "CPA",
+                "location": "Boston, MA",
+                "service_name": "Tax planning",
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        empty.accountant_profile.refresh_from_db()
+        self.assertIsNotNone(empty.accountant_profile.latitude)
 

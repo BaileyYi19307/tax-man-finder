@@ -15,11 +15,12 @@ TaxManFinder connects people seeking tax help with accountants.
 | **Accountant** | A user who has an AccountantProfile and may offer Services |
 | **Inquiry** | Durable engagement between one client and one accountant (conversation and workspace) |
 | **Message** | A communication event on an Inquiry |
+| **Attachment** | An Inquiry-owned shared file; optionally linked to a Message for the chat timeline |
 | **Booking** | A scheduled consultation appointment belonging to an Inquiry |
 
 A user may be a client in some engagements and an accountant in others, but never both parties on the same Inquiry or Booking.
 
-Authorization for chat and participant booking actions is scoped to the Inquiry’s two participants.
+Authorization for chat, shared files, and participant booking actions is scoped to the Inquiry’s two participants.
 
 ---
 
@@ -33,6 +34,7 @@ A User is the shared identity used for authentication and for participation in e
 - May own Services when acting as an accountant
 - May appear as client or accountant on Inquiries and Bookings
 - May send Messages
+- May upload Attachments on Inquiries where they are a participant
 
 **Lifecycle**
 
@@ -79,19 +81,23 @@ A profile is complete for public directory listing when:
 - `bio` and `credentials` are non-empty, and
 - the user has at least one active Service
 
-`years_experience`, `firm_name`, and `location` are stored and shown when present; they are not required for completeness. A Boolean `profile_complete` column exists in the database; APIs and listing logic use the computed completeness property instead.
+`years_experience`, `firm_name`, and `location` are stored and shown when present; they are not required for completeness. Optional `latitude` and `longitude` enable map pins and fixed-radius search; they do not affect directory completeness. `service_scope` (`local`, `remote`, `nationwide`) describes how the accountant serves clients and is separate from the map pin. A Boolean `profile_complete` column exists in the database; APIs and listing logic use the computed completeness property instead.
 
 **Public visibility**
 
 - The directory lists complete profiles only
 - Profile detail by id may return an incomplete profile if it exists
+- Map pins and geographic radius results include only complete profiles that also have both coordinates (`is_map_eligible`)
 
 **Fields**
 
 ```text
 id, user_id, years_experience, credentials, bio,
-firm_name, location, profile_complete, created_at, updated_at
+firm_name, location, latitude, longitude, service_scope,
+profile_complete, created_at, updated_at
 ```
+
+Map discovery behavior and presentation architecture: [decisions/001-accountant-map-discovery.md](./decisions/001-accountant-map-discovery.md).
 
 ---
 
@@ -135,7 +141,7 @@ An Inquiry represents the durable engagement between a client and an accountant.
 - May reference one Service (optional)
 - Contains Messages
 - Contains Booking history
-- Will contain shared attachments when file sharing is built ([decisions.md](./decisions.md))
+- Contains shared Attachments ([decisions.md](./decisions.md))
 
 **Lifecycle**
 
@@ -179,6 +185,7 @@ A Message is a communication event within an Inquiry.
 
 - Belongs to one Inquiry
 - Has one sender (must be an Inquiry participant)
+- May have zero or more Attachments
 
 **Lifecycle**
 
@@ -188,7 +195,7 @@ A Message is a communication event within an Inquiry.
 
 **Invariants**
 
-- Content is non-blank
+- Content may be blank when the message has at least one attachment; text-only messages require non-blank content
 - Sender is the Inquiry client or accountant
 - Closed inquiries reject new messages
 
@@ -199,6 +206,37 @@ id, inquiry_id, sender_id, content, created_at
 ```
 
 Inbox unread behavior may track last-read state; there is no separate Conversation entity.
+
+---
+
+## Attachment
+
+An Attachment is an Inquiry-owned file shared between the engagement’s participants. Lifetime follows the Inquiry, not any Booking.
+
+**Relationships**
+
+- Belongs to one Inquiry
+- Has one uploader (must be an Inquiry participant)
+- May optionally reference one Message (chat timeline presentation); library uploads omit `message`
+
+**Lifecycle**
+
+- Created when a participant uploads via the Inquiry attachments API (no Message) or when sending a Message with files
+- Downloadable by either participant while they can access the Inquiry; closed inquiries still allow download
+- Not owned by Booking; booking status changes do not remove attachments
+
+**Invariants**
+
+- Uploader is the Inquiry client or accountant
+- File type and size are validated at upload (PDF, JPEG, PNG, and common Office documents; per-file size limit)
+- Authorization matches Inquiry participant rules
+
+**Fields**
+
+```text
+id, inquiry_id, uploaded_by_id, message_id (nullable),
+file, original_filename, uploaded_at
+```
 
 ---
 
@@ -244,10 +282,12 @@ User
  ├── (as accountant) Service
  ├── (as client or accountant) Inquiry
  ├── (as sender) Message
+ ├── (as uploader) Attachment
  └── (as client or accountant) Booking
 
 Inquiry → User (client), User (accountant), Service? 
 Message → Inquiry
+Attachment → Inquiry, Message?
 Booking → Inquiry
 ```
 
@@ -270,7 +310,8 @@ From profile or service, the client chooses a start time and supplies a brief no
 | Surface | Rule |
 | --- | --- |
 | Inquiry list, detail, messages | Authenticated participant; others not found |
-| Send message | Participant and open Inquiry |
+| Send message | Participant and open Inquiry (text and/or attachments) |
+| Inquiry attachments list/upload/download | Authenticated participant; upload requires open Inquiry |
 | Chat WebSocket | Authenticated participant; closed Inquiry rejects send |
 | Bookings | Participant access; accept/decline restricted to accountant |
 | Service mutations | Accountant profile and ownership |

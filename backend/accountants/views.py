@@ -4,17 +4,35 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from .serializers import AccountantProfileSerializer, AccountantProfileStatusSerializer
 from .models import AccountantProfile
+from .geo import (
+    DEFAULT_RADIUS_MILES,
+    parse_latitude,
+    parse_longitude,
+    parse_radius_miles,
+    within_radius,
+)
+from .geocoding import geocode_query
 from services.models import Service
 from django.shortcuts import get_object_or_404
 
 
+def _float_or_none(value):
+    if value is None:
+        return None
+    return float(value)
+
+
 def _profile_public_payload(profile):
     user = profile.user
-    services = (
+    services = list(
         Service.objects.filter(accountant_id=user.id, is_active=True)
         .order_by("name")
-        .values("id", "name")
+        .values("id", "name", "pricing_type", "indicative_price")
     )
+    for service in services:
+        price = service.get("indicative_price")
+        if price is not None:
+            service["indicative_price"] = str(price)
     return {
         "user_id": user.id,
         "email": user.email,
@@ -25,9 +43,41 @@ def _profile_public_payload(profile):
         "years_experience": profile.years_experience,
         "firm_name": profile.firm_name,
         "location": profile.location,
-        "services": list(services),
+        "latitude": _float_or_none(profile.latitude),
+        "longitude": _float_or_none(profile.longitude),
+        "service_scope": profile.service_scope,
+        "map_eligible": profile.is_map_eligible,
+        "services": services,
         "profile_complete": profile.is_complete,
     }
+
+
+def _apply_location_coordinates(profile, location_text):
+    """Derive optional base lat/lng from free-text location; never invent coords."""
+    cleaned = (location_text or "").strip()
+    if not cleaned:
+        profile.latitude = None
+        profile.longitude = None
+        return
+
+    result = geocode_query(cleaned)
+    if result is None:
+        profile.latitude = None
+        profile.longitude = None
+        return
+
+    profile.latitude = result["latitude"]
+    profile.longitude = result["longitude"]
+
+
+def _parse_service_scope(raw):
+    allowed = {c.value for c in AccountantProfile.ServiceScope}
+    value = str(raw or AccountantProfile.ServiceScope.LOCAL).strip().lower()
+    if value not in allowed:
+        raise ValueError(
+            "service_scope must be one of: local, remote, nationwide."
+        )
+    return value
 
 
 class CreateAccountantProfile(APIView):
@@ -49,14 +99,24 @@ class CreateAccountantProfile(APIView):
         credentials = str(request.data.get("credentials") or "").strip()
         if not bio or not credentials:
             return Response(
-                {"detail": "Bio and credentials are required to set up an accountant profile."},
+                {
+                    "detail": "Bio and credentials are required to set up an accountant profile."
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        location = str(request.data.get("location") or "").strip()
+        try:
+            service_scope = _parse_service_scope(request.data.get("service_scope"))
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
         payload = {
             "bio": bio,
             "credentials": credentials,
             "firm_name": str(request.data.get("firm_name") or "").strip(),
-            "location": str(request.data.get("location") or "").strip(),
+            "location": location,
+            "service_scope": service_scope,
         }
         if "years_experience" in request.data:
             payload["years_experience"] = request.data.get("years_experience")
@@ -71,6 +131,9 @@ class CreateAccountantProfile(APIView):
             serializer = AccountantProfileSerializer(profile, data=payload, partial=True)
             serializer.is_valid(raise_exception=True)
             profile = serializer.save()
+
+        _apply_location_coordinates(profile, location)
+        profile.save(update_fields=["latitude", "longitude", "updated_at"])
 
         first_name = str(request.data.get("first_name") or "").strip()
         last_name = str(request.data.get("last_name") or "").strip()
@@ -116,18 +179,75 @@ class CheckProfileStatus(APIView):
 
 
 class PublicAccountantDirectoryView(APIView):
-    """Public list of accountant profiles for discovery."""
+    """Public list of accountant profiles for discovery (optional fixed-radius filter)."""
 
     permission_classes = [AllowAny]
 
     def get(self, request):
-        profiles = AccountantProfile.objects.select_related("user").order_by("user_id")
-        listed = [
-            _profile_public_payload(profile)
-            for profile in profiles
-            if profile.is_complete
+        geo_params_partial = [
+            k
+            for k in ("latitude", "longitude")
+            if request.query_params.get(k) not in (None, "")
         ]
+        if geo_params_partial and len(geo_params_partial) != 2:
+            return Response(
+                {"detail": "Geographic search requires both latitude and longitude."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        use_geo = len(geo_params_partial) == 2
+        center_lat = center_lng = radius = None
+        if use_geo:
+            try:
+                center_lat = parse_latitude(request.query_params.get("latitude"))
+                center_lng = parse_longitude(request.query_params.get("longitude"))
+                radius = parse_radius_miles(request.query_params.get("radius_miles"))
+            except ValueError as exc:
+                return Response(
+                    {"detail": str(exc)},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        profiles = AccountantProfile.objects.select_related("user").order_by("user_id")
+        listed = []
+        for profile in profiles:
+            if not profile.is_complete:
+                continue
+            if use_geo:
+                if not profile.is_map_eligible:
+                    continue
+                if not within_radius(
+                    center_lat=center_lat,
+                    center_lng=center_lng,
+                    point_lat=float(profile.latitude),
+                    point_lng=float(profile.longitude),
+                    radius_miles=radius,
+                ):
+                    continue
+            listed.append(_profile_public_payload(profile))
+
         return Response(listed, status=status.HTTP_200_OK)
+
+
+class GeocodePlaceView(APIView):
+    """Resolve a place string for map search centering (Nominatim)."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        query = str(request.query_params.get("q") or "").strip()
+        if not query:
+            return Response(
+                {"detail": "Query parameter q is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        result = geocode_query(query)
+        if result is None:
+            return Response(
+                {"detail": "No results for that location."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(result, status=status.HTTP_200_OK)
 
 
 class PublicAccountantProfileView(APIView):

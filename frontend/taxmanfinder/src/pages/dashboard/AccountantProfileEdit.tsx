@@ -45,6 +45,9 @@ export default function AccountantProfileEdit() {
   const [lastName, setLastName] = useState("");
   const [firmName, setFirmName] = useState("");
   const [location, setLocation] = useState("");
+  const [serviceScope, setServiceScope] = useState<"local" | "remote" | "nationwide">(
+    "local"
+  );
   const [bio, setBio] = useState("");
   const [credentials, setCredentials] = useState("");
   const [yearsExperience, setYearsExperience] = useState("0");
@@ -67,6 +70,11 @@ export default function AccountantProfileEdit() {
           setLastName(profile.last_name || "");
           setFirmName(profile.firm_name || "");
           setLocation(profile.location || "");
+          setServiceScope(
+            profile.service_scope === "remote" || profile.service_scope === "nationwide"
+              ? profile.service_scope
+              : "local"
+          );
           setBio(profile.bio || "");
           setCredentials(profile.credentials || "");
           setYearsExperience(String(profile.years_experience || 0));
@@ -97,6 +105,7 @@ export default function AccountantProfileEdit() {
         years_experience: Number(yearsExperience) || 0,
         firm_name: firmName.trim(),
         location: location.trim(),
+        service_scope: serviceScope,
       });
       setUserId(profile.user_id);
       await refreshUser();
@@ -169,13 +178,27 @@ export default function AccountantProfileEdit() {
               />
             </label>
             <label style={{ fontSize: 13, color: "#111" }}>
-              Location or service area
+              Location
               <input
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                placeholder="City, state, or remote"
+                placeholder="e.g. Philadelphia, PA"
                 style={{ ...field, marginTop: 6 }}
               />
+            </label>
+            <label style={{ fontSize: 13, color: "#111" }}>
+              How you serve clients
+              <select
+                value={serviceScope}
+                onChange={(e) =>
+                  setServiceScope(e.target.value as "local" | "remote" | "nationwide")
+                }
+                style={{ ...field, marginTop: 6 }}
+              >
+                <option value="local">Local / in-person</option>
+                <option value="remote">Remote</option>
+                <option value="nationwide">Nationwide</option>
+              </select>
             </label>
             <label style={{ fontSize: 13, color: "#111" }}>
               Credentials

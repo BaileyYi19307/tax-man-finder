@@ -9,7 +9,14 @@ class AccountantProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = AccountantProfile
         fields = "__all__"
-        read_only_fields = ["user", "profile_complete", "created_at", "updated_at"]
+        read_only_fields = [
+            "user",
+            "profile_complete",
+            "latitude",
+            "longitude",
+            "created_at",
+            "updated_at",
+        ]
 
 class AccountantProfileStatusSerializer(serializers.Serializer):
     profile_info_complete = serializers.BooleanField()
