@@ -15,7 +15,7 @@ TaxManFinder is a marketplace that connects people seeking tax help with account
 
 Visitors can browse public accountant listings without an account. Messaging an accountant or requesting a consultation requires authentication. The durable relationship between a client and an accountant is an **Inquiry**; scheduled consultations are **Bookings** attached to that Inquiry.
 
-The core local product loop—discover → message → share files → request consultation → accept/decline/cancel—is implemented. Deferred items are listed below.
+The core local product loop—discover → message → share files → request consultation → accept/decline (and pay when required) → cancel—is implemented. Deferred items are listed below.
 
 ---
 
@@ -68,15 +68,30 @@ No additional messaging product features are currently required beyond Inquiry f
 
 ### Current behavior
 
-- Clients request a consultation from a profile or service page. That creates or reuses an open Inquiry, records an initial message, and creates a pending Booking.
-- Accountants can accept or decline a pending booking. Either participant can cancel a pending or confirmed booking.
-- An Inquiry may have at most one active booking (pending or confirmed). After decline or cancellation, another booking may be requested on the same Inquiry.
+- Clients request a consultation from a profile or service page, or from an open chat. That creates or reuses an open Inquiry, records an initial message, and creates a pending Booking.
+- When a Booking is created, the service’s consultation fee and cancellation policy are **snapshotted** onto the Booking. Later edits to the Service do not change existing Bookings.
+- Accountants can accept or decline a pending booking. Either participant can cancel a pending, awaiting-payment, or confirmed booking.
+- An Inquiry may have at most one active booking (pending, awaiting payment, or confirmed). After decline or cancellation, another booking may be requested on the same Inquiry.
 - Booking status changes do not end the Inquiry; participants can continue messaging while the Inquiry remains open.
-- The main product path starts consultations from profile or service pages. Creating a booking on an existing open Inquiry is supported by the API; an in-chat request form is not part of the current UI.
+- In chat, the client sees **Request consultation** when the inquiry is open and has no active booking.
+
+### Free vs paid consultation
+
+- A consultation fee is a fee for the scheduled consultation itself, not a deposit toward later accounting work.
+- **Free consultation:** accountant accepts → Booking becomes `confirmed`. No Payment is created.
+- **Paid consultation:** accountant accepts → Booking becomes `awaiting_payment` and a pending Payment is created from the Booking fee snapshot. The client must complete payment before the meeting. After payment succeeds → Booking becomes `confirmed`.
+- Payment state is separate from Booking state. Changing Booking status alone does not prove money moved.
+- After a paid consultation ends (`ends_at` has passed), a paid Payment may become `payable`, meaning funds are eligible for accountant payout. No real bank transfer or payout product is implemented yet.
+- The current client payment action is an explicit **Complete Demo Payment** flow. It does not collect card data and does not move real money. Production payment is planned as Stripe Connect with Stripe-hosted onboarding and checkout; webhooks would call the same payment domain transitions used by the demo action.
+
+### Awareness when returning to the app
+
+- Header **Consultations** and **Messages** links show counts when there is actionable work (for example pending requests, payment required, or unread messages).
+- Client and accountant dashboards show a **Needs attention** section (and **Upcoming** for confirmed future consultations) derived from existing Booking and Inquiry unread data. There is no separate notification system, email alerts for booking events, or push notifications.
 
 ### Planned
 
-No additional consultation product features are currently required.
+No additional consultation product features are currently required beyond the deferred payment production integration below.
 
 ---
 
@@ -87,6 +102,7 @@ No additional consultation product features are currently required.
 - Accountants complete onboarding (name, firm, location, credentials, bio, primary service) and use the accountant dashboard.
 - Complete accountants can view and edit their public profile and manage owned services (list, create, edit, deactivate).
 - Service pricing is indicative: fixed, hourly, or consultation-required. Indicative prices are not binding quotes.
+- Each service also configures whether its consultation is free or paid. Paid consultations require a consultation fee greater than zero. Accountants may set a descriptive cancellation policy on the service.
 - Shared navigation and logout are available on main app pages. Returning complete accountants land on the accountant dashboard unless a return-to path from message/consultation applies.
 
 ### Planned
@@ -97,7 +113,7 @@ No additional accountant/service product features are currently required for the
 
 ## Product Work Remaining
 
-No intended product capabilities are currently marked unimplemented beyond deferred items below. Map discovery and Inquiry file sharing are implemented; see Messaging and Inquiries and [001-accountant-map-discovery.md](../architecture/decisions/001-accountant-map-discovery.md).
+No intended product capabilities are currently marked unimplemented beyond deferred items below. Map discovery, Inquiry file sharing, consultation fees with demo payment, and lightweight attention indicators are implemented; see sections above and [001-accountant-map-discovery.md](../architecture/decisions/001-accountant-map-discovery.md).
 
 ---
 
@@ -106,14 +122,15 @@ No intended product capabilities are currently marked unimplemented beyond defer
 The following are intentionally out of the near-term product scope:
 
 - Advanced directory filters beyond the current complete-profile list and place/radius map search
-- In-chat “request consultation” UI
 - Password reset
 - User-facing close-inquiry flow
 - A separate client profile model
 - Credential or license verification beyond email verification and profile fields
 - Custom 404 page
 - Broader visual design and mobile chat layout polish
-- Payments, reviews, saved accountants, formal quotes, and RFI-style workflows
+- Real Stripe Connect / Checkout / webhooks, refunds, disputes, platform fees, invoices, and accountant payout transfers
+- Reviews, saved accountants, formal quotes, and RFI-style workflows
+- Product email or push notifications for messages and booking lifecycle events
 
 ---
 

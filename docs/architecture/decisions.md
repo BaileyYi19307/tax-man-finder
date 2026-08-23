@@ -83,7 +83,33 @@ The MVP consultation is a short scheduled call that needs accountant approval, w
 
 **Decision**
 
-A consultation is a `Booking` on an Inquiry. The client selects `starts_at`; `ends_at` is start plus 30 minutes. Statuses are pending, confirmed, declined, and cancelled. At most one active (pending or confirmed) booking exists per Inquiry.
+A consultation is a `Booking` on an Inquiry. The client selects `starts_at`; `ends_at` is start plus 30 minutes. Statuses include pending, awaiting payment, confirmed, declined, and cancelled. At most one active (pending, awaiting payment, or confirmed) booking exists per Inquiry.
+
+---
+
+### Consultation fee snapshots and Payment separate from Booking
+
+**Status:** Accepted — implemented (MVP demo processor)  
+**Date:** 2026-08-23
+
+**Context**
+
+Accountants may offer free or paid consultations. The fee must survive later Service price edits. Client payment and accountant payout eligibility are separate events. Production should use Stripe Connect later without rewriting Booking lifecycle rules.
+
+**Decision**
+
+- Service stores `consultation_fee` and descriptive `cancellation_policy`.
+- Booking snapshots fee and policy at request time.
+- Free accept → Booking `confirmed`. Paid accept → Booking `awaiting_payment` plus a pending `Payment` derived from the snapshot.
+- Domain payment service owns pending → paid (and Booking confirm) and paid → payable after `ends_at`. Demo completion and a future Stripe webhook should call the same transitions.
+- `processor_reference` is an opaque nullable external id; core Payment status names stay processor-agnostic.
+- No Stripe SDK, Connect models, or real card collection in this MVP.
+
+**Consequences**
+
+- UI exposes Complete Demo Payment only; no fake card forms.
+- Payable means payout-eligible, not transferred.
+- Attention badges and dashboard “Needs attention” surface existing Booking/unread state without a notification platform.
 
 ---
 
