@@ -1,7 +1,6 @@
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -10,7 +9,19 @@ from rest_framework.views import APIView
 
 from chats.models import Message
 from inquiries.models import Inquiry
-from .models import ACTIVE_BOOKING_STATUSES, Booking, BookingStatus
+from .consultation import booking_requires_payment, snapshot_from_service
+from .models import (
+    ACTIVE_BOOKING_STATUSES,
+    SLOT_HELD_STATUSES,
+    Booking,
+    BookingStatus,
+    Payment,
+)
+from .payment_service import (
+    PaymentError,
+    create_payment_for_booking,
+    mark_payment_succeeded,
+)
 from .serializers import (
     BookingCreateSerializer,
     BookingSerializer,
@@ -23,17 +34,21 @@ class ActiveBookingConflict(Exception):
         self.detail = detail
 
 
-def confirmed_overlap_exists(accountant, starts_at, ends_at, exclude_booking_id=None):
-    """Confirmed bookings for the same accountant must not overlap."""
+def slot_held_overlap_exists(accountant, starts_at, ends_at, exclude_booking_id=None):
+    """Accepted slots (awaiting payment or confirmed) for the same accountant must not overlap."""
     qs = Booking.objects.filter(
         accountant=accountant,
-        status=BookingStatus.CONFIRMED,
+        status__in=SLOT_HELD_STATUSES,
         starts_at__lt=ends_at,
         ends_at__gt=starts_at,
     )
     if exclude_booking_id:
         qs = qs.exclude(pk=exclude_booking_id)
     return qs.exists()
+
+
+# Back-compat alias used by older tests / imports.
+confirmed_overlap_exists = slot_held_overlap_exists
 
 
 def _open_inquiry_queryset(client, accountant, service):
@@ -109,15 +124,24 @@ class BookingsViewSet(viewsets.ModelViewSet):
                 {"detail": "Only pending bookings can be accepted."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if confirmed_overlap_exists(
+        if slot_held_overlap_exists(
             booking.accountant, booking.starts_at, booking.ends_at, booking.id
         ):
             return Response(
                 {"detail": "This booking overlaps another confirmed booking."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        booking.status = BookingStatus.CONFIRMED
-        booking.save(update_fields=["status", "updated_at"])
+
+        with transaction.atomic():
+            if booking_requires_payment(booking.consultation_fee):
+                booking.status = BookingStatus.AWAITING_PAYMENT
+                booking.save(update_fields=["status", "updated_at"])
+                create_payment_for_booking(booking)
+            else:
+                booking.status = BookingStatus.CONFIRMED
+                booking.save(update_fields=["status", "updated_at"])
+
+        booking.refresh_from_db()
         return Response(BookingSerializer(booking).data)
 
     @action(detail=True, methods=["post"])
@@ -147,14 +171,55 @@ class BookingsViewSet(viewsets.ModelViewSet):
             )
         if booking.status not in (
             BookingStatus.PENDING,
+            BookingStatus.AWAITING_PAYMENT,
             BookingStatus.CONFIRMED,
         ):
             return Response(
-                {"detail": "Only pending or confirmed bookings can be cancelled."},
+                {
+                    "detail": (
+                        "Only pending, awaiting payment, or confirmed bookings "
+                        "can be cancelled."
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         booking.status = BookingStatus.CANCELLED
         booking.save(update_fields=["status", "updated_at"])
+        return Response(BookingSerializer(booking).data)
+
+    @action(detail=True, methods=["post"], url_path="complete-demo-payment")
+    def complete_demo_payment(self, request, pk=None):
+        """
+        Demo-only payment success path for the booking client.
+
+        Amount and parties are derived server-side from the booking snapshot.
+        Request body amounts/status are ignored.
+        """
+        booking = self._get_participant_booking(pk)
+        if request.user.id != booking.client_id:
+            return Response(
+                {"detail": "Only the booking client can complete payment."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if booking.status != BookingStatus.AWAITING_PAYMENT:
+            return Response(
+                {"detail": "This booking is not awaiting payment."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            payment = booking.payment
+        except Payment.DoesNotExist:
+            return Response(
+                {"detail": "No payment record exists for this booking."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            mark_payment_succeeded(payment)
+        except PaymentError as exc:
+            return Response({"detail": exc.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+        booking.refresh_from_db()
         return Response(BookingSerializer(booking).data)
 
 
@@ -191,6 +256,7 @@ class RequestConsultationView(APIView):
                         raise ActiveBookingConflict(
                             "Matching open inquiry already has an active booking."
                         )
+                fee, policy = snapshot_from_service(inquiry.service)
                 Message.objects.create(
                     inquiry=inquiry,
                     sender=request.user,
@@ -204,6 +270,8 @@ class RequestConsultationView(APIView):
                         starts_at=starts_at,
                         ends_at=ends_at,
                         status=BookingStatus.PENDING,
+                        consultation_fee=fee,
+                        cancellation_policy=policy,
                         name="",
                         date=starts_at,
                         service=inquiry.service,
@@ -237,5 +305,9 @@ class InquiryBookingsView(APIView):
             ),
             id=inquiry_id,
         )
-        bookings = Booking.objects.filter(inquiry=inquiry).order_by("-created_at")
+        bookings = (
+            Booking.objects.filter(inquiry=inquiry)
+            .select_related("service", "client", "accountant")
+            .order_by("-created_at")
+        )
         return Response(BookingSerializer(bookings, many=True).data)

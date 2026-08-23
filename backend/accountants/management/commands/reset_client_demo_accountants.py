@@ -42,6 +42,8 @@ DEMO_ACCOUNTANTS = [
         "service_description": "Form 1040 preparation and filing support.",
         "pricing_type": Service.PricingType.FIXED,
         "indicative_price": "350.00",
+        "consultation_fee": "0.00",
+        "cancellation_policy": "Free consultations can be cancelled any time before the meeting.",
     },
     {
         "email": "demo.acct.maya@example.com",
@@ -59,6 +61,11 @@ DEMO_ACCOUNTANTS = [
         "service_description": "Monthly books and quarterly estimated taxes.",
         "pricing_type": Service.PricingType.HOURLY,
         "indicative_price": "175.00",
+        "consultation_fee": "50.00",
+        "cancellation_policy": (
+            "Cancel at least 24 hours before the consultation for a full refund of the "
+            "consultation fee. Later cancellations are non-refundable."
+        ),
     },
     {
         "email": "demo.acct.alex@example.com",
@@ -76,6 +83,10 @@ DEMO_ACCOUNTANTS = [
         "service_description": "Remote consult for 1099 income and deductions.",
         "pricing_type": Service.PricingType.FIXED,
         "indicative_price": "225.00",
+        "consultation_fee": "75.00",
+        "cancellation_policy": (
+            "Consultation fee is refundable if cancelled 48 hours or more before the meeting."
+        ),
     },
     {
         "email": "demo.acct.taylor@example.com",
@@ -93,6 +104,8 @@ DEMO_ACCOUNTANTS = [
         "service_description": "Returns spanning multiple state jurisdictions.",
         "pricing_type": Service.PricingType.CONSULTATION_REQUIRED,
         "indicative_price": None,
+        "consultation_fee": "0.00",
+        "cancellation_policy": "Introductory consultations are free; cancel anytime before the meeting.",
     },
 ]
 
@@ -198,6 +211,8 @@ class Command(BaseCommand):
                 description=row["service_description"],
                 pricing_type=row["pricing_type"],
                 indicative_price=row["indicative_price"],
+                consultation_fee=row.get("consultation_fee"),
+                cancellation_policy=row.get("cancellation_policy") or "",
                 is_active=True,
             )
 

@@ -5,7 +5,33 @@ from django.utils import timezone
 from inquiries.models import Inquiry
 from services.models import Service
 from users.models import User
-from .models import ACTIVE_BOOKING_STATUSES, Booking, BookingStatus
+from .consultation import snapshot_from_service
+from .models import ACTIVE_BOOKING_STATUSES, Booking, BookingStatus, Payment
+from .payment_service import ensure_payment_payable_state
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    status_label = serializers.CharField(source="get_status_display", read_only=True)
+    amount = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Payment
+        fields = [
+            "id",
+            "amount",
+            "currency",
+            "status",
+            "status_label",
+            "paid_at",
+            "payable_at",
+            "processor_reference",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_amount(self, obj):
+        return str(obj.amount)
 
 
 class BookingSerializer(serializers.ModelSerializer):
@@ -13,6 +39,9 @@ class BookingSerializer(serializers.ModelSerializer):
     accountant_email = serializers.CharField(source="accountant.email", read_only=True)
     client_email = serializers.CharField(source="client.email", read_only=True)
     inquiry_id = serializers.IntegerField(source="inquiry.id", read_only=True)
+    consultation_fee = serializers.SerializerMethodField()
+    payment = serializers.SerializerMethodField()
+    service_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
@@ -28,13 +57,33 @@ class BookingSerializer(serializers.ModelSerializer):
             "ends_at",
             "status",
             "status_label",
+            "consultation_fee",
+            "cancellation_policy",
+            "payment",
+            "service",
+            "service_name",
             "created_at",
             "updated_at",
             "name",
             "date",
-            "service",
         ]
         read_only_fields = fields
+
+    def get_consultation_fee(self, obj):
+        return str(obj.consultation_fee)
+
+    def get_service_name(self, obj):
+        if obj.service_id and obj.service:
+            return obj.service.name
+        return None
+
+    def get_payment(self, obj):
+        try:
+            payment = obj.payment
+        except Payment.DoesNotExist:
+            return None
+        payment = ensure_payment_payable_state(payment)
+        return PaymentSerializer(payment).data
 
 
 class BookingCreateSerializer(serializers.Serializer):
@@ -72,6 +121,7 @@ class BookingCreateSerializer(serializers.Serializer):
         starts_at = validated_data["starts_at"]
         ends_at = Booking.compute_ends_at(starts_at)
         note = (validated_data.get("note") or "").strip()
+        fee, policy = snapshot_from_service(inquiry.service)
 
         try:
             booking = Booking.objects.create(
@@ -81,6 +131,8 @@ class BookingCreateSerializer(serializers.Serializer):
                 starts_at=starts_at,
                 ends_at=ends_at,
                 status=BookingStatus.PENDING,
+                consultation_fee=fee,
+                cancellation_policy=policy,
                 name="",
                 date=starts_at,
                 service=inquiry.service,

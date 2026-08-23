@@ -15,6 +15,12 @@ class Service(models.Model):
 
     pricing_type = models.CharField(max_length=32,choices=PricingType.choices,default=PricingType.FIXED)
     indicative_price = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    # Consultation fee for booking this service (null/0 = free consultation).
+    # Distinct from indicative_price (service work estimate, not a deposit).
+    consultation_fee = models.DecimalField(
+        max_digits=8, decimal_places=2, null=True, blank=True
+    )
+    cancellation_policy = models.TextField(blank=True, default="")
 
     is_active=models.BooleanField(default=True)
 

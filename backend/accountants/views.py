@@ -27,12 +27,22 @@ def _profile_public_payload(profile):
     services = list(
         Service.objects.filter(accountant_id=user.id, is_active=True)
         .order_by("name")
-        .values("id", "name", "pricing_type", "indicative_price")
+        .values(
+            "id",
+            "name",
+            "pricing_type",
+            "indicative_price",
+            "consultation_fee",
+            "cancellation_policy",
+        )
     )
     for service in services:
         price = service.get("indicative_price")
         if price is not None:
             service["indicative_price"] = str(price)
+        fee = service.get("consultation_fee")
+        if fee is not None:
+            service["consultation_fee"] = str(fee)
     return {
         "user_id": user.id,
         "email": user.email,
