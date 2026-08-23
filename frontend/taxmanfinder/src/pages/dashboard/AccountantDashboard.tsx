@@ -1,14 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { apiFetch } from "../../api/client";
-
-type InquiryRow = {
-  id: number;
-  accountant_name: string;
-  client_name: string;
-  service_title: string | null;
-  status: string;
-};
+import NeedsAttentionSection from "../../attention/NeedsAttentionSection";
+import { useAttentionSummary } from "../../attention/useAttentionSummary";
+import { listMyInquiries, type InquiryListItem } from "../../api/client";
+import { getAccessToken } from "../../auth/session";
 
 const page = {
   minHeight: "100vh",
@@ -31,22 +26,20 @@ const card = {
 const muted = { color: "#6b7280" };
 
 export default function AccountantDashboard() {
-  const [inquiries, setInquiries] = useState<InquiryRow[]>([]);
+  const [inquiries, setInquiries] = useState<InquiryListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const token = localStorage.getItem("access_token");
+  const { summary } = useAttentionSummary();
 
   useEffect(() => {
-    if (!token) return;
+    if (!getAccessToken()) return;
     let cancelled = false;
 
     async function load() {
       try {
         setLoading(true);
         setError(null);
-        const response = await apiFetch("/api/inquiries/");
-        if (!response.ok) throw new Error(await response.text());
-        const rows = await response.json();
+        const rows = await listMyInquiries();
         if (!cancelled) setInquiries(rows);
       } catch (e) {
         console.error(e);
@@ -59,11 +52,11 @@ export default function AccountantDashboard() {
       }
     }
 
-    load();
+    void load();
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, []);
 
   return (
     <div style={page}>
@@ -77,15 +70,23 @@ export default function AccountantDashboard() {
           </div>
         </div>
 
+        <NeedsAttentionSection summary={summary} />
+
         <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
-          <Link to="/dashboard/profile" style={{ ...card, textDecoration: "none", color: "#111827", flex: 1, minWidth: 160 }}>
+          <Link
+            to="/dashboard/profile"
+            style={{ ...card, textDecoration: "none", color: "#111827", flex: 1, minWidth: 160 }}
+          >
             <div style={{ fontWeight: 700 }}>My profile</div>
             <div style={{ ...muted, fontSize: 13, marginTop: 6 }}>
               Edit how clients see you
             </div>
           </Link>
 
-          <Link to="/dashboard/services" style={{ ...card, textDecoration: "none", color: "#111827", flex: 1, minWidth: 160 }}>
+          <Link
+            to="/dashboard/services"
+            style={{ ...card, textDecoration: "none", color: "#111827", flex: 1, minWidth: 160 }}
+          >
             <div style={{ fontWeight: 700 }}>My Services</div>
             <div style={{ ...muted, fontSize: 13, marginTop: 6 }}>
               View and edit your listings
@@ -99,7 +100,10 @@ export default function AccountantDashboard() {
             </div>
           </Link>
 
-          <Link to="/bookings" style={{ ...card, textDecoration: "none", color: "#111827", flex: 1 }}>
+          <Link
+            to="/bookings"
+            style={{ ...card, textDecoration: "none", color: "#111827", flex: 1 }}
+          >
             <div style={{ fontWeight: 700 }}>Consultations</div>
             <div style={{ ...muted, fontSize: 13, marginTop: 6 }}>
               Accept or decline booking requests
@@ -117,21 +121,24 @@ export default function AccountantDashboard() {
           )}
 
           <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {!loading && !error && inquiries.slice(0, 5).map((c) => (
-              <li key={c.id} style={{ padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}>
-                <Link
-                  to={`/chat/${c.id}`}
-                  style={{ textDecoration: "none", color: "#111827" }}
-                >
-                  <div style={{ fontWeight: 600 }}>
-                    {c.client_name}
-                  </div>
-                  <div style={{ ...muted, fontSize: 13, marginTop: 2 }}>
-                    {c.service_title || "General inquiry"} · {c.status}
-                  </div>
-                </Link>
-              </li>
-            ))}
+            {!loading &&
+              !error &&
+              inquiries.slice(0, 5).map((c) => (
+                <li key={c.id} style={{ padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}>
+                  <Link
+                    to={`/chat/${c.id}`}
+                    style={{ textDecoration: "none", color: "#111827" }}
+                  >
+                    <div style={{ fontWeight: c.unread ? 700 : 600 }}>
+                      {c.client_name}
+                      {c.unread ? " · Unread" : ""}
+                    </div>
+                    <div style={{ ...muted, fontSize: 13, marginTop: 2 }}>
+                      {c.service_title || "General inquiry"} · {c.status}
+                    </div>
+                  </Link>
+                </li>
+              ))}
           </ul>
         </div>
       </div>

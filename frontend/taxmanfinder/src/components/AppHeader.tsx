@@ -1,5 +1,7 @@
 import type { CSSProperties } from "react";
 import { Link, Outlet } from "react-router-dom";
+import { navLabel } from "../attention/summary";
+import { useAttentionSummary } from "../attention/useAttentionSummary";
 import { dashboardPathForUser, useAuth } from "../auth/AuthProvider";
 
 const headerStyle: CSSProperties = {
@@ -34,17 +36,6 @@ const linkStyle: CSSProperties = {
   textDecoration: "none",
 };
 
-const logoutButtonStyle: CSSProperties = {
-  padding: "6px 10px",
-  borderRadius: 8,
-  border: "1px solid #d1d5db",
-  background: "#fff",
-  color: "#111827",
-  fontSize: 14,
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
 export function AppLayout() {
   return (
     <div
@@ -68,42 +59,50 @@ export default function AppHeader() {
   const loggedIn = Boolean(user);
   const dashboardPath = dashboardPathForUser(user);
   const isAccountant = Boolean(user?.has_accountant_profile);
+  const { summary } = useAttentionSummary();
+
+  const messagesLabel = loggedIn
+    ? navLabel("Messages", summary.messagesBadge)
+    : "Messages";
+  const consultationsLabel = loggedIn
+    ? navLabel("Consultations", summary.consultationsBadge)
+    : "Consultations";
 
   return (
     <header style={headerStyle}>
-      <Link to="/" style={brandStyle}>
+      <Link to="/" className="app-nav-link" style={brandStyle}>
         TaxManFinder
       </Link>
       <nav aria-label="Main" style={navStyle}>
-        <Link to="/accountants" style={linkStyle}>
+        <Link to="/accountants" className="app-nav-link" style={linkStyle}>
           Browse
         </Link>
         {loggedIn ? (
           <>
-            <Link to="/chat" style={linkStyle}>
-              Messages
+            <Link to="/chat" className="app-nav-link" style={linkStyle}>
+              {messagesLabel}
             </Link>
-            <Link to="/bookings" style={linkStyle}>
-              Consultations
+            <Link to="/bookings" className="app-nav-link" style={linkStyle}>
+              {consultationsLabel}
             </Link>
-            <Link to={dashboardPath} style={linkStyle}>
+            <Link to={dashboardPath} className="app-nav-link" style={linkStyle}>
               {isAccountant ? "Accountant Dashboard" : "Client Dashboard"}
             </Link>
             {isAccountant && user?.accountant_profile_complete && (
-              <Link to="/dashboard/profile" style={linkStyle}>
+              <Link to="/dashboard/profile" className="app-nav-link" style={linkStyle}>
                 My profile
               </Link>
             )}
-            <button type="button" onClick={logout} style={logoutButtonStyle}>
+            <button type="button" className="btn btn-secondary" onClick={logout}>
               Log out
             </button>
           </>
         ) : ready ? (
           <>
-            <Link to="/login" style={linkStyle}>
+            <Link to="/login" className="app-nav-link" style={linkStyle}>
               Log in
             </Link>
-            <Link to="/signup" style={linkStyle}>
+            <Link to="/signup" className="app-nav-link" style={linkStyle}>
               Sign up
             </Link>
           </>

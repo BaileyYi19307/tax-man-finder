@@ -1,224 +1,227 @@
 import { Link } from "react-router-dom";
+import NeedsAttentionSection from "../../attention/NeedsAttentionSection";
+import { useAttentionSummary } from "../../attention/useAttentionSummary";
 
 export default function ClientDashboard() {
-    return (
+  const { summary } = useAttentionSummary();
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        backgroundColor: "#f7f7f7",
+        padding: "48px 24px",
+        fontFamily: "Inter, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "900px",
+          margin: "0 auto",
+        }}
+      >
         <div
-            style={{
-                minHeight: "100vh",
-                backgroundColor: "#f7f7f7",
-                padding: "48px 24px",
-                fontFamily: "Inter, sans-serif",
-            }}
+          style={{
+            marginBottom: "32px",
+          }}
         >
-            <div
-                style={{
-                    maxWidth: "900px",
-                    margin: "0 auto",
-                }}
-            >
-                <div
-                    style={{
-                        marginBottom: "32px",
-                    }}
-                >
-                    <h1
-                        style={{
-                            fontSize: "32px",
-                            fontWeight: 700,
-                            marginBottom: "8px",
-                        }}
-                    >
-                        Welcome Back
-                    </h1>
+          <h1
+            style={{
+              fontSize: "32px",
+              fontWeight: 700,
+              marginBottom: "8px",
+            }}
+          >
+            Welcome Back
+          </h1>
 
-                    <p
-                        style={{
-                            color: "#666",
-                            fontSize: "16px",
-                        }}
-                    >
-                        Manage bookings, browse tax professionals, and track consultations.
-                    </p>
-                </div>
-
-                {/* Main CTA */}
-                <div
-                    style={{
-                        backgroundColor: "white",
-                        border: "1px solid #e5e5e5",
-                        borderRadius: "16px",
-                        padding: "32px",
-                        marginBottom: "24px",
-                    }}
-                >
-                    <h2
-                        style={{
-                            fontSize: "22px",
-                            marginBottom: "12px",
-                        }}
-                    >
-                        Find a Tax Professional
-                    </h2>
-
-                    <p
-                        style={{
-                            color: "#666",
-                            marginBottom: "24px",
-                            lineHeight: 1.5,
-                        }}
-                    >
-                        Browse available accountants and request consultations.
-                    </p>
-
-                    <Link
-                        to="/accountants"
-                        style={{
-                            display: "inline-block",
-                            padding: "12px 18px",
-                            borderRadius: "10px",
-                            border: "none",
-                            backgroundColor: "black",
-                            color: "white",
-                            cursor: "pointer",
-                            fontSize: "15px",
-                            fontWeight: 600,
-                            textDecoration: "none",
-                        }}
-                    >
-                        Browse accountants
-                    </Link>
-                </div>
-
-                {/* Dashboard Cards */}
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-                        gap: "20px",
-                    }}
-                >
-                    {/* Bookings */}
-                    <Link
-                        to="/bookings"
-                        style={{
-                            textDecoration: "none",
-                            color: "inherit",
-                        }}
-                    >
-                        <div
-                            style={{
-                                backgroundColor: "white",
-                                border: "1px solid #e5e5e5",
-                                borderRadius: "16px",
-                                padding: "24px",
-                                height: "100%",
-                                transition: "0.15s ease",
-                                cursor: "pointer",
-                            }}
-                        >
-                            <h3
-                                style={{
-                                    marginBottom: "10px",
-                                    fontSize: "18px",
-                                }}
-                            >
-                                Your Bookings
-                            </h3>
-
-                            <p
-                                style={{
-                                    color: "#666",
-                                    lineHeight: 1.5,
-                                    fontSize: "14px",
-                                }}
-                            >
-                                View upcoming consultations, booking status, and past appointments.
-                            </p>
-                        </div>
-                    </Link>
-
-                    {/* Messages */}
-                    <Link
-                        to="/chat"
-                        style={{
-                            textDecoration: "none",
-                            color: "inherit",
-                        }}
-                    >
-                        <div
-                            style={{
-                                backgroundColor: "white",
-                                border: "1px solid #e5e5e5",
-                                borderRadius: "16px",
-                                padding: "24px",
-                                height: "100%",
-                                cursor: "pointer",
-                            }}
-                        >
-                            <h3
-                                style={{
-                                    marginBottom: "10px",
-                                    fontSize: "18px",
-                                }}
-                            >
-                                Messages
-                            </h3>
-
-                            <p
-                                style={{
-                                    color: "#666",
-                                    lineHeight: 1.5,
-                                    fontSize: "14px",
-                                }}
-                            >
-                                Continue conversations with accountants and manage inquiries.
-                            </p>
-                        </div>
-                    </Link>
-
-                    {/* Account */}
-                    <div
-                        style={{
-                            backgroundColor: "white",
-                            border: "1px solid #e5e5e5",
-                            borderRadius: "16px",
-                            padding: "24px",
-                        }}
-                    >
-                        <h3
-                            style={{
-                                marginBottom: "10px",
-                                fontSize: "18px",
-                            }}
-                        >
-                            Offer tax help
-                        </h3>
-
-                        <p
-                            style={{
-                                color: "#666",
-                                lineHeight: 1.5,
-                                fontSize: "14px",
-                                marginBottom: "16px",
-                            }}
-                        >
-                            Add accountant capabilities to this account without signing up again.
-                        </p>
-
-                        <Link
-                            to="/onboarding/accountant"
-                            style={{
-                                color: "#2563eb",
-                                textDecoration: "none",
-                                fontWeight: 600,
-                                fontSize: "14px",
-                            }}
-                        >
-                            Join as a tax professional →
-                        </Link>
-                    </div>
-                </div>
-            </div>
+          <p
+            style={{
+              color: "#666",
+              fontSize: "16px",
+            }}
+          >
+            Manage bookings, browse tax professionals, and track consultations.
+          </p>
         </div>
-    );
+
+        <NeedsAttentionSection summary={summary} />
+
+        {/* Main CTA */}
+        <div
+          style={{
+            backgroundColor: "white",
+            border: "1px solid #e5e5e5",
+            borderRadius: "16px",
+            padding: "32px",
+            marginBottom: "24px",
+          }}
+        >
+          <h2
+            style={{
+              fontSize: "22px",
+              marginBottom: "12px",
+            }}
+          >
+            Find a Tax Professional
+          </h2>
+
+          <p
+            style={{
+              color: "#666",
+              marginBottom: "24px",
+              lineHeight: 1.5,
+            }}
+          >
+            Browse available accountants and request consultations.
+          </p>
+
+          <Link
+            to="/accountants"
+            style={{
+              display: "inline-block",
+              padding: "12px 18px",
+              borderRadius: "10px",
+              border: "none",
+              backgroundColor: "black",
+              color: "white",
+              cursor: "pointer",
+              fontSize: "15px",
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
+          >
+            Browse accountants
+          </Link>
+        </div>
+
+        {/* Dashboard Cards */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+            gap: "20px",
+          }}
+        >
+          <Link
+            to="/bookings"
+            style={{
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "white",
+                border: "1px solid #e5e5e5",
+                borderRadius: "16px",
+                padding: "24px",
+                height: "100%",
+                transition: "0.15s ease",
+                cursor: "pointer",
+              }}
+            >
+              <h3
+                style={{
+                  marginBottom: "10px",
+                  fontSize: "18px",
+                }}
+              >
+                Your Bookings
+              </h3>
+
+              <p
+                style={{
+                  color: "#666",
+                  lineHeight: 1.5,
+                  fontSize: "14px",
+                }}
+              >
+                View upcoming consultations, booking status, and past appointments.
+              </p>
+            </div>
+          </Link>
+
+          <Link
+            to="/chat"
+            style={{
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "white",
+                border: "1px solid #e5e5e5",
+                borderRadius: "16px",
+                padding: "24px",
+                height: "100%",
+                cursor: "pointer",
+              }}
+            >
+              <h3
+                style={{
+                  marginBottom: "10px",
+                  fontSize: "18px",
+                }}
+              >
+                Messages
+              </h3>
+
+              <p
+                style={{
+                  color: "#666",
+                  lineHeight: 1.5,
+                  fontSize: "14px",
+                }}
+              >
+                Continue conversations with accountants and manage inquiries.
+              </p>
+            </div>
+          </Link>
+
+          <div
+            style={{
+              backgroundColor: "white",
+              border: "1px solid #e5e5e5",
+              borderRadius: "16px",
+              padding: "24px",
+            }}
+          >
+            <h3
+              style={{
+                marginBottom: "10px",
+                fontSize: "18px",
+              }}
+            >
+              Offer tax help
+            </h3>
+
+            <p
+              style={{
+                color: "#666",
+                lineHeight: 1.5,
+                fontSize: "14px",
+                marginBottom: "16px",
+              }}
+            >
+              Add accountant capabilities to this account without signing up again.
+            </p>
+
+            <Link
+              to="/onboarding/accountant"
+              style={{
+                color: "#2563eb",
+                textDecoration: "none",
+                fontWeight: 600,
+                fontSize: "14px",
+              }}
+            >
+              Join as a tax professional →
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

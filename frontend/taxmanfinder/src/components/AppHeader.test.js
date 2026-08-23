@@ -13,6 +13,8 @@ import {
 
 jest.mock("../api/client", () => ({
   getMe: jest.fn(),
+  listMyBookings: jest.fn(async () => []),
+  listMyInquiries: jest.fn(async () => []),
 }));
 
 const clientUser = {
@@ -97,7 +99,7 @@ test("client header shows client dashboard and authenticated links", async () =>
   seedSession(clientUser);
   renderShell();
 
-  expect(await screen.findByRole("link", { name: "Messages" })).toHaveAttribute(
+  expect(await screen.findByRole("link", { name: /^Messages/ })).toHaveAttribute(
     "href",
     "/chat"
   );
@@ -105,7 +107,7 @@ test("client header shows client dashboard and authenticated links", async () =>
     "href",
     "/accountants"
   );
-  expect(screen.getByRole("link", { name: "Consultations" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: /^Consultations/ })).toHaveAttribute(
     "href",
     "/bookings"
   );
@@ -134,8 +136,8 @@ test("accountant header uses profile capability, not leftover signup intent", as
     "href",
     "/dashboard/profile"
   );
-  expect(screen.getByRole("link", { name: "Messages" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Consultations" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /^Messages/ })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /^Consultations/ })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Browse" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
   expect(
