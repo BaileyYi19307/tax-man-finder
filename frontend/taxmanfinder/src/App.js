@@ -15,6 +15,7 @@ import AccountantDashboard from "./pages/dashboard/AccountantDashboard";
 import AccountantProfileEdit from "./pages/dashboard/AccountantProfileEdit.tsx";
 import ClientDashboard from "./pages/dashboard/ClientDashboard.tsx";
 import BookingsPage from "./pages/bookings/BookingsPage.tsx";
+import DemoPaymentPage from "./pages/bookings/DemoPaymentPage.tsx";
 import Home from "./pages/Home.tsx";
 import AccountantOnboarding from "./pages/onboarding/AccountantOnboarding.tsx";
 import MyServices from "./pages/services/MyServices.tsx";
@@ -38,6 +39,7 @@ const AppRoutes = () => {
             <Route path="/accountants" element={<AccountantsDirectory />} />
             <Route path="/accountants/:userId" element={<AccountantProfilePage />} />
             <Route path="/bookings" element={<BookingsPage />} />
+            <Route path="/bookings/:bookingId/pay" element={<DemoPaymentPage />} />
             <Route element={<RequireAuth />}>
               <Route path="/dashboard/client" element={<ClientDashboard />} />
               <Route path="/dashboard/services" element={<MyServices />} />

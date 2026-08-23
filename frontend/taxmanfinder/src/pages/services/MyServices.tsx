@@ -51,8 +51,14 @@ export default function MyServices() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
+  const [consultationFee, setConsultationFee] = useState("");
+  const [cancellationPolicy, setCancellationPolicy] = useState("");
+  const [consultationPaid, setConsultationPaid] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createDescription, setCreateDescription] = useState("");
+  const [createConsultationFee, setCreateConsultationFee] = useState("");
+  const [createCancellationPolicy, setCreateCancellationPolicy] = useState("");
+  const [createConsultationPaid, setCreateConsultationPaid] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -84,6 +90,11 @@ export default function MyServices() {
     setName(service.name);
     setDescription(service.description);
     setPrice(service.indicative_price || "");
+    const paid =
+      service.consultation_fee != null && Number(service.consultation_fee) > 0;
+    setConsultationPaid(paid);
+    setConsultationFee(paid ? service.consultation_fee || "" : "");
+    setCancellationPolicy(service.cancellation_policy || "");
     setSaveError(null);
   }
 
@@ -97,6 +108,9 @@ export default function MyServices() {
     setEditingId(null);
     setCreateName("");
     setCreateDescription("");
+    setCreateConsultationPaid(false);
+    setCreateConsultationFee("");
+    setCreateCancellationPolicy("");
     setCreateError(null);
   }
 
@@ -111,6 +125,13 @@ export default function MyServices() {
       setCreateError("Name and description are required.");
       return;
     }
+    if (createConsultationPaid) {
+      const fee = Number(createConsultationFee);
+      if (!createConsultationFee.trim() || Number.isNaN(fee) || fee <= 0) {
+        setCreateError("Enter a consultation fee greater than 0 for paid consultations.");
+        return;
+      }
+    }
     setSaving(true);
     setCreateError(null);
     try {
@@ -118,11 +139,19 @@ export default function MyServices() {
         name: createName.trim(),
         description: createDescription.trim(),
         pricing_type: "consultation_required",
+        consultation_is_paid: createConsultationPaid,
+        consultation_fee: createConsultationPaid
+          ? createConsultationFee.trim()
+          : "0.00",
+        cancellation_policy: createCancellationPolicy.trim(),
       });
       setServices((rows) => [...rows, created].sort((a, b) => a.name.localeCompare(b.name)));
       setShowCreateForm(false);
       setCreateName("");
       setCreateDescription("");
+      setCreateConsultationPaid(false);
+      setCreateConsultationFee("");
+      setCreateCancellationPolicy("");
     } catch (err) {
       console.error(err);
       setCreateError("Could not create this service. Please try again.");
@@ -160,6 +189,13 @@ export default function MyServices() {
       setSaveError("Name and description are required.");
       return;
     }
+    if (consultationPaid) {
+      const fee = Number(consultationFee);
+      if (!consultationFee.trim() || Number.isNaN(fee) || fee <= 0) {
+        setSaveError("Enter a consultation fee greater than 0 for paid consultations.");
+        return;
+      }
+    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -167,9 +203,15 @@ export default function MyServices() {
         name: string;
         description: string;
         indicative_price?: string | null;
+        consultation_fee?: string | null;
+        consultation_is_paid?: boolean;
+        cancellation_policy?: string;
       } = {
         name: name.trim(),
         description: description.trim(),
+        consultation_is_paid: consultationPaid,
+        consultation_fee: consultationPaid ? consultationFee.trim() : "0.00",
+        cancellation_policy: cancellationPolicy.trim(),
       };
       if (service.pricing_type !== "consultation_required") {
         body.indicative_price = price.trim() || null;
@@ -240,6 +282,55 @@ export default function MyServices() {
                     onChange={(e) => setCreateDescription(e.target.value)}
                     required
                     rows={3}
+                    style={{ ...field, marginTop: 6, resize: "vertical" }}
+                  />
+                </label>
+                <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+                  <legend style={{ fontSize: 13, color: "#111827", marginBottom: 6 }}>
+                    Consultation
+                  </legend>
+                  <div style={{ display: "flex", gap: 16, fontSize: 14 }}>
+                    <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <input
+                        type="radio"
+                        name="create-consultation-paid"
+                        checked={!createConsultationPaid}
+                        onChange={() => {
+                          setCreateConsultationPaid(false);
+                          setCreateConsultationFee("");
+                        }}
+                      />
+                      Free
+                    </label>
+                    <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <input
+                        type="radio"
+                        name="create-consultation-paid"
+                        checked={createConsultationPaid}
+                        onChange={() => setCreateConsultationPaid(true)}
+                      />
+                      Paid
+                    </label>
+                  </div>
+                </fieldset>
+                {createConsultationPaid && (
+                  <label style={{ fontSize: 13, color: "#111827" }}>
+                    Consultation fee
+                    <input
+                      value={createConsultationFee}
+                      onChange={(e) => setCreateConsultationFee(e.target.value)}
+                      placeholder="50.00"
+                      inputMode="decimal"
+                      style={{ ...field, marginTop: 6 }}
+                    />
+                  </label>
+                )}
+                <label style={{ fontSize: 13, color: "#111827" }}>
+                  Cancellation policy
+                  <textarea
+                    value={createCancellationPolicy}
+                    onChange={(e) => setCreateCancellationPolicy(e.target.value)}
+                    rows={2}
                     style={{ ...field, marginTop: 6, resize: "vertical" }}
                   />
                 </label>
@@ -320,6 +411,55 @@ export default function MyServices() {
                         />
                       </label>
                     )}
+                    <fieldset style={{ border: "none", padding: 0, margin: 0 }}>
+                      <legend style={{ fontSize: 13, color: "#111827", marginBottom: 6 }}>
+                        Consultation
+                      </legend>
+                      <div style={{ display: "flex", gap: 16, fontSize: 14 }}>
+                        <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <input
+                            type="radio"
+                            name={`edit-consultation-paid-${s.id}`}
+                            checked={!consultationPaid}
+                            onChange={() => {
+                              setConsultationPaid(false);
+                              setConsultationFee("");
+                            }}
+                          />
+                          Free
+                        </label>
+                        <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <input
+                            type="radio"
+                            name={`edit-consultation-paid-${s.id}`}
+                            checked={consultationPaid}
+                            onChange={() => setConsultationPaid(true)}
+                          />
+                          Paid
+                        </label>
+                      </div>
+                    </fieldset>
+                    {consultationPaid && (
+                      <label style={{ fontSize: 13, color: "#111827" }}>
+                        Consultation fee
+                        <input
+                          value={consultationFee}
+                          onChange={(e) => setConsultationFee(e.target.value)}
+                          placeholder="50.00"
+                          inputMode="decimal"
+                          style={{ ...field, marginTop: 6 }}
+                        />
+                      </label>
+                    )}
+                    <label style={{ fontSize: 13, color: "#111827" }}>
+                      Cancellation policy
+                      <textarea
+                        value={cancellationPolicy}
+                        onChange={(e) => setCancellationPolicy(e.target.value)}
+                        rows={2}
+                        style={{ ...field, marginTop: 6, resize: "vertical" }}
+                      />
+                    </label>
                     {saveError && (
                       <div style={{ color: "#b91c1c", fontSize: 13 }}>{saveError}</div>
                     )}
@@ -386,6 +526,12 @@ export default function MyServices() {
                     </div>
                     <div style={{ ...muted, fontSize: 13, marginTop: 8, lineHeight: 1.4 }}>
                       {s.description}
+                    </div>
+                    <div style={{ ...muted, fontSize: 12, marginTop: 8 }}>
+                      Consultation:{" "}
+                      {!s.consultation_fee || Number(s.consultation_fee) === 0
+                        ? "Free"
+                        : `$${s.consultation_fee}`}
                     </div>
                     <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" }}>
                       {s.is_active !== false && (

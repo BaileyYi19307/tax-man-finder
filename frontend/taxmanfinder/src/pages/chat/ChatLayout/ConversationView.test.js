@@ -24,6 +24,7 @@ jest.mock("../../../api/client", () => ({
   acceptBooking: jest.fn(),
   declineBooking: jest.fn(),
   cancelBooking: jest.fn(),
+  requestConsultation: jest.fn(),
 }));
 
 function renderConversation() {
@@ -58,7 +59,10 @@ beforeEach(() => {
     }
     return {
       ok: true,
-      json: async () => ({ messages: [], inquiry: { status: "open" } }),
+      json: async () => ({
+        messages: [],
+        inquiry: { status: "open", client: 5, accountant: 22 },
+      }),
     };
   });
   listInquiryBookings.mockResolvedValue([]);
@@ -117,4 +121,17 @@ test("successful send shows the outgoing message", async () => {
   expect(
     screen.queryByText("Message was not sent. Chat is not connected.")
   ).not.toBeInTheDocument();
+});
+
+test("client can open request consultation from the conversation", async () => {
+  useChatSocket.mockReturnValue({ sendMessage: jest.fn(() => true) });
+  renderConversation();
+  await waitForHistory();
+
+  expect(
+    await screen.findByRole("button", { name: "Request consultation" })
+  ).toBeInTheDocument();
+  userEvent.click(screen.getByRole("button", { name: "Request consultation" }));
+  expect(await screen.findByRole("heading", { name: "Request consultation" })).toBeInTheDocument();
+  expect(screen.getByLabelText("Date and time")).toBeInTheDocument();
 });

@@ -23,6 +23,11 @@ const booking = {
   ends_at: "2026-08-20T15:30:00.000Z",
   status: "pending",
   status_label: "Pending",
+  consultation_fee: "0.00",
+  cancellation_policy: "",
+  payment: null,
+  service: null,
+  service_name: null,
   created_at: "2026-08-19T15:00:00.000Z",
   updated_at: "2026-08-19T15:00:00.000Z",
 };

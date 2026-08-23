@@ -46,8 +46,23 @@ export type CatalogService = {
   description: string;
   pricing_type: "fixed" | "hourly" | "consultation_required";
   indicative_price: string | null;
+  consultation_fee?: string | null;
+  cancellation_policy?: string;
   accountant?: number;
   is_active?: boolean;
+};
+
+export type BookingPayment = {
+  id: number;
+  amount: string;
+  currency: string;
+  status: "pending" | "paid" | "payable";
+  status_label: string;
+  paid_at: string | null;
+  payable_at: string | null;
+  processor_reference: string;
+  created_at: string;
+  updated_at: string;
 };
 
 export type Booking = {
@@ -60,8 +75,18 @@ export type Booking = {
   accountant_email: string;
   starts_at: string;
   ends_at: string;
-  status: "pending" | "confirmed" | "declined" | "cancelled";
+  status:
+    | "pending"
+    | "awaiting_payment"
+    | "confirmed"
+    | "declined"
+    | "cancelled";
   status_label: string;
+  consultation_fee: string;
+  cancellation_policy: string;
+  payment: BookingPayment | null;
+  service: number | null;
+  service_name: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -70,11 +95,19 @@ export type InquiryListItem = {
   id: number;
   status: string;
   created_at: string;
+  client: number;
+  accountant: number;
   accountant_name: string;
   service_title: string | null;
   unread?: boolean;
   client_name?: string;
 };
+
+export async function listMyInquiries() {
+  const res = await apiFetch("/api/inquiries/");
+  if (!res.ok) throw new Error(await res.text());
+  return (await res.json()) as InquiryListItem[];
+}
 
 export async function startConversation(body: {
   content: string;
@@ -136,6 +169,15 @@ export async function cancelBooking(bookingId: number) {
   return (await res.json()) as Booking;
 }
 
+export async function completeDemoPayment(bookingId: number) {
+  const res = await apiFetch(`/bookings/${bookingId}/complete-demo-payment/`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return (await res.json()) as Booking;
+}
+
 export type AccountantServiceScope = "local" | "remote" | "nationwide";
 
 export type AccountantProfilePayload = {
@@ -157,6 +199,8 @@ export type AccountantProfilePayload = {
     name: string;
     pricing_type?: "fixed" | "hourly" | "consultation_required";
     indicative_price?: string | null;
+    consultation_fee?: string | null;
+    cancellation_policy?: string;
   }[];
   profile_complete: boolean;
 };
@@ -269,6 +313,9 @@ export async function updateMyService(
     description: string;
     pricing_type?: CatalogService["pricing_type"];
     indicative_price?: string | null;
+    consultation_fee?: string | null;
+    consultation_is_paid?: boolean;
+    cancellation_policy?: string;
   }
 ) {
   const res = await apiFetch(`/services/${serviceId}/`, {
@@ -285,6 +332,9 @@ export async function createMyService(body: {
   description: string;
   pricing_type?: CatalogService["pricing_type"];
   indicative_price?: string | null;
+  consultation_fee?: string | null;
+  consultation_is_paid?: boolean;
+  cancellation_policy?: string;
 }) {
   const res = await apiFetch("/services/", {
     method: "POST",

@@ -43,10 +43,10 @@ export default function Home() {
           </div>
           {user && (
             <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 16, fontSize: 14, fontWeight: 600 }}>
-              <Link to={dashboardPath} style={{ color: "#2563eb", textDecoration: "none" }}>
+              <Link to={dashboardPath} className="app-nav-link" style={{ color: "#2563eb", textDecoration: "none" }}>
                 {dashboardLabel}
               </Link>
-              <Link to="/accountants" style={{ color: "#2563eb", textDecoration: "none" }}>
+              <Link to="/accountants" className="app-nav-link" style={{ color: "#2563eb", textDecoration: "none" }}>
                 Browse accountants
               </Link>
             </div>
@@ -62,6 +62,7 @@ export default function Home() {
         >
           <Link
             to="/accountants"
+            className="interactive-surface"
             onClick={() => persistClientBrowseIntent()}
             style={card}
           >
@@ -79,6 +80,7 @@ export default function Home() {
 
           <Link
             to="/onboarding/accountant"
+            className="interactive-surface"
             onClick={() => persistAccountantSignupIntent()}
             style={card}
           >

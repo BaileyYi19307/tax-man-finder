@@ -299,6 +299,7 @@ export default function AccountantsDirectory() {
                   return (
                     <div
                       key={accountant.user_id}
+                      className="interactive-surface"
                       ref={(el) => {
                         cardRefs.current[accountant.user_id] = el;
                       }}

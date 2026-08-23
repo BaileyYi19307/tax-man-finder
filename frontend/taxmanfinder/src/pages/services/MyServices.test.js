@@ -107,6 +107,9 @@ test("accountant can edit name and description of an owned service", async () =>
     expect(updateMyService).toHaveBeenCalledWith(7, {
       name: "Updated Returns",
       description: "Corrected description",
+      consultation_fee: "0.00",
+      consultation_is_paid: false,
+      cancellation_policy: "",
     });
   });
   expect(await screen.findByText("Updated Returns")).toBeInTheDocument();
@@ -168,6 +171,9 @@ test("accountant can create an additional service", async () => {
       name: "Business taxes",
       description: "S-corp and partnership returns",
       pricing_type: "consultation_required",
+      consultation_fee: "0.00",
+      consultation_is_paid: false,
+      cancellation_policy: "",
     });
   });
   expect(await screen.findByText("Business taxes")).toBeInTheDocument();

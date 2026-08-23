@@ -10,6 +10,8 @@ type Service = {
   description: string;
   pricing_type: "fixed" | "hourly" | "consultation_required";
   indicative_price: string | null;
+  consultation_fee?: string | null;
+  cancellation_policy?: string;
   accountant: number;
 };
 
@@ -271,6 +273,12 @@ export default function ServiceDetail() {
           <div style={{ ...muted, marginTop: 10, lineHeight: 1.6, fontSize: 14 }}>
             {service.description}
           </div>
+          <div style={{ marginTop: 10, fontSize: 13, color: "#374151" }}>
+            Consultation:{" "}
+            {!service.consultation_fee || Number(service.consultation_fee) === 0
+              ? "Free"
+              : `$${service.consultation_fee}`}
+          </div>
 
           {error && !showMessageForm && !showBookingForm && (
             <div
@@ -289,55 +297,16 @@ export default function ServiceDetail() {
           )}
 
           <div style={{ marginTop: 18, display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button
-              onClick={openMessageForm}
-              style={{
-                padding: "10px 14px",
-                borderRadius: 10,
-                border: "none",
-                background: "#2563eb",
-                color: "#fff",
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
+            <button type="button" className="btn btn-primary" onClick={openMessageForm}>
               Message about this service
             </button>
 
-            <button type="button" onClick={openBookingForm}>
+            <button type="button" className="btn btn-secondary" onClick={openBookingForm}>
               Request Consultation
             </button>
 
-            <Link
-              to={`/accountants/${service.accountant}`}
-              style={{
-                padding: "10px 14px",
-                borderRadius: 10,
-                border: "1px solid #e5e7eb",
-                background: "#fff",
-                color: "#111827",
-                textDecoration: "none",
-                fontWeight: 700,
-                fontSize: 14,
-              }}
-            >
+            <Link to={`/accountants/${service.accountant}`} className="btn btn-secondary">
               View accountant profile
-            </Link>
-
-            <Link
-              to="/chat"
-              style={{
-                padding: "10px 14px",
-                borderRadius: 10,
-                border: "1px solid #e5e7eb",
-                background: "#fff",
-                color: "#111827",
-                textDecoration: "none",
-                fontWeight: 700,
-                fontSize: 14,
-              }}
-            >
-              Go to inbox
             </Link>
           </div>
 
@@ -384,11 +353,17 @@ export default function ServiceDetail() {
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                  <button type="button" onClick={closeMessageForm} disabled={loading}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={closeMessageForm}
+                    disabled={loading}
+                  >
                     Cancel
                   </button>
                   <button
                     type="button"
+                    className="btn btn-primary"
                     onClick={sendMessage}
                     disabled={loading || !messageText.trim()}
                   >
@@ -454,11 +429,12 @@ export default function ServiceDetail() {
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-                  <button type="button" onClick={closeBookingForm} disabled={loading}>
+                  <button type="button" className="btn btn-secondary" onClick={closeBookingForm} disabled={loading}>
                     Cancel
                   </button>
                   <button
                     type="button"
+                    className="btn btn-primary"
                     onClick={createBookingRequest}
                     disabled={loading || !bookingDate || !bookingNote.trim()}
                   >

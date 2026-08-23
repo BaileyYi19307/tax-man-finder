@@ -1,5 +1,160 @@
 @import "tailwindcss";
 
+/*
+ * Shared button affordances.
+ * Most pages use raw <button>s with inline styles; .btn* is the preferred shared look.
+ */
+button {
+  cursor: pointer;
+}
+
+button:disabled,
+button[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+button:focus-visible,
+a:focus-visible,
+.btn:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease,
+    box-shadow 0.12s ease,
+    opacity 0.12s ease;
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.btn-primary {
+  border: 1px solid transparent;
+  background: #2563eb;
+  color: #fff;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-primary:hover:not(:disabled):not([aria-disabled="true"]) {
+    background: #1d4ed8;
+  }
+}
+
+.btn-primary:active:not(:disabled):not([aria-disabled="true"]) {
+  background: #1e40af;
+}
+
+.btn-secondary {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #111827;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-secondary:hover:not(:disabled):not([aria-disabled="true"]) {
+    background: #f3f4f6;
+    border-color: #cbd5e1;
+  }
+}
+
+.btn-secondary:active:not(:disabled):not([aria-disabled="true"]) {
+  background: #e5e7eb;
+}
+
+.btn-danger {
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #b91c1c;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .btn-danger:hover:not(:disabled):not([aria-disabled="true"]) {
+    background: #fef2f2;
+    border-color: #fca5a5;
+  }
+}
+
+.btn-danger:active:not(:disabled):not([aria-disabled="true"]) {
+  background: #fee2e2;
+}
+
+/* Unstyled buttons (no .btn): still get a visible secondary hover. */
+button:not(.btn):not(:disabled):not([aria-disabled="true"]) {
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #111827;
+  padding: 8px 12px;
+  font: inherit;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease,
+    opacity 0.12s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button:not(.btn):not(:disabled):not([aria-disabled="true"]):hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+  }
+}
+
+button:not(.btn):not(:disabled):not([aria-disabled="true"]):active {
+  background: #e5e7eb;
+}
+
+a.app-nav-link {
+  transition: color 0.12s ease, opacity 0.12s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  a.app-nav-link:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+.interactive-surface {
+  cursor: pointer;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease,
+    background-color 0.12s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .interactive-surface:hover {
+    background-color: #f8fafc;
+    border-color: #cbd5e1;
+  }
+}
+
+.interactive-surface:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
 .App {
   text-align: center;
 }

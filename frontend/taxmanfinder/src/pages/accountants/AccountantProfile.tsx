@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import {
   getPublicAccountantProfile,
+  listMyInquiries,
   requestConsultation,
   startConversation,
   type AccountantProfilePayload,
@@ -46,6 +47,7 @@ export default function AccountantProfilePage() {
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
   const [bookingNote, setBookingNote] = useState("");
   const [bookingDate, setBookingDate] = useState("");
+  const [existingInquiryId, setExistingInquiryId] = useState<number | null>(null);
 
   const token = getAccessToken();
   const { user } = useAuth();
@@ -55,6 +57,7 @@ export default function AccountantProfilePage() {
     let cancelled = false;
     setProfile(null);
     setLoadError(null);
+    setExistingInquiryId(null);
 
     async function loadProfile() {
       if (!userId) {
@@ -81,6 +84,37 @@ export default function AccountantProfilePage() {
     };
   }, [userId]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadExistingInquiry() {
+      if (!token || !profile || isOwnProfile) {
+        if (!cancelled) setExistingInquiryId(null);
+        return;
+      }
+      try {
+        const inquiries = await listMyInquiries();
+        const match = inquiries.find(
+          (row) =>
+            row.status === "open" &&
+            row.accountant === profile.user_id &&
+            row.client === user?.id
+        );
+        if (!cancelled) {
+          setExistingInquiryId(match ? match.id : null);
+        }
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) setExistingInquiryId(null);
+      }
+    }
+
+    loadExistingInquiry();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, profile, isOwnProfile, user?.id]);
+
   function openMessageForm() {
     if (!token) {
       navigate(loginPath({ next: location.pathname }));
@@ -88,6 +122,15 @@ export default function AccountantProfilePage() {
     }
     setFormError(null);
     setShowMessageForm(true);
+  }
+
+  function continueConversation() {
+    if (!token) {
+      navigate(loginPath({ next: location.pathname }));
+      return;
+    }
+    if (existingInquiryId == null) return;
+    navigate(`/chat/${existingInquiryId}`);
   }
 
   function closeMessageForm() {
@@ -161,6 +204,10 @@ export default function AccountantProfilePage() {
     }
     if (!bookingDate) {
       setFormError("Please choose a start date and time.");
+      return;
+    }
+    if (profile.services.length > 0 && !selectedServiceId) {
+      setFormError("Select a service so the correct consultation fee applies.");
       return;
     }
 
@@ -267,6 +314,9 @@ export default function AccountantProfilePage() {
                   {profile.services.map((s) => (
                     <li key={s.id} style={{ marginBottom: 6 }}>
                       <Link to={`/services/${s.id}`}>{s.name}</Link>
+                      <span style={{ ...muted, marginLeft: 8, fontSize: 13 }}>
+                        {formatConsultationFeeLabel(s.consultation_fee)}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -274,40 +324,28 @@ export default function AccountantProfilePage() {
             </div>
 
             <div style={{ marginTop: 18, display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button
-                type="button"
-                onClick={openMessageForm}
-                style={{
-                  padding: "10px 14px",
-                  borderRadius: 10,
-                  border: "none",
-                  background: "#2563eb",
-                  color: "#fff",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                }}
-              >
-                Message Accountant
-              </button>
-              <button type="button" onClick={openBookingForm}>
-                Request Consultation
-              </button>
-              {token && (
-                <Link
-                  to="/chat"
-                  style={{
-                    padding: "10px 14px",
-                    borderRadius: 10,
-                    border: "1px solid #e5e7eb",
-                    background: "#fff",
-                    color: "#111827",
-                    textDecoration: "none",
-                    fontWeight: 700,
-                    fontSize: 14,
-                  }}
-                >
-                  Go to inbox
-                </Link>
+              {!isOwnProfile &&
+                (existingInquiryId != null ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={continueConversation}
+                  >
+                    Continue Conversation
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={openMessageForm}
+                  >
+                    Message Accountant
+                  </button>
+                ))}
+              {!isOwnProfile && (
+                <button type="button" className="btn btn-secondary" onClick={openBookingForm}>
+                  Request Consultation
+                </button>
               )}
             </div>
           </div>
@@ -345,12 +383,25 @@ export default function AccountantProfilePage() {
         {showBookingForm && profile && (
           <Modal>
             <h3 style={{ marginTop: 0 }}>Request Consultation</h3>
-            <p style={{ ...muted, fontSize: 13 }}>Fixed 30-minute consultation.</p>
+            <p style={{ ...muted, fontSize: 13 }}>
+              Fixed 30-minute consultation. Choose a service to apply that
+              service&apos;s consultation fee.
+            </p>
             <ServiceSelect
               services={profile.services}
               value={selectedServiceId}
               onChange={setSelectedServiceId}
+              required={profile.services.length > 0}
+              showConsultationFee
             />
+            {selectedServiceId && (
+              <p style={{ fontSize: 13, marginTop: 0 }}>
+                {formatConsultationFeeLabel(
+                  profile.services.find((s) => String(s.id) === selectedServiceId)
+                    ?.consultation_fee
+                )}
+              </p>
+            )}
             <label style={{ display: "block", fontSize: 14, marginBottom: 12 }}>
               Date and time
               <input
@@ -413,27 +464,43 @@ function Modal({ children }: { children: ReactNode }) {
   );
 }
 
+function formatConsultationFeeLabel(fee: string | null | undefined) {
+  if (fee == null || fee === "" || Number(fee) === 0) {
+    return "Free consultation";
+  }
+  return `$${fee} consultation fee`;
+}
+
 function ServiceSelect({
   services,
   value,
   onChange,
+  required = false,
+  showConsultationFee = false,
 }: {
   services: AccountantProfilePayload["services"];
   value: string;
   onChange: (v: string) => void;
+  required?: boolean;
+  showConsultationFee?: boolean;
 }) {
   return (
     <label style={{ display: "block", fontSize: 14, marginBottom: 12 }}>
-      Service (optional)
+      {required ? "Service" : "Service (optional)"}
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        required={required}
         style={{ width: "100%", marginTop: 6, padding: 8 }}
       >
-        <option value="">General inquiry</option>
+        <option value="">
+          {required ? "Select a service" : "General inquiry"}
+        </option>
         {services.map((s) => (
           <option key={s.id} value={String(s.id)}>
-            {s.name}
+            {showConsultationFee
+              ? `${s.name} — ${formatConsultationFeeLabel(s.consultation_fee)}`
+              : s.name}
           </option>
         ))}
       </select>
@@ -460,10 +527,15 @@ function Actions({
 }) {
   return (
     <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-      <button type="button" onClick={onCancel} disabled={loading}>
+      <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={loading}>
         Cancel
       </button>
-      <button type="button" onClick={onSubmit} disabled={loading || disabled}>
+      <button
+        type="button"
+        className="btn btn-primary"
+        onClick={onSubmit}
+        disabled={loading || disabled}
+      >
         {loading ? "Working..." : submitLabel}
       </button>
     </div>

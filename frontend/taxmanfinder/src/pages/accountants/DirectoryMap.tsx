@@ -46,7 +46,7 @@ function SearchFocusController({ focus }: { focus: SearchMapFocus | null }) {
     map.flyTo([focus.latitude, focus.longitude], focus.zoom, {
       duration: 0.45,
     });
-  }, [map, focus?.token, focus?.latitude, focus?.longitude, focus?.zoom]);
+  }, [map, focus?.token, focus?.latitude, focus?.longitude, focus?.zoom]); // eslint-disable-line react-hooks/exhaustive-deps -- fly only when search token/coords change
 
   return null;
 }
@@ -74,7 +74,7 @@ function SelectionFocusController({
     if (Number.isNaN(lat) || Number.isNaN(lng)) return;
     map.stop();
     map.flyTo([lat, lng], zoom, { duration: 0.45 });
-  }, [map, selectedUserId, selected?.latitude, selected?.longitude, zoom]);
+  }, [map, selectedUserId, selected?.latitude, selected?.longitude, zoom]); // eslint-disable-line react-hooks/exhaustive-deps -- fly on selection id/coords, not accountant list churn
 
   return null;
 }
