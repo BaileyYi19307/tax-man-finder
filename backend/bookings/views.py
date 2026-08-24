@@ -10,6 +10,14 @@ from rest_framework.views import APIView
 from chats.models import Message
 from inquiries.models import Inquiry
 from .consultation import booking_requires_payment, snapshot_from_service
+from .lifecycle_messages import (
+    MSG_ACCEPTED_FREE,
+    MSG_ACCEPTED_PAID,
+    MSG_CANCELLED,
+    MSG_DECLINED,
+    MSG_PAYMENT_COMPLETED,
+    post_booking_lifecycle_message,
+)
 from .models import (
     ACTIVE_BOOKING_STATUSES,
     SLOT_HELD_STATUSES,
@@ -51,20 +59,17 @@ def slot_held_overlap_exists(accountant, starts_at, ends_at, exclude_booking_id=
 confirmed_overlap_exists = slot_held_overlap_exists
 
 
-def _open_inquiry_queryset(client, accountant, service):
-    qs = Inquiry.objects.select_for_update().filter(
+def _open_inquiry_queryset(client, accountant):
+    return Inquiry.objects.select_for_update().filter(
         status=Inquiry.StatusChoices.OPEN,
         client=client,
         accountant=accountant,
     )
-    if service is not None:
-        return qs.filter(service=service)
-    return qs.filter(service__isnull=True)
 
 
-def get_or_create_open_inquiry(client, accountant, service):
+def get_or_create_open_inquiry(client, accountant):
     """Reuse the open inquiry, recovering from a concurrent-create uniqueness race."""
-    existing = _open_inquiry_queryset(client, accountant, service).first()
+    existing = _open_inquiry_queryset(client, accountant).first()
     if existing is not None:
         return existing
     try:
@@ -72,11 +77,10 @@ def get_or_create_open_inquiry(client, accountant, service):
             return Inquiry.objects.create(
                 client=client,
                 accountant=accountant,
-                service=service,
                 status=Inquiry.StatusChoices.OPEN,
             )
     except IntegrityError:
-        existing = _open_inquiry_queryset(client, accountant, service).first()
+        existing = _open_inquiry_queryset(client, accountant).first()
         if existing is None:
             raise
         return existing
@@ -137,9 +141,16 @@ class BookingsViewSet(viewsets.ModelViewSet):
                 booking.status = BookingStatus.AWAITING_PAYMENT
                 booking.save(update_fields=["status", "updated_at"])
                 create_payment_for_booking(booking)
+                notice = MSG_ACCEPTED_PAID
             else:
                 booking.status = BookingStatus.CONFIRMED
                 booking.save(update_fields=["status", "updated_at"])
+                notice = MSG_ACCEPTED_FREE
+            post_booking_lifecycle_message(
+                inquiry=booking.inquiry,
+                actor=request.user,
+                content=notice,
+            )
 
         booking.refresh_from_db()
         return Response(BookingSerializer(booking).data)
@@ -159,6 +170,11 @@ class BookingsViewSet(viewsets.ModelViewSet):
             )
         booking.status = BookingStatus.DECLINED
         booking.save(update_fields=["status", "updated_at"])
+        post_booking_lifecycle_message(
+            inquiry=booking.inquiry,
+            actor=request.user,
+            content=MSG_DECLINED,
+        )
         return Response(BookingSerializer(booking).data)
 
     @action(detail=True, methods=["post"])
@@ -185,6 +201,11 @@ class BookingsViewSet(viewsets.ModelViewSet):
             )
         booking.status = BookingStatus.CANCELLED
         booking.save(update_fields=["status", "updated_at"])
+        post_booking_lifecycle_message(
+            inquiry=booking.inquiry,
+            actor=request.user,
+            content=MSG_CANCELLED,
+        )
         return Response(BookingSerializer(booking).data)
 
     @action(detail=True, methods=["post"], url_path="complete-demo-payment")
@@ -219,6 +240,12 @@ class BookingsViewSet(viewsets.ModelViewSet):
         except PaymentError as exc:
             return Response({"detail": exc.detail}, status=status.HTTP_400_BAD_REQUEST)
 
+        post_booking_lifecycle_message(
+            inquiry=booking.inquiry,
+            actor=request.user,
+            content=MSG_PAYMENT_COMPLETED,
+        )
+
         booking.refresh_from_db()
         return Response(BookingSerializer(booking).data)
 
@@ -244,11 +271,11 @@ class RequestConsultationView(APIView):
         try:
             with transaction.atomic():
                 inquiry = data.get("inquiry")
+                service = data.get("service")
                 if inquiry is None:
                     inquiry = get_or_create_open_inquiry(
                         client=request.user,
                         accountant=data["accountant"],
-                        service=data.get("service"),
                     )
                     if Booking.objects.filter(
                         inquiry=inquiry, status__in=ACTIVE_BOOKING_STATUSES
@@ -256,7 +283,7 @@ class RequestConsultationView(APIView):
                         raise ActiveBookingConflict(
                             "Matching open inquiry already has an active booking."
                         )
-                fee, policy = snapshot_from_service(inquiry.service)
+                fee, policy = snapshot_from_service(service)
                 Message.objects.create(
                     inquiry=inquiry,
                     sender=request.user,
@@ -274,7 +301,7 @@ class RequestConsultationView(APIView):
                         cancellation_policy=policy,
                         name="",
                         date=starts_at,
-                        service=inquiry.service,
+                        service=service,
                     )
                 except IntegrityError as exc:
                     raise ActiveBookingConflict from exc

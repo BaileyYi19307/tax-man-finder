@@ -94,7 +94,6 @@ test("shows Continue Conversation when an open inquiry exists", async () => {
       client: 99,
       accountant: 12,
       accountant_name: "ada@test.com",
-      service_title: null,
     },
   ]);
   renderProfile();

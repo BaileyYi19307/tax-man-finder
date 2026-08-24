@@ -7,6 +7,7 @@ type Message = {
   content: string;
   sender_id: number;
   created_at: string;
+  is_system?: boolean;
   attachments?: AttachmentPayload[];
 };
 
@@ -38,16 +39,44 @@ export default function MessageList({
         background: "#fafafa",
       }}
     >
-      {messages.map((message) => (
-        <MessageBubble
-          key={message.id}
-          text={message.content}
-          isMine={message.sender_id === currentUserId}
-          inquiryId={inquiryId}
-          attachments={message.attachments}
-          onDownload={onDownloadAttachment}
-        />
-      ))}
+      {messages.map((message) =>
+        message.is_system ? (
+          <div
+            key={message.id}
+            role="status"
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              padding: "8px 16px",
+            }}
+          >
+            <div
+              style={{
+                maxWidth: "90%",
+                textAlign: "center",
+                fontSize: 13,
+                lineHeight: 1.45,
+                color: "#4b5563",
+                background: "#eef2ff",
+                border: "1px solid #c7d2fe",
+                borderRadius: 8,
+                padding: "8px 12px",
+              }}
+            >
+              {message.content}
+            </div>
+          </div>
+        ) : (
+          <MessageBubble
+            key={message.id}
+            text={message.content}
+            isMine={message.sender_id === currentUserId}
+            inquiryId={inquiryId}
+            attachments={message.attachments}
+            onDownload={onDownloadAttachment}
+          />
+        )
+      )}
       <div ref={bottomRef} />
     </div>
   );

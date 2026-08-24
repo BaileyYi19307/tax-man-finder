@@ -66,15 +66,16 @@ class Booking(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # Legacy columns kept nullable during transition (Phase 10 may drop later).
-    name = models.CharField(max_length=255, blank=True, default="")
-    date = models.DateTimeField(null=True, blank=True)
+    # Service selected for this consultation (fee/policy snapshotted below).
     service = models.ForeignKey(
         Service,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
     )
+    # Legacy display columns kept nullable during transition.
+    name = models.CharField(max_length=255, blank=True, default="")
+    date = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         constraints = [

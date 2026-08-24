@@ -109,7 +109,7 @@ A Service is an offering listed by an accountant, with indicative (non-binding) 
 **Relationships**
 
 - Owned by a User who has an AccountantProfile
-- May optionally be referenced by an Inquiry
+- May optionally be referenced by a Booking
 
 **Lifecycle**
 
@@ -143,9 +143,8 @@ An Inquiry represents the durable engagement between a client and an accountant.
 **Relationships**
 
 - Belongs to one client User and one accountant User
-- May reference one Service (optional)
 - Contains Messages
-- Contains Booking history
+- Contains Booking history (each Booking may reference a Service)
 - Contains shared Attachments ([decisions.md](./decisions.md))
 
 **Lifecycle**
@@ -159,9 +158,9 @@ An Inquiry represents the durable engagement between a client and an accountant.
 
 **Reuse rules**
 
-- At most one open general Inquiry per client–accountant pair (`service` null)
-- At most one open Inquiry per client–accountant–service triple when a service is set
-- Separate open inquiries are allowed for different services with the same accountant
+- At most one open Inquiry per client–accountant pair
+- Service selection does not create or partition conversations; messaging from different services reuses the same open Inquiry
+- Service context belongs on Booking for each consultation request
 
 **Authorization**
 
@@ -171,12 +170,12 @@ An Inquiry represents the durable engagement between a client and an accountant.
 **Invariants**
 
 - `client_id ≠ accountant_id`
-- If `service` is set, it belongs to the Inquiry’s accountant
+- At most one open Inquiry for a given `(client, accountant)` pair
 
 **Fields**
 
 ```text
-id, status, client_id, accountant_id, service_id (nullable),
+id, status, client_id, accountant_id,
 created_at, updated_at
 ```
 
@@ -184,30 +183,32 @@ created_at, updated_at
 
 ## Message
 
-A Message is a communication event within an Inquiry.
+A Message is a communication event within an Inquiry. Most messages are ordinary chat; Booking lifecycle notices use the same model with `is_system=True` so they appear in the Inquiry timeline, reuse ConversationReadState unread rules, and survive refresh without a separate notification system.
 
 **Relationships**
 
 - Belongs to one Inquiry
-- Has one sender (must be an Inquiry participant)
+- Has one sender (must be an Inquiry participant; for system notices, the acting participant)
 - May have zero or more Attachments
 
 **Lifecycle**
 
 - Created with the Inquiry’s first message, or appended when an open Inquiry is reused
 - Further messages may be sent over WebSocket or HTTP while the Inquiry is open
+- Booking accept / decline / payment success / cancel may append a system timeline notice
 - Messages are not edited or deleted in the current product
 
 **Invariants**
 
 - Content may be blank when the message has at least one attachment; text-only messages require non-blank content
 - Sender is the Inquiry client or accountant
+- `is_system` messages are not ordinary chat bubbles in the UI; clients cannot create them via chat send
 - Closed inquiries reject new messages
 
 **Fields**
 
 ```text
-id, inquiry_id, sender_id, content, created_at
+id, inquiry_id, sender_id, content, is_system, created_at
 ```
 
 Inbox unread behavior may track last-read state; there is no separate Conversation entity.
@@ -253,14 +254,14 @@ A Booking is a scheduled consultation between the Inquiry’s client and account
 
 - Belongs to exactly one Inquiry
 - Client and accountant match the Inquiry’s parties (derived from the Inquiry at creation)
-- Optional service context is modeled on the Inquiry; a nullable `Booking.service` may still be copied from the Inquiry for historical reasons
+- Optional Service selected for this consultation (fee/policy snapshotted from that Service)
 - May have at most one Payment (paid consultations only)
 
 **Lifecycle**
 
 - Created as `pending` when a client requests a consultation (from profile/service/chat, or via API on an existing open Inquiry with no active booking)
 - Duration is fixed at 30 minutes: `ends_at = starts_at + 30 minutes`
-- On create, `consultation_fee` and `cancellation_policy` are snapshotted from the Inquiry’s Service (or free defaults when no service)
+- On create, `consultation_fee` and `cancellation_policy` are snapshotted from the Service selected for that request (or free defaults when no service)
 - Accountant may decline (`declined`) a pending booking
 - Accountant may accept a pending booking:
   - Free fee snapshot → `confirmed`
@@ -280,7 +281,7 @@ A Booking is a scheduled consultation between the Inquiry’s client and account
 
 ```text
 id, status, inquiry_id, client_id, accountant_id,
-service_id (nullable, legacy), starts_at, ends_at,
+service_id (nullable), starts_at, ends_at,
 consultation_fee, cancellation_policy,
 created_at, updated_at
 ```
@@ -330,10 +331,10 @@ User
  └── (as client or accountant) Booking
       └── (optional) Payment
 
-Inquiry → User (client), User (accountant), Service? 
+Inquiry → User (client), User (accountant)
 Message → Inquiry
 Attachment → Inquiry, Message?
-Booking → Inquiry
+Booking → Inquiry, Service?
 Payment → Booking
 ```
 
@@ -343,7 +344,7 @@ Payment → Booking
 
 ### Starting a conversation
 
-Profile “Message accountant” and service-page messaging share one create/reuse path: required first message content, optional or implied service, then navigation to `/chat/<inquiry_id>`.
+Profile “Message accountant” and service-page messaging share one create/reuse path: required first message content, optional service only to identify the accountant, then navigation to `/chat/<inquiry_id>` (one open Inquiry per client–accountant pair).
 
 ### Requesting a consultation
 

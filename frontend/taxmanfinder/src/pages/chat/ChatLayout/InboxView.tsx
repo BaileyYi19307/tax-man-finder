@@ -68,9 +68,6 @@ export default function InboxView({
                     ? inquiry.client_name
                     : inquiry.accountant_name}
                   </div>
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>
-                    {inquiry.service_title}
-                  </div>
                 </NavLink>
               </li>
               

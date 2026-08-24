@@ -104,6 +104,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         "sender_id": sender.id,
                         "created_at": message.created_at.isoformat(),
                         "attachments": [],
+                        "is_system": False,
                     },
                 )
 
@@ -114,6 +115,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "sender_id": event["sender_id"],
             "created_at": event["created_at"],
             "attachments": event.get("attachments") or [],
+            "is_system": bool(event.get("is_system")),
         }))
 
     async def disconnect(self,close_code):

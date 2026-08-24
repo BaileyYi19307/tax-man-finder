@@ -9,6 +9,7 @@ import {
   cancelBooking,
   declineBooking,
   downloadInquiryAttachment,
+  getPublicAccountantProfile,
   listInquiryAttachments,
   listInquiryBookings,
   requestConsultation,
@@ -20,6 +21,11 @@ import {
 } from "../../../api/client";
 
 type Message = ChatMessagePayload;
+type AccountantService = {
+  id: number;
+  name: string;
+  consultation_fee?: string | null;
+};
 
 const ACTIVE_BOOKING_STATUSES = new Set([
   "pending",
@@ -49,9 +55,12 @@ export default function ConversationView() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [inquiryStatus, setInquiryStatus] = useState<string | null>(null);
   const [inquiryClientId, setInquiryClientId] = useState<number | null>(null);
+  const [inquiryAccountantId, setInquiryAccountantId] = useState<number | null>(null);
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [bookingDate, setBookingDate] = useState("");
   const [bookingNote, setBookingNote] = useState("");
+  const [bookingServiceId, setBookingServiceId] = useState("");
+  const [accountantServices, setAccountantServices] = useState<AccountantService[]>([]);
   const [bookingBusy, setBookingBusy] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const currentUserId = Number(localStorage.getItem("user_id"));
@@ -65,21 +74,57 @@ export default function ConversationView() {
     }
   }, [inquiryId]);
 
+  const refreshBookings = useCallback(async () => {
+    if (!inquiryId) return;
+    try {
+      setBookings(await listInquiryBookings(inquiryId));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [inquiryId]);
+
+  const reloadMessages = useCallback(async () => {
+    if (!inquiryId || !token) return;
+    try {
+      const inquiryResponse = await apiFetch(`/api/inquiries/${inquiryId}/`);
+      if (inquiryResponse.ok) {
+        const inquiryData = await inquiryResponse.json();
+        setMessages(inquiryData.messages || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [inquiryId, token]);
+
   const handleIncoming = useCallback(
     (incoming: Message) => {
-      if (!incoming?.id || incoming.sender_id === currentUserId) return;
+      if (!incoming?.id) return;
+      const isSystem = Boolean(incoming.is_system);
+      // Own ordinary chat echoes are handled optimistically; system events from
+      // the other party still land here. Actor refreshes messages after actions.
+      if (!isSystem && incoming.sender_id === currentUserId) return;
       const hasText = Boolean(incoming.content && incoming.content.trim());
       const hasFiles = Boolean(incoming.attachments && incoming.attachments.length);
       if (!hasText && !hasFiles) return;
       setMessages((prev) => {
         if (prev.some((m) => m.id === incoming.id)) return prev;
-        return [...prev, { ...incoming, attachments: incoming.attachments || [] }];
+        return [
+          ...prev,
+          {
+            ...incoming,
+            is_system: isSystem,
+            attachments: incoming.attachments || [],
+          },
+        ];
       });
+      if (isSystem) {
+        void refreshBookings();
+      }
       if (hasFiles) {
         void refreshAttachments();
       }
     },
-    [currentUserId, refreshAttachments]
+    [currentUserId, refreshAttachments, refreshBookings]
   );
 
   const handleSocketClose = useCallback(
@@ -174,15 +219,6 @@ export default function ConversationView() {
     }
   }
 
-  const refreshBookings = useCallback(async () => {
-    if (!inquiryId) return;
-    try {
-      setBookings(await listInquiryBookings(inquiryId));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [inquiryId]);
-
   useEffect(() => {
     async function fetchInquiryDetails() {
       if (!inquiryId || !token) return;
@@ -195,6 +231,11 @@ export default function ConversationView() {
           setInquiryClientId(
             inquiryData.inquiry?.client != null
               ? Number(inquiryData.inquiry.client)
+              : null
+          );
+          setInquiryAccountantId(
+            inquiryData.inquiry?.accountant != null
+              ? Number(inquiryData.inquiry.accountant)
               : null
           );
         }
@@ -222,6 +263,7 @@ export default function ConversationView() {
       setActionError(null);
       await acceptBooking(id);
       await refreshBookings();
+      await reloadMessages();
     } catch {
       setActionError("Could not accept booking.");
     }
@@ -232,6 +274,7 @@ export default function ConversationView() {
       setActionError(null);
       await declineBooking(id);
       await refreshBookings();
+      await reloadMessages();
     } catch {
       setActionError("Could not decline booking.");
     }
@@ -242,16 +285,30 @@ export default function ConversationView() {
       setActionError(null);
       await cancelBooking(id);
       await refreshBookings();
+      await reloadMessages();
     } catch {
       setActionError("Could not cancel booking.");
     }
   }
 
-  function openBookingForm() {
+  async function openBookingForm() {
     setBookingError(null);
     setBookingNote("");
     setBookingDate("");
+    setBookingServiceId("");
     setShowBookingForm(true);
+    if (!inquiryAccountantId) return;
+    try {
+      const profile = await getPublicAccountantProfile(inquiryAccountantId);
+      const services = profile.services || [];
+      setAccountantServices(services);
+      if (services.length === 1) {
+        setBookingServiceId(String(services[0].id));
+      }
+    } catch (e) {
+      console.error(e);
+      setAccountantServices([]);
+    }
   }
 
   function closeBookingForm() {
@@ -259,6 +316,14 @@ export default function ConversationView() {
     setBookingError(null);
     setBookingNote("");
     setBookingDate("");
+    setBookingServiceId("");
+  }
+
+  function formatFeeLabel(fee?: string | null) {
+    if (fee == null || fee === "" || Number(fee) === 0) {
+      return "Free consultation";
+    }
+    return `$${fee} consultation fee`;
   }
 
   async function submitConsultation() {
@@ -272,18 +337,32 @@ export default function ConversationView() {
       setBookingError("Please choose a start date and time.");
       return;
     }
+    if (accountantServices.length > 0 && !bookingServiceId) {
+      setBookingError("Select a service so the correct consultation fee applies.");
+      return;
+    }
 
     setBookingBusy(true);
     setBookingError(null);
     try {
-      await requestConsultation({
+      const body: {
+        inquiry: number;
+        starts_at: string;
+        content: string;
+        service?: number;
+      } = {
         inquiry: Number(inquiryId),
         starts_at: new Date(bookingDate).toISOString(),
         content,
-      });
+      };
+      if (bookingServiceId) {
+        body.service = Number(bookingServiceId);
+      }
+      await requestConsultation(body);
       closeBookingForm();
       setActionError(null);
       await refreshBookings();
+      await reloadMessages();
     } catch (e) {
       console.error(e);
       setBookingError(
@@ -345,8 +424,9 @@ export default function ConversationView() {
               }}
             >
               <div style={{ fontSize: 14 }}>
-                <strong>{b.status_label}</strong> · {formatDateTime(b.starts_at)} –{" "}
-                {formatDateTime(b.ends_at)}
+                <strong>{b.status_label}</strong>
+                {b.service_name ? ` · ${b.service_name}` : ""} ·{" "}
+                {formatDateTime(b.starts_at)} – {formatDateTime(b.ends_at)}
               </div>
               {b.status === "awaiting_payment" && b.client === currentUserId && (
                 <div style={{ fontSize: 13, color: "#92400e", marginTop: 6 }}>
@@ -439,6 +519,24 @@ export default function ConversationView() {
             <p style={{ color: "#6b7280", fontSize: 13 }}>
               Fixed 30-minute consultation on this conversation.
             </p>
+            {accountantServices.length > 0 && (
+              <label style={{ display: "block", fontSize: 14, marginBottom: 12 }}>
+                Service
+                <select
+                  value={bookingServiceId}
+                  onChange={(e) => setBookingServiceId(e.target.value)}
+                  required
+                  style={{ width: "100%", marginTop: 6, padding: 8, boxSizing: "border-box" }}
+                >
+                  <option value="">Select a service</option>
+                  {accountantServices.map((s) => (
+                    <option key={s.id} value={String(s.id)}>
+                      {s.name} — {formatFeeLabel(s.consultation_fee)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label style={{ display: "block", fontSize: 14, marginBottom: 12 }}>
               Date and time
               <input
@@ -482,7 +580,12 @@ export default function ConversationView() {
                 type="button"
                 className="btn btn-primary"
                 onClick={() => void submitConsultation()}
-                disabled={bookingBusy || !bookingDate || !bookingNote.trim()}
+                disabled={
+                  bookingBusy ||
+                  !bookingDate ||
+                  !bookingNote.trim() ||
+                  (accountantServices.length > 0 && !bookingServiceId)
+                }
               >
                 {bookingBusy ? "Submitting…" : "Request consultation"}
               </button>

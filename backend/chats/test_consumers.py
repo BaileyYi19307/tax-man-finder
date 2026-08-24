@@ -45,7 +45,6 @@ class ChatConsumerWebSocketTests(TransactionTestCase):
         self.inquiry = Inquiry.objects.create(
             client=self.client_user,
             accountant=self.accountant,
-            service=self.service,
             status=Inquiry.StatusChoices.OPEN,
         )
         self.client_token = str(AccessToken.for_user(self.client_user))

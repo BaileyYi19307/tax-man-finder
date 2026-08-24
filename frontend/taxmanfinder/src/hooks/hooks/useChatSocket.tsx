@@ -5,6 +5,7 @@ type IncomingMessage = {
   content: string;
   sender_id: number;
   created_at: string;
+  is_system?: boolean;
   attachments?: Array<{
     id: number;
     message_id: number | null;

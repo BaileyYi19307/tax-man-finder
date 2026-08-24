@@ -52,8 +52,8 @@ describe("buildAttentionSummary", () => {
         }),
       ],
       inquiries: [
-        { id: 1, status: "open", created_at: "", client: 1, accountant: 2, accountant_name: "A", service_title: null, unread: true },
-        { id: 2, status: "open", created_at: "", client: 1, accountant: 3, accountant_name: "B", service_title: null, unread: false },
+        { id: 1, status: "open", created_at: "", client: 1, accountant: 2, accountant_name: "A", unread: true },
+        { id: 2, status: "open", created_at: "", client: 1, accountant: 3, accountant_name: "B", unread: false },
       ],
     });
 

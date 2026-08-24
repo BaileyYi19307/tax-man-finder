@@ -23,7 +23,7 @@ Clients and accountants often communicate before any consultation exists. A book
 
 **Decision**
 
-`Inquiry` represents the durable engagement workspace between one client and one accountant (optionally tied to a service).
+`Inquiry` represents the durable engagement workspace between one client and one accountant. Service context belongs on Booking, not on Inquiry.
 
 **Consequences**
 

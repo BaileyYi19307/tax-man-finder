@@ -77,7 +77,25 @@ class MessagingAndConsultationIntegrationTests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         inquiry = Inquiry.objects.get()
-        self.assertIsNone(inquiry.service)
+        self.assertEqual(inquiry.accountant_id, self.accountant.id)
+
+    def test_service_then_general_message_reuses_inquiry(self):
+        url = reverse("list-create-inquiries")
+        first = self.api.post(
+            url,
+            {"service": self.service.id, "content": "About this service"},
+            format="json",
+        )
+        second = self.api.post(
+            url,
+            {"accountant": self.accountant.id, "content": "General follow-up"},
+            format="json",
+        )
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.assertEqual(first.data["inquiry_id"], second.data["inquiry_id"])
+        self.assertEqual(Inquiry.objects.count(), 1)
+        self.assertEqual(Message.objects.count(), 2)
 
     def test_request_consultation_flow_end_to_end(self):
         url = reverse("request-consultation")

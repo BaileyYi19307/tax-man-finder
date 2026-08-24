@@ -55,7 +55,6 @@ class BookingDomainTests(TestCase):
         cls.inquiry = Inquiry.objects.create(
             client=cls.client_user,
             accountant=cls.accountant_user,
-            service=cls.service,
             status=Inquiry.StatusChoices.OPEN,
         )
         Message.objects.create(
@@ -74,7 +73,7 @@ class BookingDomainTests(TestCase):
         self._auth(self.client_user)
         response = self.client.post(
             self.create_url,
-            {"inquiry": self.inquiry.id, "starts_at": self.starts.isoformat()},
+            {"inquiry": self.inquiry.id, "service": self.service.id, "starts_at": self.starts.isoformat()},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -92,6 +91,7 @@ class BookingDomainTests(TestCase):
             self.create_url,
             {
                 "inquiry": self.inquiry.id,
+                "service": self.service.id,
                 "starts_at": self.starts.isoformat(),
                 "client": self.outsider.id,
                 "accountant": self.outsider.id,
@@ -107,7 +107,7 @@ class BookingDomainTests(TestCase):
         self._auth(self.outsider)
         response = self.client.post(
             self.create_url,
-            {"inquiry": self.inquiry.id, "starts_at": self.starts.isoformat()},
+            {"inquiry": self.inquiry.id, "service": self.service.id, "starts_at": self.starts.isoformat()},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -119,7 +119,7 @@ class BookingDomainTests(TestCase):
         self._auth(self.client_user)
         response = self.client.post(
             self.create_url,
-            {"inquiry": self.inquiry.id, "starts_at": self.starts.isoformat()},
+            {"inquiry": self.inquiry.id, "service": self.service.id, "starts_at": self.starts.isoformat()},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -129,7 +129,7 @@ class BookingDomainTests(TestCase):
         self._auth(self.client_user)
         first = self.client.post(
             self.create_url,
-            {"inquiry": self.inquiry.id, "starts_at": self.starts.isoformat()},
+            {"inquiry": self.inquiry.id, "service": self.service.id, "starts_at": self.starts.isoformat()},
             format="json",
         )
         self.assertEqual(first.status_code, status.HTTP_201_CREATED)
@@ -137,6 +137,7 @@ class BookingDomainTests(TestCase):
             self.create_url,
             {
                 "inquiry": self.inquiry.id,
+                "service": self.service.id,
                 "starts_at": (self.starts + timedelta(hours=2)).isoformat(),
             },
             format="json",
@@ -148,7 +149,7 @@ class BookingDomainTests(TestCase):
         self._auth(self.client_user)
         create = self.client.post(
             self.create_url,
-            {"inquiry": self.inquiry.id, "starts_at": self.starts.isoformat()},
+            {"inquiry": self.inquiry.id, "service": self.service.id, "starts_at": self.starts.isoformat()},
             format="json",
         )
         booking_id = create.data["id"]
@@ -160,6 +161,7 @@ class BookingDomainTests(TestCase):
             self.create_url,
             {
                 "inquiry": self.inquiry.id,
+                "service": self.service.id,
                 "starts_at": (self.starts + timedelta(days=1)).isoformat(),
             },
             format="json",
@@ -168,25 +170,36 @@ class BookingDomainTests(TestCase):
         self.assertEqual(Booking.objects.count(), 2)
 
     def test_accept_and_overlap_prevention(self):
+        other_client = User.objects.create_user(
+            email="client-overlap@test.com",
+            password="password123",
+            is_accountant=False,
+            is_verified=True,
+        )
         other_inquiry = Inquiry.objects.create(
-            client=self.client_user,
+            client=other_client,
             accountant=self.accountant_user,
-            service=None,
             status=Inquiry.StatusChoices.OPEN,
         )
         Message.objects.create(
-            inquiry=other_inquiry, sender=self.client_user, content="General"
+            inquiry=other_inquiry, sender=other_client, content="General"
         )
         self._auth(self.client_user)
         b1 = self.client.post(
             self.create_url,
-            {"inquiry": self.inquiry.id, "starts_at": self.starts.isoformat()},
+            {
+                "inquiry": self.inquiry.id,
+                "service": self.service.id,
+                "starts_at": self.starts.isoformat(),
+            },
             format="json",
         )
+        self._auth(other_client)
         b2 = self.client.post(
             self.create_url,
             {
                 "inquiry": other_inquiry.id,
+                "service": self.service.id,
                 "starts_at": (self.starts + timedelta(minutes=15)).isoformat(),
             },
             format="json",
@@ -204,7 +217,7 @@ class BookingDomainTests(TestCase):
         self._auth(self.client_user)
         created = self.client.post(
             self.create_url,
-            {"inquiry": self.inquiry.id, "starts_at": self.starts.isoformat()},
+            {"inquiry": self.inquiry.id, "service": self.service.id, "starts_at": self.starts.isoformat()},
             format="json",
         )
         deny = self.client.post(reverse("bookings-accept", args=[created.data["id"]]))
@@ -213,7 +226,7 @@ class BookingDomainTests(TestCase):
     def test_create_booking_requires_auth(self):
         response = self.client.post(
             self.create_url,
-            {"inquiry": self.inquiry.id, "starts_at": self.starts.isoformat()},
+            {"inquiry": self.inquiry.id, "service": self.service.id, "starts_at": self.starts.isoformat()},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
@@ -240,24 +253,70 @@ class BookingDomainTests(TestCase):
             ).exists()
         )
 
-    def test_request_consultation_new_general_inquiry(self):
+    def test_request_consultation_new_inquiry_with_service(self):
         Inquiry.objects.all().delete()
         Message.objects.all().delete()
         self._auth(self.client_user)
         response = self.client.post(
             self.consult_url,
             {
-                "accountant": self.accountant_user.id,
+                "service": self.service.id,
                 "starts_at": self.starts.isoformat(),
-                "content": "General consult please",
+                "content": "Consult please",
             },
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         inquiry = Inquiry.objects.get()
-        self.assertIsNone(inquiry.service)
-        self.assertEqual(Booking.objects.count(), 1)
+        booking = Booking.objects.get()
+        self.assertEqual(inquiry.accountant_id, self.accountant_user.id)
+        self.assertEqual(booking.service_id, self.service.id)
         self.assertEqual(Message.objects.count(), 1)
+
+    def test_request_consultation_on_inquiry_requires_service_when_listed(self):
+        self._auth(self.client_user)
+        response = self.client.post(
+            self.consult_url,
+            {
+                "inquiry": self.inquiry.id,
+                "starts_at": self.starts.isoformat(),
+                "content": "Missing service",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Booking.objects.count(), 0)
+
+    def test_decline_then_new_request_reuses_inquiry(self):
+        self._auth(self.client_user)
+        first = self.client.post(
+            self.consult_url,
+            {
+                "inquiry": self.inquiry.id,
+                "service": self.service.id,
+                "starts_at": self.starts.isoformat(),
+                "content": "First request",
+            },
+            format="json",
+        )
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self._auth(self.accountant_user)
+        self.client.post(reverse("bookings-decline", args=[first.data["booking"]["id"]]))
+        self._auth(self.client_user)
+        second = self.client.post(
+            self.consult_url,
+            {
+                "inquiry": self.inquiry.id,
+                "service": self.service.id,
+                "starts_at": (self.starts + timedelta(days=1)).isoformat(),
+                "content": "Second request",
+            },
+            format="json",
+        )
+        self.assertEqual(second.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second.data["inquiry_id"], self.inquiry.id)
+        self.assertEqual(Inquiry.objects.filter(status=Inquiry.StatusChoices.OPEN).count(), 1)
+        self.assertEqual(Booking.objects.filter(inquiry=self.inquiry).count(), 2)
 
     def test_request_consultation_blank_content_rejected(self):
         self._auth(self.client_user)
@@ -284,7 +343,7 @@ class BookingDomainTests(TestCase):
                 self.client.post(
                     self.consult_url,
                     {
-                        "accountant": self.accountant_user.id,
+                        "service": self.service.id,
                         "starts_at": self.starts.isoformat(),
                         "content": "Hello",
                     },
@@ -301,7 +360,6 @@ class BookingDomainTests(TestCase):
         winner = Inquiry.objects.create(
             client=self.client_user,
             accountant=self.accountant_user,
-            service=None,
             status=Inquiry.StatusChoices.OPEN,
         )
         self._auth(self.client_user)
@@ -314,13 +372,13 @@ class BookingDomainTests(TestCase):
             patch("bookings.views._open_inquiry_queryset", side_effect=[miss, hit]),
             patch(
                 "bookings.views.Inquiry.objects.create",
-                side_effect=IntegrityError("unique_open_general_inquiry"),
+                side_effect=IntegrityError("unique_open_inquiry_per_client_accountant"),
             ),
         ):
             response = self.client.post(
                 self.consult_url,
                 {
-                    "accountant": self.accountant_user.id,
+                    "service": self.service.id,
                     "starts_at": self.starts.isoformat(),
                     "content": "General consult please",
                 },
@@ -339,7 +397,6 @@ class BookingDomainTests(TestCase):
         winner = Inquiry.objects.create(
             client=self.client_user,
             accountant=self.accountant_user,
-            service=None,
             status=Inquiry.StatusChoices.OPEN,
         )
         later = self.starts + timedelta(hours=3)
@@ -361,13 +418,13 @@ class BookingDomainTests(TestCase):
             patch("bookings.views._open_inquiry_queryset", side_effect=[miss, hit]),
             patch(
                 "bookings.views.Inquiry.objects.create",
-                side_effect=IntegrityError("unique_open_general_inquiry"),
+                side_effect=IntegrityError("unique_open_inquiry_per_client_accountant"),
             ),
         ):
             response = self.client.post(
                 self.consult_url,
                 {
-                    "accountant": self.accountant_user.id,
+                    "service": self.service.id,
                     "starts_at": self.starts.isoformat(),
                     "content": "General consult please",
                 },
@@ -389,6 +446,7 @@ class BookingDomainTests(TestCase):
                 self.consult_url,
                 {
                     "inquiry": self.inquiry.id,
+                    "service": self.service.id,
                     "starts_at": self.starts.isoformat(),
                     "content": "Please book me",
                 },
@@ -406,7 +464,7 @@ class BookingDomainTests(TestCase):
         self._auth(self.client_user)
         first = self.client.post(
             self.create_url,
-            {"inquiry": self.inquiry.id, "starts_at": self.starts.isoformat()},
+            {"inquiry": self.inquiry.id, "service": self.service.id, "starts_at": self.starts.isoformat()},
             format="json",
         )
         self.assertEqual(first.status_code, status.HTTP_201_CREATED)
@@ -433,7 +491,7 @@ class BookingDomainTests(TestCase):
         self._auth(self.client_user)
         response = self.client.post(
             self.create_url,
-            {"inquiry": self.inquiry.id, "starts_at": self.starts.isoformat()},
+            {"inquiry": self.inquiry.id, "service": self.service.id, "starts_at": self.starts.isoformat()},
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)

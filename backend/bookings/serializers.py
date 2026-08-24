@@ -86,11 +86,36 @@ class BookingSerializer(serializers.ModelSerializer):
         return PaymentSerializer(payment).data
 
 
+def _validate_consultation_service(*, accountant, service):
+    """Service is required when the accountant has active services."""
+    active_qs = Service.objects.filter(accountant=accountant, is_active=True)
+    if service is None:
+        if active_qs.exists():
+            raise serializers.ValidationError(
+                {"service": "Select a service for this consultation."}
+            )
+        return None
+    if service.accountant_id != accountant.id:
+        raise serializers.ValidationError(
+            {"service": "Service must belong to the selected accountant."}
+        )
+    if not service.is_active:
+        raise serializers.ValidationError(
+            {"service": "That service is not available."}
+        )
+    return service
+
+
 class BookingCreateSerializer(serializers.Serializer):
     """Create a pending booking on an existing open inquiry."""
 
     inquiry = serializers.PrimaryKeyRelatedField(queryset=Inquiry.objects.all())
     starts_at = serializers.DateTimeField()
+    service = serializers.PrimaryKeyRelatedField(
+        queryset=Service.objects.all(),
+        required=False,
+        allow_null=True,
+    )
     note = serializers.CharField(required=False, allow_blank=True, default="")
 
     def validate_inquiry(self, inquiry):
@@ -116,12 +141,21 @@ class BookingCreateSerializer(serializers.Serializer):
             value = timezone.make_aware(value)
         return value
 
+    def validate(self, data):
+        inquiry = data["inquiry"]
+        data["service"] = _validate_consultation_service(
+            accountant=inquiry.accountant,
+            service=data.get("service"),
+        )
+        return data
+
     def create(self, validated_data):
         inquiry = validated_data["inquiry"]
+        service = validated_data.get("service")
         starts_at = validated_data["starts_at"]
         ends_at = Booking.compute_ends_at(starts_at)
         note = (validated_data.get("note") or "").strip()
-        fee, policy = snapshot_from_service(inquiry.service)
+        fee, policy = snapshot_from_service(service)
 
         try:
             booking = Booking.objects.create(
@@ -135,7 +169,7 @@ class BookingCreateSerializer(serializers.Serializer):
                 cancellation_policy=policy,
                 name="",
                 date=starts_at,
-                service=inquiry.service,
+                service=service,
             )
         except IntegrityError as exc:
             raise serializers.ValidationError(
@@ -184,6 +218,7 @@ class RequestConsultationSerializer(serializers.Serializer):
     def validate(self, data):
         request = self.context["request"]
         inquiry = data.get("inquiry")
+        service = data.get("service")
 
         if inquiry is not None:
             if inquiry.client_id != request.user.id:
@@ -201,14 +236,15 @@ class RequestConsultationSerializer(serializers.Serializer):
                     {"inquiry": "This inquiry already has an active booking."}
                 )
             data["accountant"] = inquiry.accountant
-            data["service"] = inquiry.service
+            data["service"] = _validate_consultation_service(
+                accountant=inquiry.accountant,
+                service=service,
+            )
             return data
 
-        service = data.get("service")
-        accountant = data.get("accountant")
         if service is not None:
             data["accountant"] = service.accountant
-        elif accountant is None:
+        elif data.get("accountant") is None:
             raise serializers.ValidationError(
                 {
                     "accountant": (
@@ -222,4 +258,8 @@ class RequestConsultationSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"accountant": "You cannot request a consultation with yourself."}
             )
+        data["service"] = _validate_consultation_service(
+            accountant=accountant,
+            service=service,
+        )
         return data

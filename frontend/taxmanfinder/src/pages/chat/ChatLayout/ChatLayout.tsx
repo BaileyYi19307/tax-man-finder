@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import InboxView from "./InboxView";
 import { apiFetch } from "../../../api/client";
@@ -18,7 +18,6 @@ export type InquiryListItem = {
   accountant: number;
   accountant_name: string;
   client_name: string;
-  service_title: string | null;
   unread: boolean;
 };
 
@@ -27,6 +26,7 @@ export default function ChatLayout() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const token = localStorage.getItem("access_token");
+  const location = useLocation();
 
   function handleMarkRead(inquiryId: number) {
     setInquiries((prev) =>
@@ -65,7 +65,8 @@ export default function ChatLayout() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+    // Refetch when entering/leaving threads so the inbox cannot keep deleted rows.
+  }, [token, location.pathname]);
 
   return (
     <div style={{ display: "flex", flex: 1, minHeight: 0, height: "100%" }}>

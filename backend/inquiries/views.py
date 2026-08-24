@@ -36,7 +36,9 @@ class ListCreateInquiriesView(APIView):
         #want to get all of a users inquiries 
         #so backend should read request.user 
         #return all the inquiries where the client is the user? 
-        inquiries = Inquiry.objects.filter(Q(client = request.user) | Q(accountant=request.user)).select_related("accountant","client","service").order_by("-created_at")
+        inquiries = Inquiry.objects.filter(
+            Q(client=request.user) | Q(accountant=request.user)
+        ).select_related("accountant", "client").order_by("-created_at")
     
         result=[]
         
@@ -74,41 +76,30 @@ class ListCreateInquiriesView(APIView):
         valid_data = inquiry_serializer.validated_data
         content = valid_data["content"]
 
-        #if service is provided: 
-        #check to see if there already exists an open inquiry with the same accountant,client
-        if valid_data.get("service"): 
-            existing = Inquiry.objects.filter(
-                status= Inquiry.StatusChoices.OPEN,
-                client = request.user,
-                accountant = valid_data["accountant"],
-                service = valid_data["service"]
-            ).first()
-        else: 
-            existing=Inquiry.objects.filter(
-                status= Inquiry.StatusChoices.OPEN,
-                client = request.user,
-                accountant = valid_data["accountant"],
-                service__isnull=True
-            ).first()
-  
-        if existing is not None: 
-            #reuse open inquiry and add this message
+        # One open Inquiry per client/accountant pair (service does not partition).
+        existing = Inquiry.objects.filter(
+            status=Inquiry.StatusChoices.OPEN,
+            client=request.user,
+            accountant=valid_data["accountant"],
+        ).first()
+
+        if existing is not None:
             Message.objects.create(
                 inquiry=existing,
                 sender=request.user,
                 content=content,
             )
-            return Response({"inquiry_id": existing.id},status=status.HTTP_200_OK)
+            return Response({"inquiry_id": existing.id}, status=status.HTTP_200_OK)
 
-        #create inquiry + first message together (all or nothing)
+        # Create inquiry + first message together (all or nothing).
         with transaction.atomic():
-            inquiry = inquiry_serializer.save(client = request.user)
+            inquiry = inquiry_serializer.save(client=request.user)
             Message.objects.create(
                 inquiry=inquiry,
                 sender=request.user,
                 content=content,
             )
-        return Response({"inquiry_id": inquiry.id},status = status.HTTP_201_CREATED)
+        return Response({"inquiry_id": inquiry.id}, status=status.HTTP_201_CREATED)
 
 
 class ReadSpecificInquiryView(APIView):
@@ -116,7 +107,9 @@ class ReadSpecificInquiryView(APIView):
     
     def get(self,request,inquiry_id):
         #only allow users who participate in the inquiry to access it 
-        inquiry_queryset = Inquiry.objects.select_related("accountant","client","service").filter(Q(client=request.user)|Q(accountant=request.user))
+        inquiry_queryset = Inquiry.objects.select_related(
+            "accountant", "client"
+        ).filter(Q(client=request.user) | Q(accountant=request.user))
         
         inquiry= get_object_or_404(inquiry_queryset,id=inquiry_id)
         

@@ -31,9 +31,11 @@ class MessageSerializer(serializers.ModelSerializer):
             "sender_id",
             "sender_email",
             "content",
+            "is_system",
             "created_at",
             "attachments",
         ]
+        read_only_fields = fields
 
 
 class MessageCreateSerializer(serializers.ModelSerializer):

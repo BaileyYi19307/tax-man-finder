@@ -50,8 +50,8 @@ No additional discovery product features are currently required beyond the map M
 
 ### Current behavior
 
-- Clients start a conversation from a public profile or service page by sending a non-blank first message. That creates an Inquiry (or reuses a matching open one) and opens the chat workspace.
-- Matching open inquiries are reused; a later contact after an Inquiry is closed starts a new Inquiry rather than reopening the closed one.
+- Clients start a conversation from a public profile or service page by sending a non-blank first message. That creates an Inquiry (or reuses the open Inquiry for that client–accountant pair) and opens the chat workspace.
+- Matching open inquiries are reused by client–accountant pair regardless of service; a later contact after an Inquiry is closed starts a new Inquiry rather than reopening the closed one.
 - Only the Inquiry’s client and accountant can read or send on that conversation. Closed inquiries reject new messages.
 - Participants can share files on an open Inquiry: attach files when sending a chat message, or upload to the Inquiry’s shared-files library without a message. Allowed types include PDF, JPEG, PNG, and common Office documents, with a per-file size limit. Downloads require Inquiry participant authorization. JPEG, PNG, and PDF support in-chat preview via authenticated download. Architecture: [decisions.md](../architecture/decisions.md).
 - Chat messages may include text, attachments, or both. Text-only sends still require non-blank content; attachment-only messages use blank content.
@@ -69,7 +69,7 @@ No additional messaging product features are currently required beyond Inquiry f
 ### Current behavior
 
 - Clients request a consultation from a profile or service page, or from an open chat. That creates or reuses an open Inquiry, records an initial message, and creates a pending Booking.
-- When a Booking is created, the service’s consultation fee and cancellation policy are **snapshotted** onto the Booking. Later edits to the Service do not change existing Bookings.
+- When a Booking is created, the selected service’s consultation fee and cancellation policy are **snapshotted** onto the Booking. Later edits to the Service do not change existing Bookings.
 - Accountants can accept or decline a pending booking. Either participant can cancel a pending, awaiting-payment, or confirmed booking.
 - An Inquiry may have at most one active booking (pending, awaiting payment, or confirmed). After decline or cancellation, another booking may be requested on the same Inquiry.
 - Booking status changes do not end the Inquiry; participants can continue messaging while the Inquiry remains open.
@@ -86,6 +86,7 @@ No additional messaging product features are currently required beyond Inquiry f
 
 ### Awareness when returning to the app
 
+- Booking lifecycle changes (accept, decline, payment completed, cancel) post concise **system timeline messages** in the Inquiry chat. They are visually distinct from ordinary chat and persist after refresh/re-login; unread follows the existing conversation read-state model.
 - Header **Consultations** and **Messages** links show counts when there is actionable work (for example pending requests, payment required, or unread messages).
 - Client and accountant dashboards show a **Needs attention** section (and **Upcoming** for confirmed future consultations) derived from existing Booking and Inquiry unread data. There is no separate notification system, email alerts for booking events, or push notifications.
 

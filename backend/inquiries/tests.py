@@ -18,6 +18,11 @@ class InquirySerializerTest(TestCase):
             password="password123",
             is_accountant=True,
         )
+        cls.other_accountant = User.objects.create_user(
+            email="acct2@test.com",
+            password="password123",
+            is_accountant=True,
+        )
 
         cls.client_user = User.objects.create_user(
             email="client@test.com",
@@ -58,7 +63,7 @@ class InquirySerializerTest(TestCase):
         self.assertEqual(Inquiry.objects.count(), 1)
         self.assertEqual(Message.objects.count(), 1)
         inquiry = Inquiry.objects.get()
-        self.assertEqual(inquiry.service_id, self.service.id)
+        self.assertEqual(inquiry.accountant_id, self.accountant.id)
         self.assertEqual(Message.objects.get().content, "Hello")
 
     def test_create_existing_inquiry(self):
@@ -102,7 +107,7 @@ class InquirySerializerTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Inquiry.objects.count(), 1)
         self.assertEqual(Message.objects.count(), 1)
-        self.assertIsNone(Inquiry.objects.get().service)
+        self.assertEqual(Inquiry.objects.get().accountant_id, self.accountant.id)
 
     def test_create_self_inquiry(self):
         response = self.client.post(
@@ -142,8 +147,9 @@ class InquirySerializerTest(TestCase):
         self.assertEqual(new_inquiry.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Inquiry.objects.count(), 2)
         self.assertEqual(Message.objects.count(), 2)
+        self.assertNotEqual(new_inquiry.data["inquiry_id"], inquiry_id)
 
-    def test_different_services_get_separate_open_inquiries(self):
+    def test_different_services_reuse_same_open_inquiry(self):
         first = self.client.post(
             self.create_inquiry_url,
             {"service": self.service.id, "content": "About tax filing"},
@@ -156,10 +162,44 @@ class InquirySerializerTest(TestCase):
         )
 
         self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.assertEqual(first.data["inquiry_id"], second.data["inquiry_id"])
+        self.assertEqual(
+            Inquiry.objects.filter(status=Inquiry.StatusChoices.OPEN).count(), 1
+        )
+        self.assertEqual(Message.objects.count(), 2)
+
+    def test_general_then_service_message_reuses_inquiry(self):
+        general = self.client.post(
+            self.create_inquiry_url,
+            {"accountant": self.accountant.id, "content": "General hello"},
+            format="json",
+        )
+        service_msg = self.client.post(
+            self.create_inquiry_url,
+            {"service": self.service.id, "content": "About tax filing"},
+            format="json",
+        )
+        self.assertEqual(general.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(service_msg.status_code, status.HTTP_200_OK)
+        self.assertEqual(general.data["inquiry_id"], service_msg.data["inquiry_id"])
+        self.assertEqual(Inquiry.objects.count(), 1)
+
+    def test_different_accountants_get_separate_inquiries(self):
+        first = self.client.post(
+            self.create_inquiry_url,
+            {"accountant": self.accountant.id, "content": "Hi Maya"},
+            format="json",
+        )
+        second = self.client.post(
+            self.create_inquiry_url,
+            {"accountant": self.other_accountant.id, "content": "Hi Jordan"},
+            format="json",
+        )
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
         self.assertEqual(second.status_code, status.HTTP_201_CREATED)
         self.assertNotEqual(first.data["inquiry_id"], second.data["inquiry_id"])
-        self.assertEqual(Inquiry.objects.filter(status=Inquiry.StatusChoices.OPEN).count(), 2)
-        self.assertEqual(Message.objects.count(), 2)
+        self.assertEqual(Inquiry.objects.count(), 2)
 
     def test_blank_first_message_rejected(self):
         response = self.client.post(
@@ -217,16 +257,9 @@ class SendMessageTest(TestCase):
             password="password123",
             is_accountant=False,
         )
-        cls.service = Service.objects.create(
-            accountant=cls.accountant,
-            name="Tax Filing",
-            description="File taxes",
-            indicative_price=100,
-        )
         cls.inquiry = Inquiry.objects.create(
             client=cls.client_user,
             accountant=cls.accountant,
-            service=cls.service,
             status=Inquiry.StatusChoices.OPEN,
         )
         cls.send_url = reverse("send-message", args=[cls.inquiry.id])

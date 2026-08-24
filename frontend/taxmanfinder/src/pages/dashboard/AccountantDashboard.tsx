@@ -134,7 +134,7 @@ export default function AccountantDashboard() {
                       {c.unread ? " · Unread" : ""}
                     </div>
                     <div style={{ ...muted, fontSize: 13, marginTop: 2 }}>
-                      {c.service_title || "General inquiry"} · {c.status}
+                      {c.status}
                     </div>
                   </Link>
                 </li>

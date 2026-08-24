@@ -98,9 +98,8 @@ export type InquiryListItem = {
   client: number;
   accountant: number;
   accountant_name: string;
-  service_title: string | null;
-  unread?: boolean;
   client_name?: string;
+  unread?: boolean;
 };
 
 export async function listMyInquiries() {
@@ -384,6 +383,7 @@ export type ChatMessagePayload = {
   sender_email?: string;
   content: string;
   created_at: string;
+  is_system?: boolean;
   attachments?: AttachmentPayload[];
 };
 

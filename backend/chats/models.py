@@ -21,6 +21,9 @@ class Message(models.Model):
 
     # May be blank when the message has one or more attachments.
     content = models.TextField(blank=True, default="")
+    # Booking lifecycle notices and similar; not ordinary user chat.
+    # sender is still the acting participant (for unread / audit).
+    is_system = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
 

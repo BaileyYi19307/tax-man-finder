@@ -64,13 +64,11 @@ class InquiryAttachmentTests(TestCase):
         cls.inquiry = Inquiry.objects.create(
             client=cls.client_user,
             accountant=cls.accountant,
-            service=cls.service,
             status=Inquiry.StatusChoices.OPEN,
         )
         cls.other_inquiry = Inquiry.objects.create(
             client=cls.other_client,
             accountant=cls.accountant,
-            service=cls.service,
             status=Inquiry.StatusChoices.OPEN,
         )
         cls.list_url = reverse("inquiry-attachments", args=[cls.inquiry.id])
@@ -273,7 +271,6 @@ class InquiryAttachmentTests(TestCase):
             inquiry=self.inquiry,
             client=self.client_user,
             accountant=self.accountant,
-            service=self.service,
             starts_at=starts,
             ends_at=starts + timedelta(minutes=30),
             status=kwargs.get("status", BookingStatus.PENDING),

@@ -98,5 +98,6 @@ def broadcast_chat_message(message):
             "sender_id": payload["sender_id"],
             "created_at": payload["created_at"],
             "attachments": payload.get("attachments") or [],
+            "is_system": bool(payload.get("is_system")),
         },
     )
