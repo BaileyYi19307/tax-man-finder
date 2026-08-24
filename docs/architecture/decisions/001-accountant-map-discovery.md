@@ -111,8 +111,9 @@ Primary UI: `frontend/taxmanfinder/src/pages/accountants/AccountantsDirectory.ts
 
 | Responsibility | Where it lives |
 | --- | --- |
-| Flat directory rows | `accountants` state from unfiltered directory fetch |
-| Pins shown on the map | Map-eligible rows from the full list, or radius-filtered matches after a place search |
+| Flat directory rows | `accountants` from the unfiltered directory fetch (shown when no place search is active) |
+| Geographic result rows | After a place search, `mapMatches` from the radius-filtered directory fetch; **list and pins use this same set** |
+| Pins shown on the map | Map-eligible rows from the currently visible set (flat list or geographic matches) |
 | Selected accountant | `selectedUserId` in `AccountantsDirectory` |
 | Temporary hover preview | `hoveredUserId` inside `DirectoryMap` (preview opens for `selectedUserId ?? hoveredUserId`) |
 | Search center | Geocode result + optional radius circle; separate from selected accountant |
@@ -135,7 +136,8 @@ Changing visual map products later should primarily affect the rendering/integra
 ## Consequences
 
 - Existing complete profiles stay visible in the flat directory even if they have no coordinates.
-- The map may show fewer accountants than the flat list until owners have geocodable base locations.
+- Without an active place search, the map may show fewer accountants than the flat list until owners have geocodable base locations.
+- With an active place/radius search, the list is narrowed to the same geographic matches as the pins (profiles without coordinates cannot appear in that filtered view).
 - Fixed-radius search keeps the first API and UI simpler than viewport queries.
 - Viewport search can be added later using the same lat/lng fields.
 - Remote/nationwide service is represented explicitly, so a pin is not mistaken for a service-area boundary.

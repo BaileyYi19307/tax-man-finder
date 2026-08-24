@@ -39,6 +39,7 @@ Offering accounting services is represented by the presence of an `AccountantPro
 - Primary discovery is the accountant directory with an integrated map. A public services catalog lists active services only; inactive services are not publicly retrievable.
 - Profiles may store optional latitude/longitude for map pins. Free-text location remains the human-readable base location. Visitors can search a place and filter map pins by fixed radius in miles.
 - Accountants without coordinates still appear in the flat directory; they do not appear as pins or in radius-filtered geographic results.
+- When a place/radius search is active, the accountant list and map pins show the **same** geographic result set (with a short result count). Clearing the search restores the normal flat directory.
 
 ### Planned
 

@@ -1,8 +1,8 @@
 import { MemoryRouter } from "react-router-dom";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import AccountantsDirectory from "./AccountantsDirectory";
-import { listPublicAccountants } from "../../api/client";
+import { geocodePlace, listPublicAccountants } from "../../api/client";
 
 jest.mock("../../api/client", () => ({
   listPublicAccountants: jest.fn(),
@@ -16,6 +16,7 @@ jest.mock("./DirectoryMap", () => ({
       <div
         data-testid="directory-map"
         data-pin-count={(props.pinAccountants || []).length}
+        data-list-count={(props.accountants || []).length}
         data-selected={props.selectedUserId ?? ""}
       />
     );
@@ -59,6 +60,18 @@ const listedWithCoords = {
   map_eligible: true,
 };
 
+const nycAccountant = {
+  ...listedWithCoords,
+  user_id: 14,
+  email: "nyc@test.com",
+  first_name: "New",
+  last_name: "York",
+  firm_name: "NY Tax",
+  location: "New York, NY",
+  latitude: 40.7128,
+  longitude: -74.006,
+};
+
 function renderDirectory() {
   return render(
     <MemoryRouter>
@@ -69,6 +82,7 @@ function renderDirectory() {
 
 beforeEach(() => {
   listPublicAccountants.mockReset();
+  geocodePlace.mockReset();
   window.HTMLElement.prototype.scrollIntoView = jest.fn();
 });
 
@@ -113,10 +127,94 @@ test("passes coordinate-bearing accountants to the map and selects a listing", a
   listPublicAccountants.mockResolvedValue([listed, listedWithCoords]);
   renderDirectory();
   expect(await screen.findByText("Map Pin")).toBeInTheDocument();
+  expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
 
   const map = screen.getByTestId("directory-map");
   expect(map).toHaveAttribute("data-pin-count", "1");
+  expect(map).toHaveAttribute("data-list-count", "2");
 
   await userEvent.click(screen.getByText("Map Pin"));
   expect(map).toHaveAttribute("data-selected", "13");
+});
+
+test("geographic search filters list and pins to the same result set", async () => {
+  listPublicAccountants
+    .mockResolvedValueOnce([listed, listedWithCoords, nycAccountant])
+    .mockResolvedValueOnce([listedWithCoords]);
+  geocodePlace.mockResolvedValue({
+    latitude: 39.95,
+    longitude: -75.16,
+    display_name: "Philadelphia, Pennsylvania, United States",
+  });
+
+  renderDirectory();
+  expect(await screen.findByText("Ada Lovelace")).toBeInTheDocument();
+  expect(screen.getByText("Map Pin")).toBeInTheDocument();
+  expect(screen.getByText("New York")).toBeInTheDocument();
+
+  await userEvent.type(screen.getByLabelText("Search by location"), "Philadelphia");
+  await userEvent.click(screen.getByRole("button", { name: "Search" }));
+
+  await waitFor(() => {
+    expect(screen.getByText("1 accountant near Philadelphia")).toBeInTheDocument();
+  });
+  expect(screen.getByText("Map Pin")).toBeInTheDocument();
+  expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
+  expect(screen.queryByText("New York")).not.toBeInTheDocument();
+
+  const map = screen.getByTestId("directory-map");
+  expect(map).toHaveAttribute("data-pin-count", "1");
+  expect(map).toHaveAttribute("data-list-count", "1");
+
+  await userEvent.click(screen.getByText("Map Pin"));
+  expect(map).toHaveAttribute("data-selected", "13");
+});
+
+test("geographic search with no matches shows an empty state", async () => {
+  listPublicAccountants
+    .mockResolvedValueOnce([listed, listedWithCoords])
+    .mockResolvedValueOnce([]);
+  geocodePlace.mockResolvedValue({
+    latitude: 0,
+    longitude: 0,
+    display_name: "Nowhere, Ocean",
+  });
+
+  renderDirectory();
+  expect(await screen.findByText("Ada Lovelace")).toBeInTheDocument();
+
+  await userEvent.type(screen.getByLabelText("Search by location"), "Nowhere");
+  await userEvent.click(screen.getByRole("button", { name: "Search" }));
+
+  expect(await screen.findByText("No accountants near Nowhere")).toBeInTheDocument();
+  expect(
+    screen.getByText("Try a different place or a larger radius.")
+  ).toBeInTheDocument();
+  expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
+  expect(screen.getByTestId("directory-map")).toHaveAttribute("data-pin-count", "0");
+});
+
+test("clearing geographic search restores the flat directory", async () => {
+  listPublicAccountants
+    .mockResolvedValueOnce([listed, listedWithCoords])
+    .mockResolvedValueOnce([listedWithCoords]);
+  geocodePlace.mockResolvedValue({
+    latitude: 39.95,
+    longitude: -75.16,
+    display_name: "Philadelphia, Pennsylvania, United States",
+  });
+
+  renderDirectory();
+  expect(await screen.findByText("Ada Lovelace")).toBeInTheDocument();
+
+  await userEvent.type(screen.getByLabelText("Search by location"), "Philadelphia");
+  await userEvent.click(screen.getByRole("button", { name: "Search" }));
+  expect(await screen.findByText("1 accountant near Philadelphia")).toBeInTheDocument();
+  expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: "Clear" }));
+  expect(await screen.findByText("Ada Lovelace")).toBeInTheDocument();
+  expect(screen.getByText("Map Pin")).toBeInTheDocument();
+  expect(screen.queryByText(/accountant near/)).not.toBeInTheDocument();
+  expect(screen.getByTestId("directory-map")).toHaveAttribute("data-list-count", "2");
 });

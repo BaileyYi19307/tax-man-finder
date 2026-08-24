@@ -94,6 +94,15 @@ export default function AccountantsDirectory() {
     return pinEligibleAccountants(accountants);
   }, [accountants, mapMatches]);
 
+  // Active geographic search drives list and map from the same API result set.
+  const geographicSearchActive = mapMatches != null;
+  const visibleAccountants = geographicSearchActive ? mapMatches : accountants;
+
+  function placeLabel(label: string) {
+    const first = label.split(",")[0]?.trim();
+    return first || label;
+  }
+
   function requestSearchFocus(latitude: number, longitude: number, zoom: number) {
     searchFocusTokenRef.current += 1;
     setSearchFocus({
@@ -284,15 +293,32 @@ export default function AccountantsDirectory() {
             {loading && (
               <div style={{ ...muted, fontSize: 14 }}>Loading tax professionals…</div>
             )}
-            {!loading && !error && accountants.length === 0 && (
+            {!loading && !error && !geographicSearchActive && accountants.length === 0 && (
               <div style={{ ...muted, fontSize: 14 }}>
                 No tax professionals are listed yet.
               </div>
             )}
+            {!loading && !error && geographicSearchActive && searchCenter && (
+              <div style={{ ...muted, fontSize: 13, marginBottom: 12 }}>
+                {visibleAccountants.length === 0
+                  ? `No accountants near ${placeLabel(searchCenter.label)}`
+                  : `${visibleAccountants.length} accountant${
+                      visibleAccountants.length === 1 ? "" : "s"
+                    } near ${placeLabel(searchCenter.label)}`}
+              </div>
+            )}
+            {!loading &&
+              !error &&
+              geographicSearchActive &&
+              visibleAccountants.length === 0 && (
+                <div style={{ ...muted, fontSize: 14 }}>
+                  Try a different place or a larger radius.
+                </div>
+              )}
 
-            {!loading && accountants.length > 0 && (
+            {!loading && visibleAccountants.length > 0 && (
               <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-                {accountants.map((accountant) => {
+                {visibleAccountants.map((accountant) => {
                   const subtitle = accountantFirmLocationLine(accountant);
                   const scope = serviceScopeLabel(accountant.service_scope);
                   const selected = accountant.user_id === selectedUserId;
@@ -378,7 +404,7 @@ export default function AccountantsDirectory() {
 
           <DirectoryMap
             pinAccountants={pinAccountants}
-            accountants={accountants}
+            accountants={visibleAccountants}
             searchCenter={
               searchCenter
                 ? {
