@@ -69,11 +69,12 @@ No additional messaging product features are currently required beyond Inquiry f
 ### Current behavior
 
 - Clients request a consultation from a profile or service page, or from an open chat. That creates or reuses an open Inquiry, records an initial message, and creates a pending Booking.
+- Consultation requests always require selecting one of the accountant’s **active** Services. The Booking stores that Service and snapshots its consultation fee and cancellation policy server-side (client-supplied fees are ignored).
 - When a Booking is created, the selected service’s consultation fee and cancellation policy are **snapshotted** onto the Booking. Later edits to the Service do not change existing Bookings.
 - Accountants can accept or decline a pending booking. Either participant can cancel a pending, awaiting-payment, or confirmed booking.
 - An Inquiry may have at most one active booking (pending, awaiting payment, or confirmed). After decline or cancellation, another booking may be requested on the same Inquiry.
 - Booking status changes do not end the Inquiry; participants can continue messaging while the Inquiry remains open.
-- In chat, the client sees **Request consultation** when the inquiry is open and has no active booking.
+- In chat, the client sees **Request consultation** when the inquiry is open and has no active booking. The chat form requires a Service selection and shows the consultation fee (or **Free**) and cancellation policy before submit.
 
 ### Free vs paid consultation
 

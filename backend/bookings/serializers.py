@@ -87,14 +87,11 @@ class BookingSerializer(serializers.ModelSerializer):
 
 
 def _validate_consultation_service(*, accountant, service):
-    """Service is required when the accountant has active services."""
-    active_qs = Service.objects.filter(accountant=accountant, is_active=True)
+    """Require an active Service owned by the consultation accountant."""
     if service is None:
-        if active_qs.exists():
-            raise serializers.ValidationError(
-                {"service": "Select a service for this consultation."}
-            )
-        return None
+        raise serializers.ValidationError(
+            {"service": "Select a service for this consultation."}
+        )
     if service.accountant_id != accountant.id:
         raise serializers.ValidationError(
             {"service": "Service must belong to the selected accountant."}
@@ -111,11 +108,7 @@ class BookingCreateSerializer(serializers.Serializer):
 
     inquiry = serializers.PrimaryKeyRelatedField(queryset=Inquiry.objects.all())
     starts_at = serializers.DateTimeField()
-    service = serializers.PrimaryKeyRelatedField(
-        queryset=Service.objects.all(),
-        required=False,
-        allow_null=True,
-    )
+    service = serializers.PrimaryKeyRelatedField(queryset=Service.objects.all())
     note = serializers.CharField(required=False, allow_blank=True, default="")
 
     def validate_inquiry(self, inquiry):
@@ -145,13 +138,13 @@ class BookingCreateSerializer(serializers.Serializer):
         inquiry = data["inquiry"]
         data["service"] = _validate_consultation_service(
             accountant=inquiry.accountant,
-            service=data.get("service"),
+            service=data["service"],
         )
         return data
 
     def create(self, validated_data):
         inquiry = validated_data["inquiry"]
-        service = validated_data.get("service")
+        service = validated_data["service"]
         starts_at = validated_data["starts_at"]
         ends_at = Booking.compute_ends_at(starts_at)
         note = (validated_data.get("note") or "").strip()
@@ -191,11 +184,8 @@ class RequestConsultationSerializer(serializers.Serializer):
     inquiry = serializers.PrimaryKeyRelatedField(
         queryset=Inquiry.objects.all(), required=False, allow_null=True
     )
-    service = serializers.PrimaryKeyRelatedField(
-        queryset=Service.objects.all(),
-        required=False,
-        allow_null=True,
-    )
+    # Fee/policy are snapshotted server-side from this Service; never trust client fees.
+    service = serializers.PrimaryKeyRelatedField(queryset=Service.objects.all())
     accountant = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
         required=False,
@@ -242,17 +232,8 @@ class RequestConsultationSerializer(serializers.Serializer):
             )
             return data
 
-        if service is not None:
-            data["accountant"] = service.accountant
-        elif data.get("accountant") is None:
-            raise serializers.ValidationError(
-                {
-                    "accountant": (
-                        "Select an accountant when no service or inquiry is provided."
-                    )
-                }
-            )
-
+        # Service identifies the accountant when no inquiry is provided.
+        data["accountant"] = service.accountant
         accountant = data["accountant"]
         if accountant.id == request.user.id:
             raise serializers.ValidationError(

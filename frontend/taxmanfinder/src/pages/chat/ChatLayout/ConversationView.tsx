@@ -25,6 +25,7 @@ type AccountantService = {
   id: number;
   name: string;
   consultation_fee?: string | null;
+  cancellation_policy?: string;
 };
 
 const ACTIVE_BOOKING_STATUSES = new Set([
@@ -326,6 +327,13 @@ export default function ConversationView() {
     return `$${fee} consultation fee`;
   }
 
+  function formatFeeAmount(fee?: string | null) {
+    if (fee == null || fee === "" || Number(fee) === 0) {
+      return "Free";
+    }
+    return `$${fee}`;
+  }
+
   async function submitConsultation() {
     if (!inquiryId) return;
     const content = bookingNote.trim();
@@ -337,7 +345,7 @@ export default function ConversationView() {
       setBookingError("Please choose a start date and time.");
       return;
     }
-    if (accountantServices.length > 0 && !bookingServiceId) {
+    if (!bookingServiceId) {
       setBookingError("Select a service so the correct consultation fee applies.");
       return;
     }
@@ -345,20 +353,12 @@ export default function ConversationView() {
     setBookingBusy(true);
     setBookingError(null);
     try {
-      const body: {
-        inquiry: number;
-        starts_at: string;
-        content: string;
-        service?: number;
-      } = {
+      await requestConsultation({
         inquiry: Number(inquiryId),
         starts_at: new Date(bookingDate).toISOString(),
         content,
-      };
-      if (bookingServiceId) {
-        body.service = Number(bookingServiceId);
-      }
-      await requestConsultation(body);
+        service: Number(bookingServiceId),
+      });
       closeBookingForm();
       setActionError(null);
       await refreshBookings();
@@ -380,6 +380,9 @@ export default function ConversationView() {
     inquiryStatus === "open" &&
     inquiryClientId === currentUserId &&
     !hasActiveBooking;
+  const selectedBookingService = accountantServices.find(
+    (s) => String(s.id) === bookingServiceId
+  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -519,23 +522,50 @@ export default function ConversationView() {
             <p style={{ color: "#6b7280", fontSize: 13 }}>
               Fixed 30-minute consultation on this conversation.
             </p>
-            {accountantServices.length > 0 && (
-              <label style={{ display: "block", fontSize: 14, marginBottom: 12 }}>
-                Service
-                <select
-                  value={bookingServiceId}
-                  onChange={(e) => setBookingServiceId(e.target.value)}
-                  required
-                  style={{ width: "100%", marginTop: 6, padding: 8, boxSizing: "border-box" }}
-                >
-                  <option value="">Select a service</option>
-                  {accountantServices.map((s) => (
-                    <option key={s.id} value={String(s.id)}>
-                      {s.name} — {formatFeeLabel(s.consultation_fee)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <label style={{ display: "block", fontSize: 14, marginBottom: 12 }}>
+              Service
+              <select
+                value={bookingServiceId}
+                onChange={(e) => setBookingServiceId(e.target.value)}
+                required
+                style={{ width: "100%", marginTop: 6, padding: 8, boxSizing: "border-box" }}
+              >
+                <option value="">Select a service</option>
+                {accountantServices.map((s) => (
+                  <option key={s.id} value={String(s.id)}>
+                    {s.name} — {formatFeeLabel(s.consultation_fee)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {accountantServices.length === 0 && (
+              <div style={{ color: "#b91c1c", fontSize: 13, marginBottom: 12 }}>
+                This accountant has no active services available for consultation.
+              </div>
+            )}
+            {selectedBookingService && (
+              <div
+                style={{
+                  fontSize: 13,
+                  color: "#374151",
+                  marginBottom: 12,
+                  padding: "8px 10px",
+                  background: "#f8fafc",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 8,
+                }}
+              >
+                <div>
+                  <strong>Consultation fee:</strong>{" "}
+                  {formatFeeAmount(selectedBookingService.consultation_fee)}
+                </div>
+                {selectedBookingService.cancellation_policy?.trim() ? (
+                  <div style={{ marginTop: 6 }}>
+                    <strong>Cancellation policy:</strong>{" "}
+                    {selectedBookingService.cancellation_policy.trim()}
+                  </div>
+                ) : null}
+              </div>
             )}
             <label style={{ display: "block", fontSize: 14, marginBottom: 12 }}>
               Date and time
@@ -584,7 +614,7 @@ export default function ConversationView() {
                   bookingBusy ||
                   !bookingDate ||
                   !bookingNote.trim() ||
-                  (accountantServices.length > 0 && !bookingServiceId)
+                  !bookingServiceId
                 }
               >
                 {bookingBusy ? "Submitting…" : "Request consultation"}

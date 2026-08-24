@@ -273,7 +273,7 @@ class BookingDomainTests(TestCase):
         self.assertEqual(booking.service_id, self.service.id)
         self.assertEqual(Message.objects.count(), 1)
 
-    def test_request_consultation_on_inquiry_requires_service_when_listed(self):
+    def test_request_consultation_on_inquiry_requires_service(self):
         self._auth(self.client_user)
         response = self.client.post(
             self.consult_url,
@@ -281,6 +281,105 @@ class BookingDomainTests(TestCase):
                 "inquiry": self.inquiry.id,
                 "starts_at": self.starts.isoformat(),
                 "content": "Missing service",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Booking.objects.count(), 0)
+
+    def test_request_consultation_rejects_other_accountants_service(self):
+        other_accountant = User.objects.create_user(
+            email="other.acct@test.com",
+            password="password123",
+            is_accountant=True,
+            is_verified=True,
+        )
+        AccountantProfile.objects.create(
+            user=other_accountant,
+            bio="Bio",
+            credentials="EA",
+            years_experience=3,
+        )
+        foreign_service = Service.objects.create(
+            name="Foreign service",
+            description="Not this accountant",
+            accountant=other_accountant,
+            consultation_fee=25,
+        )
+        self._auth(self.client_user)
+        response = self.client.post(
+            self.consult_url,
+            {
+                "inquiry": self.inquiry.id,
+                "service": foreign_service.id,
+                "starts_at": self.starts.isoformat(),
+                "content": "Wrong service owner",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Booking.objects.count(), 0)
+
+    def test_request_consultation_snapshots_free_and_paid_fees(self):
+        free_service = Service.objects.create(
+            name="Free chat consult",
+            description="Free",
+            accountant=self.accountant_user,
+            consultation_fee=0,
+            cancellation_policy="Flexible.",
+        )
+        paid_service = Service.objects.create(
+            name="Paid chat consult",
+            description="Paid",
+            accountant=self.accountant_user,
+            consultation_fee=50,
+            cancellation_policy="24h notice.",
+        )
+        self._auth(self.client_user)
+        free = self.client.post(
+            self.consult_url,
+            {
+                "inquiry": self.inquiry.id,
+                "service": free_service.id,
+                "starts_at": self.starts.isoformat(),
+                "content": "Free please",
+            },
+            format="json",
+        )
+        self.assertEqual(free.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(free.data["booking"]["consultation_fee"], "0.00")
+        self.assertEqual(free.data["booking"]["cancellation_policy"], "Flexible.")
+        self.assertEqual(free.data["booking"]["service"], free_service.id)
+
+        booking_id = free.data["booking"]["id"]
+        self.client.post(reverse("bookings-cancel", args=[booking_id]))
+
+        paid = self.client.post(
+            self.consult_url,
+            {
+                "inquiry": self.inquiry.id,
+                "service": paid_service.id,
+                "starts_at": (self.starts + timedelta(hours=2)).isoformat(),
+                "content": "Paid please",
+            },
+            format="json",
+        )
+        self.assertEqual(paid.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(paid.data["booking"]["consultation_fee"], "50.00")
+        self.assertEqual(paid.data["booking"]["cancellation_policy"], "24h notice.")
+        self.assertEqual(paid.data["booking"]["service"], paid_service.id)
+
+    def test_request_consultation_rejects_inactive_service(self):
+        self.service.is_active = False
+        self.service.save(update_fields=["is_active"])
+        self._auth(self.client_user)
+        response = self.client.post(
+            self.consult_url,
+            {
+                "inquiry": self.inquiry.id,
+                "service": self.service.id,
+                "starts_at": self.starts.isoformat(),
+                "content": "Inactive service",
             },
             format="json",
         )

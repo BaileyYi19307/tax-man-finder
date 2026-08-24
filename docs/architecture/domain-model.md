@@ -254,7 +254,7 @@ A Booking is a scheduled consultation between the Inquiry’s client and account
 
 - Belongs to exactly one Inquiry
 - Client and accountant match the Inquiry’s parties (derived from the Inquiry at creation)
-- Optional Service selected for this consultation (fee/policy snapshotted from that Service)
+- Service selected for this consultation (required for new requests; fee/policy snapshotted from that Service)
 - May have at most one Payment (paid consultations only)
 
 **Lifecycle**
@@ -281,7 +281,7 @@ A Booking is a scheduled consultation between the Inquiry’s client and account
 
 ```text
 id, status, inquiry_id, client_id, accountant_id,
-service_id (nullable), starts_at, ends_at,
+service_id (required on create; may be null on legacy rows), starts_at, ends_at,
 consultation_fee, cancellation_policy,
 created_at, updated_at
 ```
@@ -348,7 +348,7 @@ Profile “Message accountant” and service-page messaging share one create/reu
 
 ### Requesting a consultation
 
-From profile, service, or open chat, the client chooses a start time and supplies a brief note. The system creates or reuses an open Inquiry, stores the note as a message, creates a pending Booking with fee/policy snapshots, and opens the Inquiry chat. Accept/decline, payment required, and status appear in the conversation and on `/bookings`. Demo payment uses `/bookings/<id>/pay`.
+From profile, service, or open chat, the client chooses an active Service (required), a start time, and a brief note. The fee and cancellation policy shown come from that Service; the API snapshots those values from the Service record and does not trust a client-supplied fee. The system creates or reuses an open Inquiry, stores the note as a message, creates a pending Booking linked to the Service, and opens the Inquiry chat. Accept/decline, payment required, and status appear in the conversation and on `/bookings`. Demo payment uses `/bookings/<id>/pay`.
 
 ---
 

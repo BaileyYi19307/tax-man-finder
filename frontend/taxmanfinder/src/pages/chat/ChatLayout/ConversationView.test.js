@@ -1,12 +1,14 @@
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ConversationView from "./ConversationView";
 import { useChatSocket } from "../../../hooks/hooks/useChatSocket";
 import {
   apiFetch,
+  getPublicAccountantProfile,
   listInquiryAttachments,
   listInquiryBookings,
+  requestConsultation,
   sendInquiryMessage,
 } from "../../../api/client";
 
@@ -25,6 +27,7 @@ jest.mock("../../../api/client", () => ({
   declineBooking: jest.fn(),
   cancelBooking: jest.fn(),
   requestConsultation: jest.fn(),
+  getPublicAccountantProfile: jest.fn(),
 }));
 
 function renderConversation() {
@@ -52,6 +55,8 @@ beforeEach(() => {
   listInquiryBookings.mockReset();
   listInquiryAttachments.mockReset();
   sendInquiryMessage.mockReset();
+  requestConsultation.mockReset();
+  getPublicAccountantProfile.mockReset();
   useChatSocket.mockReset();
   apiFetch.mockImplementation(async (path) => {
     if (String(path).includes("mark-read")) {
@@ -67,6 +72,23 @@ beforeEach(() => {
   });
   listInquiryBookings.mockResolvedValue([]);
   listInquiryAttachments.mockResolvedValue([]);
+  getPublicAccountantProfile.mockResolvedValue({
+    user_id: 22,
+    services: [
+      {
+        id: 7,
+        name: "Tax filing",
+        consultation_fee: "50.00",
+        cancellation_policy: "Cancel 24h ahead.",
+      },
+      {
+        id: 8,
+        name: "Intro call",
+        consultation_fee: "0.00",
+        cancellation_policy: "",
+      },
+    ],
+  });
 });
 
 test("failed send shows an error when websocket and HTTP both fail", async () => {
@@ -133,5 +155,57 @@ test("client can open request consultation from the conversation", async () => {
   ).toBeInTheDocument();
   userEvent.click(screen.getByRole("button", { name: "Request consultation" }));
   expect(await screen.findByRole("heading", { name: "Request consultation" })).toBeInTheDocument();
+  expect(screen.getByLabelText("Service")).toBeInTheDocument();
   expect(screen.getByLabelText("Date and time")).toBeInTheDocument();
+  expect(await screen.findByText(/Tax filing/)).toBeInTheDocument();
+});
+
+test("chat consultation requires a service and shows fee before submit", async () => {
+  useChatSocket.mockReturnValue({ sendMessage: jest.fn(() => true) });
+  requestConsultation.mockResolvedValue({
+    inquiry_id: 9,
+    booking: { id: 1 },
+  });
+  renderConversation();
+  await waitForHistory();
+
+  userEvent.click(
+    await screen.findByRole("button", { name: "Request consultation" })
+  );
+  await screen.findByRole("heading", { name: "Request consultation" });
+  await screen.findByRole("option", { name: /Tax filing/ });
+
+  const modalSubmit = screen
+    .getAllByRole("button", { name: "Request consultation" })
+    .find((btn) => btn.className.includes("btn-primary"));
+  expect(modalSubmit).toBeDisabled();
+
+  userEvent.selectOptions(screen.getByLabelText("Service"), "7");
+  expect(await screen.findByText(/Consultation fee:/)).toBeInTheDocument();
+  expect(screen.getByText("$50.00")).toBeInTheDocument();
+  expect(screen.getByText(/Cancel 24h ahead/)).toBeInTheDocument();
+
+  // Still disabled until date + note are filled.
+  expect(modalSubmit).toBeDisabled();
+
+  fireEvent.change(screen.getByLabelText("Date and time"), {
+    target: { value: "2030-06-01T10:00" },
+  });
+  fireEvent.change(screen.getByLabelText("Brief note"), {
+    target: { value: "Need help with filings" },
+  });
+  await waitFor(() => {
+    expect(modalSubmit).not.toBeDisabled();
+  });
+
+  userEvent.click(modalSubmit);
+  await waitFor(() => {
+    expect(requestConsultation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inquiry: 9,
+        service: 7,
+        content: "Need help with filings",
+      })
+    );
+  });
 });

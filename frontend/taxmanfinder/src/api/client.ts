@@ -125,7 +125,7 @@ export async function startConversation(body: {
 export async function requestConsultation(body: {
   content: string;
   starts_at: string;
-  service?: number;
+  service: number;
   accountant?: number;
   inquiry?: number;
 }) {

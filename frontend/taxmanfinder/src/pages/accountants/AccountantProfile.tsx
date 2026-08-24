@@ -206,7 +206,7 @@ export default function AccountantProfilePage() {
       setFormError("Please choose a start date and time.");
       return;
     }
-    if (profile.services.length > 0 && !selectedServiceId) {
+    if (!selectedServiceId) {
       setFormError("Select a service so the correct consultation fee applies.");
       return;
     }
@@ -214,21 +214,11 @@ export default function AccountantProfilePage() {
     setLoading(true);
     setFormError(null);
     try {
-      const body: {
-        content: string;
-        starts_at: string;
-        service?: number;
-        accountant?: number;
-      } = {
+      const data = await requestConsultation({
         content,
         starts_at: new Date(bookingDate).toISOString(),
-      };
-      if (selectedServiceId) {
-        body.service = Number(selectedServiceId);
-      } else {
-        body.accountant = profile.user_id;
-      }
-      const data = await requestConsultation(body);
+        service: Number(selectedServiceId),
+      });
       closeBookingForm();
       navigate(`/chat/${data.inquiry_id}`);
     } catch (e) {
@@ -391,16 +381,33 @@ export default function AccountantProfilePage() {
               services={profile.services}
               value={selectedServiceId}
               onChange={setSelectedServiceId}
-              required={profile.services.length > 0}
+              required
               showConsultationFee
             />
             {selectedServiceId && (
-              <p style={{ fontSize: 13, marginTop: 0 }}>
-                {formatConsultationFeeLabel(
-                  profile.services.find((s) => String(s.id) === selectedServiceId)
-                    ?.consultation_fee
-                )}
-              </p>
+              <div style={{ fontSize: 13, marginBottom: 12, color: "#374151" }}>
+                <div>
+                  <strong>Consultation fee:</strong>{" "}
+                  {(() => {
+                    const fee = profile.services.find(
+                      (s) => String(s.id) === selectedServiceId
+                    )?.consultation_fee;
+                    return fee == null || fee === "" || Number(fee) === 0
+                      ? "Free"
+                      : `$${fee}`;
+                  })()}
+                </div>
+                {(() => {
+                  const policy = profile.services
+                    .find((s) => String(s.id) === selectedServiceId)
+                    ?.cancellation_policy?.trim();
+                  return policy ? (
+                    <div style={{ marginTop: 6 }}>
+                      <strong>Cancellation policy:</strong> {policy}
+                    </div>
+                  ) : null;
+                })()}
+              </div>
             )}
             <label style={{ display: "block", fontSize: 14, marginBottom: 12 }}>
               Date and time
@@ -426,7 +433,7 @@ export default function AccountantProfilePage() {
               onCancel={closeBookingForm}
               onSubmit={submitConsultation}
               loading={loading}
-              disabled={!bookingDate || !bookingNote.trim()}
+              disabled={!bookingDate || !bookingNote.trim() || !selectedServiceId}
               submitLabel="Request Consultation"
             />
           </Modal>
