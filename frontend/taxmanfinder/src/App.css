@@ -185,6 +185,42 @@ a.app-nav-link {
   color: #61dafb;
 }
 
+/* Onboarding wizard: completed section links should read as editable controls */
+.onboarding-step-link {
+  text-decoration: none;
+}
+
+.onboarding-step-link:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.onboarding-step-link--complete {
+  text-decoration: none;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease,
+    color 0.12s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .onboarding-step-link--complete:hover {
+    background: #dcfce7 !important;
+    border-color: #4ade80 !important;
+    color: #14532d !important;
+  }
+}
+
+.onboarding-step-link--complete:focus-visible {
+  outline: 2px solid #166534;
+  outline-offset: 2px;
+}
+
+.onboarding-step-link--complete:active {
+  background: #bbf7d0 !important;
+}
+
 @keyframes App-logo-spin {
   from {
     transform: rotate(0deg);

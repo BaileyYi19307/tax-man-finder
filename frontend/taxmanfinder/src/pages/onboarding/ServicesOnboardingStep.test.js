@@ -150,15 +150,14 @@ test("services route shows active wizard step with previous steps linked", async
     await screen.findByRole("button", { name: "+ Add another service" })
   ).toBeInTheDocument();
   expect(screen.getByText("3. Services")).toHaveAttribute("aria-current", "step");
-  expect(screen.getByText("1. Basic profile").closest("a")).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "Edit Basic profile" })).toHaveAttribute(
     "href",
     "/onboarding/accountant/basic"
   );
-  expect(screen.getByText("2. Professional details").closest("a")).toHaveAttribute(
-    "href",
-    "/onboarding/accountant/professional"
-  );
-  expect(screen.getByText("4. Preview").closest("a")).toHaveAttribute(
+  expect(
+    screen.getByRole("link", { name: "Edit Professional details" })
+  ).toHaveAttribute("href", "/onboarding/accountant/professional");
+  expect(screen.getByRole("link", { name: "Preview" })).toHaveAttribute(
     "href",
     "/onboarding/accountant/preview"
   );

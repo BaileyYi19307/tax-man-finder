@@ -94,15 +94,15 @@ test("route shows professional details as the active wizard step", async () => {
     "aria-current",
     "step"
   );
-  expect(screen.getByText("1. Basic profile").closest("a")).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "Edit Basic profile" })).toHaveAttribute(
     "href",
     "/onboarding/accountant/basic"
   );
-  expect(screen.getByText("3. Services").closest("a")).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "Services" })).toHaveAttribute(
     "href",
     "/onboarding/accountant/services"
   );
-  expect(screen.getByText("4. Preview").closest("a")).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "Preview" })).toHaveAttribute(
     "href",
     "/onboarding/accountant/preview"
   );

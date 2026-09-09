@@ -255,6 +255,18 @@ export default function PreviewOnboardingStep() {
             >
               Go to dashboard
             </Link>
+            <Link
+              to="/onboarding/accountant/basic"
+              style={{
+                fontSize: 13,
+                color: "#166534",
+                fontWeight: 700,
+                textDecoration: "underline",
+                textUnderlineOffset: 2,
+              }}
+            >
+              Edit profile
+            </Link>
           </div>
         </div>
       ) : null}

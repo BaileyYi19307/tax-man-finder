@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import {
   ACCOUNTANT_ONBOARDING_STEPS,
   type OnboardingStepId,
@@ -36,6 +36,39 @@ type Props = {
   navigationLocked?: boolean;
 };
 
+function stepBaseStyle(options: {
+  isCurrent: boolean;
+  isComplete: boolean;
+  navigationLocked: boolean;
+}): CSSProperties {
+  const { isCurrent, isComplete, navigationLocked } = options;
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    maxWidth: "100%",
+    padding: "8px 12px",
+    borderRadius: 8,
+    fontSize: 13,
+    fontWeight: isCurrent ? 700 : isComplete ? 600 : 500,
+    lineHeight: 1.3,
+    border: isCurrent
+      ? "1px solid #2563eb"
+      : isComplete
+        ? "1px solid #86efac"
+        : "1px solid #e5e7eb",
+    background: isCurrent ? "#eff6ff" : isComplete ? "#f0fdf4" : "#f9fafb",
+    color: isCurrent ? "#1d4ed8" : isComplete ? "#166534" : "#6b7280",
+    textDecoration: "none",
+    opacity: navigationLocked && !isCurrent ? 0.55 : 1,
+    pointerEvents: navigationLocked && !isCurrent ? "none" : "auto",
+    cursor:
+      !navigationLocked && (isComplete || !isCurrent) ? "pointer" : "default",
+    boxSizing: "border-box",
+    whiteSpace: "normal",
+  };
+}
+
 export default function AccountantOnboardingLayout({
   currentStepId,
   title,
@@ -46,6 +79,7 @@ export default function AccountantOnboardingLayout({
   const currentIndex = ACCOUNTANT_ONBOARDING_STEPS.findIndex(
     (step) => step.id === currentStepId
   );
+  const hasEditablePriorSteps = currentIndex > 0;
 
   return (
     <div style={page}>
@@ -69,6 +103,17 @@ export default function AccountantOnboardingLayout({
             aria-label="Onboarding progress"
             style={{ marginTop: 20, marginBottom: 8 }}
           >
+            {hasEditablePriorSteps ? (
+              <p
+                style={{
+                  ...muted,
+                  margin: "0 0 10px",
+                  fontSize: 13,
+                }}
+              >
+                Select any section to review or edit it.
+              </p>
+            ) : null}
             <ol
               style={{
                 listStyle: "none",
@@ -82,52 +127,57 @@ export default function AccountantOnboardingLayout({
               {ACCOUNTANT_ONBOARDING_STEPS.map((step, index) => {
                 const isCurrent = step.id === currentStepId;
                 const isComplete = currentIndex > index;
-                const label = `${index + 1}. ${step.label}`;
-                const baseStyle = {
-                  display: "inline-block",
-                  padding: "6px 10px",
-                  borderRadius: 8,
-                  fontSize: 12,
-                  fontWeight: isCurrent ? 700 : 500,
-                  border: isCurrent ? "1px solid #2563eb" : "1px solid #e5e7eb",
-                  background: isCurrent
-                    ? "#eff6ff"
-                    : isComplete
-                      ? "#f0fdf4"
-                      : "#f9fafb",
-                  color: isCurrent
-                    ? "#1d4ed8"
-                    : isComplete
-                      ? "#166534"
-                      : "#6b7280",
-                  textDecoration: "none" as const,
-                  opacity: navigationLocked && !isCurrent ? 0.55 : 1,
-                  pointerEvents:
-                    navigationLocked && !isCurrent
-                      ? ("none" as const)
-                      : ("auto" as const),
-                };
+                const visibleLabel = `${index + 1}. ${step.label}`;
+                const baseStyle = stepBaseStyle({
+                  isCurrent,
+                  isComplete,
+                  navigationLocked,
+                });
+
+                if (step.path && isComplete && !navigationLocked) {
+                  return (
+                    <li key={step.id} style={{ maxWidth: "100%" }}>
+                      <Link
+                        to={step.path}
+                        className="onboarding-step-link onboarding-step-link--complete"
+                        style={baseStyle}
+                        aria-label={`Edit ${step.label}`}
+                      >
+                        <span>{visibleLabel}</span>
+                        <span aria-hidden="true" style={{ fontSize: 12, opacity: 0.85 }}>
+                          ✎
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                }
 
                 if (step.path && !isCurrent && !navigationLocked) {
                   return (
-                    <li key={step.id}>
-                      <Link to={step.path} style={baseStyle} aria-current={undefined}>
-                        {label}
+                    <li key={step.id} style={{ maxWidth: "100%" }}>
+                      <Link
+                        to={step.path}
+                        className="onboarding-step-link"
+                        style={baseStyle}
+                        aria-label={step.label}
+                      >
+                        {visibleLabel}
                       </Link>
                     </li>
                   );
                 }
 
                 return (
-                  <li key={step.id}>
+                  <li key={step.id} style={{ maxWidth: "100%" }}>
                     <span
+                      className={isCurrent ? "onboarding-step-current" : undefined}
                       style={baseStyle}
                       aria-current={isCurrent ? "step" : undefined}
                       aria-disabled={
                         navigationLocked && !isCurrent ? true : undefined
                       }
                     >
-                      {label}
+                      {visibleLabel}
                     </span>
                   </li>
                 );

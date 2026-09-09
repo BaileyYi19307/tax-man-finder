@@ -104,7 +104,7 @@ test("wizard shell shows progress steps with basic profile active", async () => 
   expect(await screen.findByRole("button", { name: "Save and continue" })).toBeInTheDocument();
   expect(screen.getByLabelText("Onboarding progress")).toBeInTheDocument();
   expect(screen.getByText("1. Basic profile")).toHaveAttribute("aria-current", "step");
-  expect(screen.getByText("2. Professional details").closest("a")).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "Professional details" })).toHaveAttribute(
     "href",
     "/onboarding/accountant/professional"
   );
