@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import ConversationView from "./ConversationView";
 import { useChatSocket } from "../../../hooks/hooks/useChatSocket";
 import {
+  acceptBooking,
   apiFetch,
   getPublicAccountantProfile,
   listInquiryAttachments,
@@ -56,6 +57,7 @@ beforeEach(() => {
   listInquiryAttachments.mockReset();
   sendInquiryMessage.mockReset();
   requestConsultation.mockReset();
+  acceptBooking.mockReset();
   getPublicAccountantProfile.mockReset();
   useChatSocket.mockReset();
   apiFetch.mockImplementation(async (path) => {
@@ -208,4 +210,55 @@ test("chat consultation requires a service and shows fee before submit", async (
       })
     );
   });
+});
+
+test("accepting a consultation shows a confirmation message", async () => {
+  localStorage.setItem("user_id", "22");
+  useChatSocket.mockReturnValue({ sendMessage: jest.fn(() => true) });
+  apiFetch.mockImplementation(async (path) => {
+    if (String(path).includes("mark-read")) {
+      return { ok: true, json: async () => ({ last_read_at: null }) };
+    }
+    return {
+      ok: true,
+      json: async () => ({
+        messages: [],
+        inquiry: { status: "open", client: 5, accountant: 22 },
+      }),
+    };
+  });
+  listInquiryBookings
+    .mockResolvedValueOnce([
+      {
+        id: 41,
+        status: "pending",
+        client: 5,
+        accountant: 22,
+        consultation_fee: "50.00",
+        starts_at: "2030-06-01T10:00:00Z",
+        service_name: "Tax filing",
+        payment: null,
+      },
+    ])
+    .mockResolvedValueOnce([
+      {
+        id: 41,
+        status: "awaiting_payment",
+        client: 5,
+        accountant: 22,
+        consultation_fee: "50.00",
+        starts_at: "2030-06-01T10:00:00Z",
+        service_name: "Tax filing",
+        payment: { status: "pending", amount: "50.00" },
+      },
+    ]);
+  acceptBooking.mockResolvedValue({ id: 41, status: "awaiting_payment" });
+
+  renderConversation();
+  await waitForHistory();
+
+  userEvent.click(await screen.findByRole("button", { name: "Accept" }));
+
+  expect(await screen.findByText("Consultation accepted.")).toBeInTheDocument();
+  expect(acceptBooking).toHaveBeenCalledWith(41);
 });
