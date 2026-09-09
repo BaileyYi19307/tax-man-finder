@@ -1,6 +1,19 @@
 from django.db import models
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import Exists, F, OuterRef, Q, Value
+from django.db.models.functions import Replace, Trim
 from django.conf import settings
+
+
+def _trimmed_text(field_name: str):
+    """
+    DB equivalent of str.strip() for common whitespace (spaces, tabs, newlines).
+
+    Used so publicly_visible / backfill agree with is_publish_ready._has_text.
+    """
+    cleaned = F(field_name)
+    for ch in ("\t", "\n", "\r"):
+        cleaned = Replace(cleaned, Value(ch), Value(""))
+    return Trim(cleaned, output_field=models.TextField())
 
 
 class AccountantProfileQuerySet(models.QuerySet):
@@ -10,6 +23,7 @@ class AccountantProfileQuerySet(models.QuerySet):
 
         Requires publication_status=published and current publish readiness
         (bio, credentials, location, and ≥1 active service in a public category).
+        Text fields are trimmed so whitespace-only values match is_publish_ready.
         """
         from services.category_assignment import UNCATEGORIZED_SLUG
         from services.models import Service
@@ -23,11 +37,16 @@ class AccountantProfileQuerySet(models.QuerySet):
 
         return (
             self.filter(publication_status=AccountantProfile.PublicationStatus.PUBLISHED)
-            .annotate(_has_publishable_service=Exists(publishable_service))
+            .annotate(
+                _has_publishable_service=Exists(publishable_service),
+                _bio_trimmed=_trimmed_text("bio"),
+                _credentials_trimmed=_trimmed_text("credentials"),
+                _location_trimmed=_trimmed_text("location"),
+            )
             .filter(_has_publishable_service=True)
-            .exclude(Q(bio__isnull=True) | Q(bio=""))
-            .exclude(credentials="")
-            .exclude(location="")
+            .exclude(Q(_bio_trimmed__isnull=True) | Q(_bio_trimmed=""))
+            .exclude(_credentials_trimmed="")
+            .exclude(_location_trimmed="")
         )
 
 

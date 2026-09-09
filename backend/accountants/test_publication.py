@@ -130,6 +130,20 @@ class PublishReadinessModelTest(TestCase):
         self.assertFalse(profile.is_publish_ready)
         self.assertFalse(profile.is_public)
 
+    def test_whitespace_only_fields_excluded_from_public_queryset(self):
+        user, profile, _ = _make_ready_profile(
+            email="ready-ws@test.com", publish=True
+        )
+        profile.bio = "   "
+        profile.save(update_fields=["bio"])
+        self.assertFalse(profile.is_publish_ready)
+        self.assertFalse(profile.is_public)
+        self.assertFalse(
+            AccountantProfile.objects.publicly_visible()
+            .filter(pk=profile.pk)
+            .exists()
+        )
+
 
 class PublishUnpublishApiTest(TestCase):
     def setUp(self):
@@ -224,6 +238,11 @@ class PublicationVisibilityApiTest(TestCase):
         )
         unready_service.is_active = False
         unready_service.save(update_fields=["is_active"])
+        ws_user, ws_profile, _ = _make_ready_profile(
+            email="vis-whitespace@test.com", publish=True
+        )
+        ws_profile.location = " \t "
+        ws_profile.save(update_fields=["location"])
 
         resp = self.client.get(self.directory_url)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -231,6 +250,7 @@ class PublicationVisibilityApiTest(TestCase):
         self.assertEqual(ids, {public_user.id})
         self.assertNotIn(draft_user.id, ids)
         self.assertNotIn(unready_user.id, ids)
+        self.assertNotIn(ws_user.id, ids)
         unready_profile.refresh_from_db()
         self.assertEqual(
             unready_profile.publication_status,
