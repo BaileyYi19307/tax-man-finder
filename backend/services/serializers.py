@@ -67,6 +67,7 @@ class ServiceSerializer(serializers.ModelSerializer):
         model = Service
         fields = "__all__"
         # Set from request.user in ServicesViewSet.perform_create — not from the client body
-        read_only_fields = ["accountant"]
+        # category is additive foundation only; API writes come later.
+        read_only_fields = ["accountant", "category"]
 
 
