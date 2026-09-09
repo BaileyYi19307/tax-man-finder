@@ -285,6 +285,9 @@ export type AccountantPublicationState = {
   profile_complete: boolean;
 };
 
+/** Owner/dashboard-only publish gaps (DRF-style field → message list). */
+export type PublishReadinessErrors = Record<string, string[]>;
+
 export type AccountantProfilePayload = {
   user_id: number;
   email: string;
@@ -309,10 +312,20 @@ export type AccountantProfilePayload = {
   }[];
 } & AccountantPublicationState;
 
+/** Authenticated accountant profile/dashboard payload. */
+export type AccountantMyProfilePayload = AccountantProfilePayload & {
+  publish_readiness_errors: PublishReadinessErrors;
+};
+
 export type AccountantProfileStatus = {
   profile_info_complete: boolean;
   services_exist: boolean;
 } & AccountantPublicationState;
+
+/** Owner profile-status payload (includes readiness errors). */
+export type AccountantMyProfileStatus = AccountantProfileStatus & {
+  publish_readiness_errors: PublishReadinessErrors;
+};
 
 export type GeocodeResult = {
   latitude: number;
@@ -330,7 +343,7 @@ export async function getProfileStatus(userId: number) {
   const res = await fetch(`${API_BASE}/accountants/profile-status/${userId}/`);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(await res.text());
-  return (await res.json()) as AccountantProfileStatus;
+  return (await res.json()) as AccountantProfileStatus | AccountantMyProfileStatus;
 }
 
 export type DirectoryGeoQuery = {
@@ -381,7 +394,7 @@ export async function getMyAccountantProfile() {
   const res = await apiFetch("/accountants/me/");
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(await res.text());
-  return (await res.json()) as AccountantProfilePayload;
+  return (await res.json()) as AccountantMyProfilePayload;
 }
 
 export async function createAccountantProfile(body: {
@@ -402,7 +415,7 @@ export async function createAccountantProfile(body: {
     body: JSON.stringify(body),
   });
   if (!res.ok) throw await readApiError(res, "Failed to save accountant profile");
-  return (await res.json()) as AccountantProfilePayload;
+  return (await res.json()) as AccountantMyProfilePayload;
 }
 
 export async function publishMyAccountantProfile() {
@@ -411,7 +424,7 @@ export async function publishMyAccountantProfile() {
     body: JSON.stringify({}),
   });
   if (!res.ok) throw await readApiError(res, "Failed to publish profile");
-  return (await res.json()) as AccountantProfilePayload;
+  return (await res.json()) as AccountantMyProfilePayload;
 }
 
 export async function unpublishMyAccountantProfile() {
@@ -420,7 +433,7 @@ export async function unpublishMyAccountantProfile() {
     body: JSON.stringify({}),
   });
   if (!res.ok) throw await readApiError(res, "Failed to unpublish profile");
-  return (await res.json()) as AccountantProfilePayload;
+  return (await res.json()) as AccountantMyProfilePayload;
 }
 
 export async function listServiceCategories() {

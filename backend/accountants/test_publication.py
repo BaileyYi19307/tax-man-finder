@@ -303,6 +303,7 @@ class PublicationVisibilityApiTest(TestCase):
         self.assertEqual(resp.data["publication_status"], "draft")
         self.assertTrue(resp.data["is_publish_ready"])
         self.assertFalse(resp.data["is_public"])
+        self.assertEqual(resp.data["publish_readiness_errors"], {})
 
     def test_profile_status_hidden_from_public_for_draft(self):
         user, _, _ = _make_ready_profile(email="status-draft@test.com")
@@ -312,6 +313,99 @@ class PublicationVisibilityApiTest(TestCase):
         own = self.client.get(reverse("profile-status", args=[user.id]))
         self.assertEqual(own.status_code, status.HTTP_200_OK)
         self.assertEqual(own.data["publication_status"], "draft")
+        self.assertEqual(own.data["publish_readiness_errors"], {})
+
+
+class PublishReadinessErrorsApiTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_owner_me_includes_publish_readiness_errors(self):
+        user, profile, _ = _make_ready_profile(email="ready-errs@test.com")
+        profile.location = ""
+        profile.save(update_fields=["location"])
+        self.client.force_authenticate(user=user)
+        resp = self.client.get(reverse("my-accountant-profile"))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertFalse(resp.data["is_publish_ready"])
+        self.assertEqual(
+            resp.data["publish_readiness_errors"],
+            profile.publish_readiness_errors(),
+        )
+        self.assertEqual(
+            resp.data["publish_readiness_errors"]["location"],
+            ["Location is required to publish."],
+        )
+
+    def test_owner_status_includes_publish_readiness_errors(self):
+        user, profile, service = _make_ready_profile(email="status-errs@test.com")
+        service.is_active = False
+        service.save(update_fields=["is_active"])
+        self.client.force_authenticate(user=user)
+        resp = self.client.get(reverse("profile-status", args=[user.id]))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            resp.data["publish_readiness_errors"],
+            {
+                "services": [
+                    "At least one active service with a valid public category "
+                    "is required to publish."
+                ]
+            },
+        )
+        self.assertEqual(
+            resp.data["publish_readiness_errors"],
+            profile.publish_readiness_errors(),
+        )
+
+    def test_public_profile_omits_publish_readiness_errors(self):
+        user, _, _ = _make_ready_profile(email="pub-omit@test.com", publish=True)
+        resp = self.client.get(reverse("public-accountant-profile", args=[user.id]))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertNotIn("publish_readiness_errors", resp.data)
+
+    def test_directory_omits_publish_readiness_errors(self):
+        user, _, _ = _make_ready_profile(email="dir-omit@test.com", publish=True)
+        resp = self.client.get(reverse("accountant-directory"))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        row = next(item for item in resp.data if item["user_id"] == user.id)
+        self.assertNotIn("publish_readiness_errors", row)
+
+    def test_public_status_for_published_profile_omits_readiness_errors(self):
+        user, _, _ = _make_ready_profile(email="status-pub@test.com", publish=True)
+        resp = self.client.get(reverse("profile-status", args=[user.id]))
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertTrue(resp.data["is_public"])
+        self.assertNotIn("publish_readiness_errors", resp.data)
+
+    def test_status_serializer_exposes_read_only_errors(self):
+        from accountants.serializers import AccountantProfileStatusSerializer
+
+        payload = {
+            "profile_info_complete": False,
+            "services_exist": False,
+            "profile_complete": False,
+            "publication_status": "draft",
+            "is_publish_ready": False,
+            "is_public": False,
+            "publish_readiness_errors": {
+                "bio": ["Bio is required to publish."],
+            },
+        }
+        serializer = AccountantProfileStatusSerializer(payload)
+        self.assertEqual(
+            serializer.data["publish_readiness_errors"],
+            {"bio": ["Bio is required to publish."]},
+        )
+        # Not accepted as writable input on the status serializer.
+        inbound = AccountantProfileStatusSerializer(
+            data={
+                **payload,
+                "publish_readiness_errors": {"bio": ["ignored"]},
+            }
+        )
+        self.assertTrue(inbound.is_valid(), inbound.errors)
+        self.assertNotIn("publish_readiness_errors", inbound.validated_data)
 
 
 class PublicationBookingStabilityTest(TestCase):

@@ -154,19 +154,24 @@ class AccountantProfile(models.Model):
         return self.is_publish_ready
 
     def publish_readiness_errors(self) -> dict:
-        """Field-level errors describing what is missing to publish."""
+        """
+        Field-level publish gaps as DRF-style lists.
+
+        Empty dict when the profile is publish-ready. Single source of truth for
+        publish validation and owner dashboard payloads.
+        """
         errors = {}
         if not self._has_text(self.bio):
-            errors["bio"] = "Bio is required to publish."
+            errors["bio"] = ["Bio is required to publish."]
         if not self._has_text(self.credentials):
-            errors["credentials"] = "Credentials are required to publish."
+            errors["credentials"] = ["Credentials are required to publish."]
         if not self._has_text(self.location):
-            errors["location"] = "Location is required to publish."
+            errors["location"] = ["Location is required to publish."]
         if not self.publishable_services().exists():
-            errors["services"] = (
+            errors["services"] = [
                 "At least one active service with a valid public category "
                 "is required to publish."
-            )
+            ]
         return errors
 
     @property

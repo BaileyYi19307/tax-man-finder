@@ -1,6 +1,8 @@
 import { ACCESS_TOKEN_KEY } from "../auth/session";
 import {
   apiFieldError,
+  getMyAccountantProfile,
+  getProfileStatus,
   publishMyAccountantProfile,
   unpublishMyAccountantProfile,
 } from "./client";
@@ -23,6 +25,7 @@ function publishedPayload(overrides = {}) {
     is_publish_ready: true,
     is_public: true,
     profile_complete: true,
+    publish_readiness_errors: {},
     ...overrides,
   };
 }
@@ -66,6 +69,7 @@ describe("accountant publication API client", () => {
     expect(result.is_publish_ready).toBe(true);
     expect(result.is_public).toBe(true);
     expect(result.profile_complete).toBe(true);
+    expect(result.publish_readiness_errors).toEqual({});
   });
 
   it("unpublishes the authenticated accountant profile", async () => {
@@ -96,6 +100,68 @@ describe("accountant publication API client", () => {
     expect(result.is_public).toBe(false);
     expect(result.is_publish_ready).toBe(true);
     expect(result.profile_complete).toBe(true);
+    expect(result.publish_readiness_errors).toEqual({});
+  });
+
+  it("parses publish_readiness_errors on the owner profile payload", async () => {
+    const payload = publishedPayload({
+      publication_status: "draft",
+      is_publish_ready: false,
+      is_public: false,
+      profile_complete: false,
+      location: "",
+      publish_readiness_errors: {
+        location: ["Location is required to publish."],
+        services: [
+          "At least one active service with a valid public category is required to publish.",
+        ],
+      },
+    });
+    global.fetch.mockResolvedValue(
+      new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    const result = await getMyAccountantProfile();
+
+    expect(result.publish_readiness_errors.location).toEqual([
+      "Location is required to publish.",
+    ]);
+    expect(result.publish_readiness_errors.services[0]).toMatch(
+      /valid public category/
+    );
+    expect(result.is_publish_ready).toBe(false);
+  });
+
+  it("parses publish_readiness_errors on owner profile status", async () => {
+    const statusPayload = {
+      profile_info_complete: true,
+      services_exist: false,
+      profile_complete: false,
+      publication_status: "draft",
+      is_publish_ready: false,
+      is_public: false,
+      publish_readiness_errors: {
+        services: [
+          "At least one active service with a valid public category is required to publish.",
+        ],
+      },
+    };
+    global.fetch.mockResolvedValue(
+      new Response(JSON.stringify(statusPayload), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    const result = await getProfileStatus(7);
+
+    expect(result.publish_readiness_errors).toEqual(
+      statusPayload.publish_readiness_errors
+    );
+    expect(result.is_publish_ready).toBe(false);
   });
 
   it("surfaces field-level publish validation errors", async () => {
@@ -134,10 +200,15 @@ describe("accountant publication API client", () => {
 
   it("throws on authentication failures", async () => {
     global.fetch.mockResolvedValue(
-      new Response(JSON.stringify({ detail: "Authentication credentials were not provided." }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      })
+      new Response(
+        JSON.stringify({
+          detail: "Authentication credentials were not provided.",
+        }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
     );
 
     await expect(publishMyAccountantProfile()).rejects.toThrow(
