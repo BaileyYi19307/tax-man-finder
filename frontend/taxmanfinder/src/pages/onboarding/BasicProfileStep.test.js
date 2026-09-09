@@ -59,6 +59,10 @@ function renderBasic(initialPath = "/onboarding/accountant/basic") {
       <AuthProvider>
         <Routes>
           <Route path="/onboarding/accountant/basic" element={<BasicProfileStep />} />
+          <Route
+            path="/onboarding/accountant/professional"
+            element={<div>Professional details step</div>}
+          />
           <Route path="/dashboard/accountant" element={<div>Accountant dash</div>} />
           <Route path="/signup" element={<div>Signup</div>} />
         </Routes>
@@ -100,10 +104,12 @@ test("wizard shell shows progress steps with basic profile active", async () => 
   expect(await screen.findByRole("button", { name: "Save and continue" })).toBeInTheDocument();
   expect(screen.getByLabelText("Onboarding progress")).toBeInTheDocument();
   expect(screen.getByText("1. Basic profile")).toHaveAttribute("aria-current", "step");
-  expect(screen.getByText("2. Professional details")).toBeInTheDocument();
-  expect(screen.getByText("3. Services")).toBeInTheDocument();
-  expect(screen.getByText("4. Preview")).toBeInTheDocument();
-  expect(screen.getByText("2. Professional details").closest("a")).toBeNull();
+  expect(screen.getByText("2. Professional details").closest("a")).toHaveAttribute(
+    "href",
+    "/onboarding/accountant/professional"
+  );
+  expect(screen.getByText("3. Services").closest("a")).toBeNull();
+  expect(screen.getByText("4. Preview").closest("a")).toBeNull();
   expect(screen.getByRole("button", { name: "Save and exit" })).toBeInTheDocument();
 });
 
@@ -149,9 +155,7 @@ test("creates a first profile from an empty draft", async () => {
     location: "Austin, TX",
     headline: "",
   });
-  expect(
-    await screen.findByText(/Professional details step is coming soon/i)
-  ).toBeInTheDocument();
+  expect(await screen.findByText("Professional details step")).toBeInTheDocument();
   expect(screen.queryByText("Accountant dash")).not.toBeInTheDocument();
 });
 
@@ -195,7 +199,7 @@ test("save pending disables buttons and prevents duplicate submissions", async (
 
   expect(await screen.findByLabelText("First name")).toBeInTheDocument();
   userEvent.type(screen.getByLabelText("First name"), "Ada");
-  userEvent.click(screen.getByRole("button", { name: "Save and continue" }));
+  userEvent.click(screen.getByRole("button", { name: "Save and exit" }));
 
   await waitFor(() => {
     const buttons = screen.getAllByRole("button", { name: "Saving…" });
@@ -210,9 +214,7 @@ test("save pending disables buttons and prevents duplicate submissions", async (
   await act(async () => {
     resolveSave(draftProfile());
   });
-  await waitFor(() =>
-    expect(screen.getByRole("button", { name: "Save and continue" })).not.toBeDisabled()
-  );
+  expect(await screen.findByText("Accountant dash")).toBeInTheDocument();
 });
 
 test("shows field-level API errors", async () => {

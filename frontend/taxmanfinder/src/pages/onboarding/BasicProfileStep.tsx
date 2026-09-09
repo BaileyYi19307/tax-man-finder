@@ -11,55 +11,13 @@ import {
   type ApiError,
 } from "../../api/client";
 import AccountantOnboardingLayout from "./AccountantOnboardingLayout";
-
-const field = {
-  padding: "10px 12px",
-  borderRadius: 8,
-  border: "1px solid #d1d5db",
-  fontSize: 14,
-  outline: "none" as const,
-  width: "100%",
-  boxSizing: "border-box" as const,
-};
-
-const muted = { color: "#6b7280", fontSize: 13, lineHeight: 1.45 };
-
-const primaryButton = (disabled: boolean) => ({
-  padding: "10px 14px",
-  borderRadius: 8,
-  border: "none",
-  background: disabled ? "#93c5fd" : "#2563eb",
-  color: "#fff",
-  fontWeight: 600,
-  fontSize: 14,
-  cursor: disabled ? "not-allowed" : "pointer",
-});
-
-const secondaryButton = (disabled: boolean) => ({
-  padding: "10px 14px",
-  borderRadius: 8,
-  border: "1px solid #d1d5db",
-  background: disabled ? "#f3f4f6" : "#fff",
-  color: "#111827",
-  fontWeight: 600,
-  fontSize: 14,
-  cursor: disabled ? "not-allowed" : "pointer",
-});
-
-function fieldErrorStyle(hasError: boolean) {
-  return {
-    ...field,
-    marginTop: 6,
-    borderColor: hasError ? "#f87171" : "#d1d5db",
-  };
-}
-
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null;
-  return (
-    <div style={{ color: "#b91c1c", fontSize: 12, marginTop: 4 }}>{message}</div>
-  );
-}
+import {
+  FieldError,
+  onboardingFieldErrorStyle,
+  onboardingMuted,
+  onboardingPrimaryButton,
+  onboardingSecondaryButton,
+} from "./onboardingFormUtils";
 
 function initialsFor(firstName: string, lastName: string) {
   const first = firstName.trim().charAt(0);
@@ -104,7 +62,6 @@ export default function BasicProfileStep() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [continueNotice, setContinueNotice] = useState<string | null>(null);
   const [hasProfile, setHasProfile] = useState(false);
 
   const loadDraft = useCallback(async () => {
@@ -112,7 +69,6 @@ export default function BasicProfileStep() {
     setLoadError(null);
     setFormError(null);
     setFieldErrors({});
-    setContinueNotice(null);
     try {
       const me = await getMe();
       setFirstName((value) => value || me.first_name || "");
@@ -160,7 +116,6 @@ export default function BasicProfileStep() {
     setSaving(true);
     setFormError(null);
     setFieldErrors({});
-    setContinueNotice(null);
 
     try {
       const saved: AccountantMyProfilePayload = await createAccountantProfile(
@@ -185,9 +140,7 @@ export default function BasicProfileStep() {
         return;
       }
 
-      setContinueNotice(
-        "Basic profile saved. The Professional details step is coming soon — you can keep editing here or exit to your dashboard."
-      );
+      navigate("/onboarding/accountant/professional");
     } catch (err: unknown) {
       const apiErr = err as ApiError;
       if (apiErr?.fields && Object.keys(apiErr.fields).length > 0) {
@@ -211,7 +164,7 @@ export default function BasicProfileStep() {
         title="Basic profile"
         description="Tell clients who you are and where you work."
       >
-        <div style={{ ...muted, marginTop: 12 }}>Loading your draft…</div>
+        <div style={{ ...onboardingMuted, marginTop: 12 }}>Loading your draft…</div>
       </AccountantOnboardingLayout>
     );
   }
@@ -240,7 +193,7 @@ export default function BasicProfileStep() {
         <button
           type="button"
           onClick={() => void loadDraft()}
-          style={{ ...primaryButton(false), marginTop: 12 }}
+          style={{ ...onboardingPrimaryButton(false), marginTop: 12 }}
         >
           Retry
         </button>
@@ -285,7 +238,7 @@ export default function BasicProfileStep() {
           >
             {initials}
           </div>
-          <div style={muted}>
+          <div style={onboardingMuted}>
             Photo upload comes later. Clients will see these initials for now.
           </div>
         </div>
@@ -305,7 +258,7 @@ export default function BasicProfileStep() {
                 onChange={(e) => setFirstName(e.target.value)}
                 autoComplete="given-name"
                 aria-invalid={Boolean(fieldErrors.first_name)}
-                style={fieldErrorStyle(Boolean(fieldErrors.first_name))}
+                style={onboardingFieldErrorStyle(Boolean(fieldErrors.first_name))}
               />
             </label>
             <FieldError message={fieldErrors.first_name} />
@@ -318,7 +271,7 @@ export default function BasicProfileStep() {
                 onChange={(e) => setLastName(e.target.value)}
                 autoComplete="family-name"
                 aria-invalid={Boolean(fieldErrors.last_name)}
-                style={fieldErrorStyle(Boolean(fieldErrors.last_name))}
+                style={onboardingFieldErrorStyle(Boolean(fieldErrors.last_name))}
               />
             </label>
             <FieldError message={fieldErrors.last_name} />
@@ -328,14 +281,14 @@ export default function BasicProfileStep() {
         <div>
           <label style={{ fontSize: 13, color: "#111827", display: "block" }}>
             Professional headline
-            <span style={{ ...muted, marginLeft: 6 }}>(optional)</span>
+            <span style={{ ...onboardingMuted, marginLeft: 6 }}>(optional)</span>
             <input
               value={headline}
               onChange={(e) => setHeadline(e.target.value)}
               placeholder="e.g. CPA helping startups with tax planning"
               maxLength={160}
               aria-invalid={Boolean(fieldErrors.headline)}
-              style={fieldErrorStyle(Boolean(fieldErrors.headline))}
+              style={onboardingFieldErrorStyle(Boolean(fieldErrors.headline))}
             />
           </label>
           <FieldError message={fieldErrors.headline} />
@@ -351,7 +304,7 @@ export default function BasicProfileStep() {
               placeholder="A short introduction for clients"
               aria-invalid={Boolean(fieldErrors.bio)}
               style={{
-                ...fieldErrorStyle(Boolean(fieldErrors.bio)),
+                ...onboardingFieldErrorStyle(Boolean(fieldErrors.bio)),
                 resize: "vertical" as const,
               }}
             />
@@ -367,7 +320,7 @@ export default function BasicProfileStep() {
               onChange={(e) => setLocation(e.target.value)}
               placeholder="e.g. Philadelphia, PA"
               aria-invalid={Boolean(fieldErrors.location)}
-              style={fieldErrorStyle(Boolean(fieldErrors.location))}
+              style={onboardingFieldErrorStyle(Boolean(fieldErrors.location))}
             />
           </label>
           <FieldError message={fieldErrors.location} />
@@ -389,27 +342,11 @@ export default function BasicProfileStep() {
           </div>
         ) : null}
 
-        {continueNotice ? (
-          <div
-            role="status"
-            style={{
-              fontSize: 13,
-              color: "#166534",
-              background: "#f0fdf4",
-              border: "1px solid #bbf7d0",
-              borderRadius: 8,
-              padding: 10,
-            }}
-          >
-            {continueNotice}
-          </div>
-        ) : null}
-
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 4 }}>
           <button
             type="submit"
             disabled={saving}
-            style={primaryButton(saving)}
+            style={onboardingPrimaryButton(saving)}
           >
             {saving ? "Saving…" : "Save and continue"}
           </button>
@@ -417,7 +354,7 @@ export default function BasicProfileStep() {
             type="button"
             disabled={saving}
             onClick={() => void saveDraft("exit")}
-            style={secondaryButton(saving)}
+            style={onboardingSecondaryButton(saving)}
           >
             {saving ? "Saving…" : "Save and exit"}
           </button>

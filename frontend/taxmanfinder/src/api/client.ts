@@ -299,6 +299,12 @@ export type AccountantProfilePayload = {
   firm_name: string;
   location: string;
   headline?: string;
+  languages?: string[];
+  offers_remote?: boolean;
+  offers_in_person?: boolean;
+  industries?: string[];
+  website?: string;
+  license_information?: string;
   latitude?: number | null;
   longitude?: number | null;
   service_scope?: AccountantServiceScope;

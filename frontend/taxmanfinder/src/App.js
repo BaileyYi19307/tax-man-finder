@@ -18,6 +18,7 @@ import BookingsPage from "./pages/bookings/BookingsPage.tsx";
 import DemoPaymentPage from "./pages/bookings/DemoPaymentPage.tsx";
 import Home from "./pages/Home.tsx";
 import BasicProfileStep from "./pages/onboarding/BasicProfileStep.tsx";
+import ProfessionalDetailsStep from "./pages/onboarding/ProfessionalDetailsStep.tsx";
 import { ACCOUNTANT_ONBOARDING_ENTRY } from "./pages/onboarding/onboardingSteps";
 import MyServices from "./pages/services/MyServices.tsx";
 import { AuthProvider } from "./auth/AuthProvider.tsx";
@@ -36,6 +37,10 @@ const AppRoutes = () => {
             element={<Navigate to={ACCOUNTANT_ONBOARDING_ENTRY} replace />}
           />
           <Route path="/onboarding/accountant/basic" element={<BasicProfileStep />} />
+          <Route
+            path="/onboarding/accountant/professional"
+            element={<ProfessionalDetailsStep />}
+          />
 
           <Route element={<AppLayout />}>
             <Route path="/" element={<Home />} />
