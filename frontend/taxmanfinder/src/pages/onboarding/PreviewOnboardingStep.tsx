@@ -231,24 +231,29 @@ export default function PreviewOnboardingStep() {
           <div style={{ marginBottom: 12, lineHeight: 1.45 }}>
             Clients can now find and contact you through Tax Man Finder.
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
             <Link
               to={`/accountants/${profile.user_id}`}
-              style={{ fontSize: 13, color: "#166534", fontWeight: 700 }}
+              style={{
+                ...onboardingPrimaryButton(false),
+                display: "inline-block",
+                textDecoration: "none",
+                lineHeight: "normal",
+                background: "#166534",
+              }}
             >
-              View as a customer
+              View public profile
             </Link>
             <Link
               to="/dashboard/accountant"
-              style={{ fontSize: 13, color: "#166534", fontWeight: 700 }}
+              style={{
+                ...onboardingSecondaryButton(false),
+                display: "inline-block",
+                textDecoration: "none",
+                lineHeight: "normal",
+              }}
             >
               Go to dashboard
-            </Link>
-            <Link
-              to="/onboarding/accountant/basic"
-              style={{ fontSize: 13, color: "#166534", fontWeight: 700 }}
-            >
-              Edit profile
             </Link>
           </div>
         </div>

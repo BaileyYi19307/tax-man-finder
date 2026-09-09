@@ -198,7 +198,7 @@ test("shows readiness errors with links to the correct steps and disables Publis
   expect(screen.getByRole("button", { name: "Publish profile" })).toBeDisabled();
 });
 
-test("Publish success shows live confirmation and customer view link from API user_id", async () => {
+test("Publish success shows live confirmation without Edit profile", async () => {
   publishMyAccountantProfile.mockResolvedValue(
     previewProfile({
       publication_status: "published",
@@ -213,7 +213,7 @@ test("Publish success shows live confirmation and customer view link from API us
   userEvent.click(screen.getByRole("button", { name: "Publish profile" }));
 
   expect(await screen.findByText("Your profile is live")).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "View as a customer" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "View public profile" })).toHaveAttribute(
     "href",
     "/accountants/42"
   );
@@ -221,10 +221,11 @@ test("Publish success shows live confirmation and customer view link from API us
     "href",
     "/dashboard/accountant"
   );
-  expect(screen.getByRole("link", { name: "Edit profile" })).toHaveAttribute(
-    "href",
-    "/onboarding/accountant/basic"
-  );
+  expect(screen.queryByRole("link", { name: "Edit profile" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "View as a customer" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Publish profile" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Save and exit" })).not.toBeInTheDocument();
 });
 
 test("Publish API failure shows error and keeps Publish available", async () => {
@@ -306,7 +307,7 @@ test("wizard marks previous steps clickable and Preview active", async () => {
   );
 });
 
-test("Edit profile from live confirmation navigates to the wizard", async () => {
+test("live confirmation keeps wizard step tabs for editing navigation", async () => {
   getMyAccountantPreview.mockResolvedValue(
     previewProfile({
       publication_status: "published",
@@ -315,11 +316,23 @@ test("Edit profile from live confirmation navigates to the wizard", async () => 
   );
   renderPreview();
   expect(await screen.findByText("Your profile is live")).toBeInTheDocument();
-  userEvent.click(screen.getByRole("link", { name: "Edit profile" }));
-  expect(await screen.findByText("Basic wizard step")).toBeInTheDocument();
+  expect(screen.getByText("4. Preview")).toHaveAttribute("aria-current", "step");
+  expect(screen.getByRole("link", { name: "1. Basic profile" })).toHaveAttribute(
+    "href",
+    "/onboarding/accountant/basic"
+  );
+  expect(screen.getByRole("link", { name: "2. Professional details" })).toHaveAttribute(
+    "href",
+    "/onboarding/accountant/professional"
+  );
+  expect(screen.getByRole("link", { name: "3. Services" })).toHaveAttribute(
+    "href",
+    "/onboarding/accountant/services"
+  );
+  expect(screen.queryByRole("link", { name: "Edit profile" })).not.toBeInTheDocument();
 });
 
-test("View as a customer navigates to public profile route", async () => {
+test("View public profile navigates to the public profile route", async () => {
   getMyAccountantPreview.mockResolvedValue(
     previewProfile({
       publication_status: "published",
@@ -329,6 +342,6 @@ test("View as a customer navigates to public profile route", async () => {
   );
   renderPreview();
   expect(await screen.findByText("Your profile is live")).toBeInTheDocument();
-  userEvent.click(screen.getByRole("link", { name: "View as a customer" }));
+  userEvent.click(screen.getByRole("link", { name: "View public profile" }));
   expect(await screen.findByText("Customer public profile")).toBeInTheDocument();
 });
