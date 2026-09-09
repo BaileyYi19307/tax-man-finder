@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import NeedsAttentionSection from "../../attention/NeedsAttentionSection";
 import { useAttentionSummary } from "../../attention/useAttentionSummary";
 import { listMyInquiries, type InquiryListItem } from "../../api/client";
+import { useAuth } from "../../auth/AuthProvider";
 import { getAccessToken } from "../../auth/session";
 import ProfileVisibilitySection from "./ProfileVisibilitySection";
 
@@ -27,10 +28,12 @@ const card = {
 const muted = { color: "#6b7280" };
 
 export default function AccountantDashboard() {
+  const { user } = useAuth();
   const [inquiries, setInquiries] = useState<InquiryListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { summary } = useAttentionSummary();
+  const profileNeedsSetup = user?.has_accountant_profile && !user.accountant_profile_complete;
 
   useEffect(() => {
     if (!getAccessToken()) return;
@@ -80,9 +83,13 @@ export default function AccountantDashboard() {
             to="/dashboard/profile"
             style={{ ...card, textDecoration: "none", color: "#111827", flex: 1, minWidth: 160 }}
           >
-            <div style={{ fontWeight: 700 }}>My profile</div>
+            <div style={{ fontWeight: 700 }}>
+              {profileNeedsSetup ? "Continue profile setup" : "My profile"}
+            </div>
             <div style={{ ...muted, fontSize: 13, marginTop: 6 }}>
-              Edit how clients see you
+              {profileNeedsSetup
+                ? "Finish the details needed to publish"
+                : "Edit how clients see you"}
             </div>
           </Link>
 

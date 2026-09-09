@@ -90,6 +90,47 @@ test("My profile routes to the accountant profile editor", async () => {
   );
 });
 
+test("incomplete draft shows continue profile setup action", async () => {
+  localStorage.setItem(ACCESS_TOKEN_KEY, "token");
+  localStorage.setItem(USER_ID_KEY, "22");
+  getMe.mockResolvedValue({
+    id: 22,
+    email: "pro@test.com",
+    first_name: "Pat",
+    last_name: "Pro",
+    has_accountant_profile: true,
+    accountant_profile_complete: false,
+  });
+  getMyAccountantProfile.mockResolvedValue({
+    user_id: 22,
+    email: "pro@test.com",
+    first_name: "Pat",
+    last_name: "Pro",
+    bio: "",
+    credentials: "",
+    years_experience: 0,
+    firm_name: "",
+    location: "",
+    services: [],
+    publication_status: "draft",
+    is_publish_ready: false,
+    is_public: false,
+    profile_complete: false,
+    publish_readiness_errors: {
+      bio: ["Add a bio."],
+    },
+  });
+  listMyInquiries.mockResolvedValue([]);
+  renderDashboard();
+
+  expect(await screen.findByText("Continue profile setup")).toBeInTheDocument();
+  expect(screen.getByText("Continue profile setup").closest("a")).toHaveAttribute(
+    "href",
+    "/dashboard/profile"
+  );
+  expect(await screen.findByText("Profile visibility")).toBeInTheDocument();
+});
+
 test("dashboard includes profile visibility controls", async () => {
   localStorage.setItem(ACCESS_TOKEN_KEY, "token");
   localStorage.setItem(USER_ID_KEY, "22");

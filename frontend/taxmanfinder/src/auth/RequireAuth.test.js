@@ -26,9 +26,9 @@ function renderGuarded(initialPath) {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/onboarding/accountant" element={<div>Onboarding page</div>} />
-          <Route path="/dashboard/client" element={<div>Client dash</div>} />
           <Route element={<RequireAuth />}>
             <Route path="/chat" element={<div>Messages page</div>} />
+            <Route path="/dashboard/client" element={<div>Client dash</div>} />
             <Route element={<RequireAccountantDashboard />}>
               <Route path="/dashboard/accountant" element={<div>Accountant dash</div>} />
             </Route>
@@ -60,7 +60,7 @@ test("unauthenticated accountant dashboard redirects to login", async () => {
   expect(screen.queryByText("Accountant dash")).not.toBeInTheDocument();
 });
 
-test("complete accountant can open the accountant dashboard", async () => {
+test("published accountant can open the accountant dashboard", async () => {
   localStorage.setItem(ACCESS_TOKEN_KEY, "token");
   getMe.mockResolvedValue({
     id: 22,
@@ -74,7 +74,22 @@ test("complete accountant can open the accountant dashboard", async () => {
   expect(await screen.findByText("Accountant dash")).toBeInTheDocument();
 });
 
-test("incomplete accountant is sent from accountant dashboard to onboarding", async () => {
+test("ready draft accountant can open the accountant dashboard", async () => {
+  localStorage.setItem(ACCESS_TOKEN_KEY, "token");
+  getMe.mockResolvedValue({
+    id: 22,
+    email: "pro@test.com",
+    first_name: "Pat",
+    last_name: "Pro",
+    has_accountant_profile: true,
+    accountant_profile_complete: true,
+  });
+  renderGuarded("/dashboard/accountant");
+  expect(await screen.findByText("Accountant dash")).toBeInTheDocument();
+  expect(screen.queryByText("Onboarding page")).not.toBeInTheDocument();
+});
+
+test("incomplete draft accountant can open the accountant dashboard", async () => {
   localStorage.setItem(ACCESS_TOKEN_KEY, "token");
   getMe.mockResolvedValue({
     id: 22,
@@ -85,10 +100,11 @@ test("incomplete accountant is sent from accountant dashboard to onboarding", as
     accountant_profile_complete: false,
   });
   renderGuarded("/dashboard/accountant");
-  expect(await screen.findByText("Onboarding page")).toBeInTheDocument();
+  expect(await screen.findByText("Accountant dash")).toBeInTheDocument();
+  expect(screen.queryByText("Onboarding page")).not.toBeInTheDocument();
 });
 
-test("client cannot stay on the accountant dashboard", async () => {
+test("user with no accountant profile is sent to onboarding", async () => {
   localStorage.setItem(ACCESS_TOKEN_KEY, "token");
   getMe.mockResolvedValue({
     id: 11,
@@ -99,5 +115,36 @@ test("client cannot stay on the accountant dashboard", async () => {
     accountant_profile_complete: false,
   });
   renderGuarded("/dashboard/accountant");
+  expect(await screen.findByText("Onboarding page")).toBeInTheDocument();
+  expect(screen.queryByText("Accountant dash")).not.toBeInTheDocument();
+});
+
+test("customer without a profile can still open the client dashboard", async () => {
+  localStorage.setItem(ACCESS_TOKEN_KEY, "token");
+  getMe.mockResolvedValue({
+    id: 11,
+    email: "client@test.com",
+    first_name: "Ann",
+    last_name: "Client",
+    has_accountant_profile: false,
+    accountant_profile_complete: false,
+  });
+  renderGuarded("/dashboard/client");
   expect(await screen.findByText("Client dash")).toBeInTheDocument();
+  expect(screen.queryByText("Onboarding page")).not.toBeInTheDocument();
+});
+
+test("incomplete draft does not bounce between dashboard and onboarding", async () => {
+  localStorage.setItem(ACCESS_TOKEN_KEY, "token");
+  getMe.mockResolvedValue({
+    id: 22,
+    email: "pro@test.com",
+    first_name: "Pat",
+    last_name: "Pro",
+    has_accountant_profile: true,
+    accountant_profile_complete: false,
+  });
+  renderGuarded("/dashboard/accountant");
+  expect(await screen.findByText("Accountant dash")).toBeInTheDocument();
+  expect(screen.queryByText("Onboarding page")).not.toBeInTheDocument();
 });

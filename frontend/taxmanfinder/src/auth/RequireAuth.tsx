@@ -25,10 +25,8 @@ export function RequireAuth() {
 export function RequireAccountantDashboard() {
   const { user } = useAuth();
 
+  // Profile existence grants dashboard access; publish readiness is separate.
   if (!user?.has_accountant_profile) {
-    return <Navigate to="/dashboard/client" replace />;
-  }
-  if (!user.accountant_profile_complete) {
     return <Navigate to="/onboarding/accountant" replace />;
   }
   return <Outlet />;

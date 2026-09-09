@@ -88,7 +88,7 @@ export default function AppHeader() {
             <Link to={dashboardPath} className="app-nav-link" style={linkStyle}>
               {isAccountant ? "Accountant Dashboard" : "Client Dashboard"}
             </Link>
-            {isAccountant && user?.accountant_profile_complete && (
+            {isAccountant && (
               <Link to="/dashboard/profile" className="app-nav-link" style={linkStyle}>
                 My profile
               </Link>
