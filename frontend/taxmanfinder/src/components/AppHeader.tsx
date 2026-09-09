@@ -3,7 +3,6 @@ import { Link, Outlet } from "react-router-dom";
 import { navLabel } from "../attention/summary";
 import { useAttentionSummary } from "../attention/useAttentionSummary";
 import { dashboardPathForUser, useAuth } from "../auth/AuthProvider";
-import { ACCOUNTANT_ONBOARDING_ENTRY } from "../pages/onboarding/onboardingSteps";
 
 const headerStyle: CSSProperties = {
   display: "flex",
@@ -89,11 +88,6 @@ export default function AppHeader() {
             <Link to={dashboardPath} className="app-nav-link" style={linkStyle}>
               {isAccountant ? "Accountant Dashboard" : "Client Dashboard"}
             </Link>
-            {isAccountant && (
-              <Link to={ACCOUNTANT_ONBOARDING_ENTRY} className="app-nav-link" style={linkStyle}>
-                My profile
-              </Link>
-            )}
             <button type="button" className="btn btn-secondary" onClick={logout}>
               Log out
             </button>

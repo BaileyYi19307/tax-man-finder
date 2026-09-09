@@ -84,14 +84,13 @@ test("separate Continue setup / My profile dashboard card is removed", async () 
   renderDashboard();
 
   expect(
-    await screen.findByRole("link", { name: "Continue profile setup" })
+    await screen.findByRole("link", { name: "Preview and publish" })
   ).toBeInTheDocument();
   expect(screen.queryByText("My profile")).not.toBeInTheDocument();
-  const continueLinks = screen.getAllByRole("link", {
-    name: "Continue profile setup",
-  });
-  expect(continueLinks).toHaveLength(1);
-  expect(continueLinks[0].closest("section")).toHaveAttribute(
+  expect(
+    screen.queryByRole("link", { name: "Continue profile setup" })
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Preview and publish" }).closest("section")).toHaveAttribute(
     "aria-label",
     "Profile visibility"
   );
@@ -149,6 +148,10 @@ test("dashboard includes profile visibility controls", async () => {
   expect(
     await screen.findByText("Your profile is ready to publish.")
   ).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Preview and publish" })).toHaveAttribute(
+    "href",
+    "/onboarding/accountant/preview"
+  );
 });
 
 test("empty inquiry list is not treated as an error", async () => {

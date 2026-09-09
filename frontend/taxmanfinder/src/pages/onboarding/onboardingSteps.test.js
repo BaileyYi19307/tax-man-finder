@@ -1,5 +1,14 @@
 import { continueSetupPath } from "./onboardingSteps";
 
+test("continueSetupPath prefers Basic when first_name is missing", () => {
+  expect(
+    continueSetupPath({
+      first_name: ["First name is required to publish."],
+      services: ["At least one active service is required to publish."],
+    })
+  ).toBe("/onboarding/accountant/basic");
+});
+
 test("continueSetupPath prefers Basic when basic fields are missing", () => {
   expect(
     continueSetupPath({

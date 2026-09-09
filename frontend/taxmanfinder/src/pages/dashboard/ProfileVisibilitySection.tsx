@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import {
   apiFieldError,
   getMyAccountantProfile,
-  publishMyAccountantProfile,
   unpublishMyAccountantProfile,
   type AccountantMyProfilePayload,
   type ApiError,
@@ -73,7 +72,9 @@ const destructiveTextButton = (disabled: boolean) => ({
 });
 
 export const UNPUBLISH_EXPLANATION =
-  "Unpublishing removes your profile from customer discovery. Your services and existing bookings are preserved.";
+  "Unpublishing hides your listing from customer discovery. Your profile, services, bookings, and messages are preserved.";
+
+const PREVIEW_PATH = "/onboarding/accountant/preview";
 
 function readinessMessages(errors: PublishReadinessErrors | undefined): string[] {
   if (!errors) return [];
@@ -108,9 +109,7 @@ export default function ProfileVisibilitySection() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [pendingAction, setPendingAction] = useState<"publish" | "unpublish" | null>(
-    null
-  );
+  const [pendingAction, setPendingAction] = useState<"unpublish" | null>(null);
   const [confirmingUnpublish, setConfirmingUnpublish] = useState(false);
   const inFlightRef = useRef(false);
 
@@ -139,29 +138,6 @@ export default function ProfileVisibilitySection() {
       cancelled = true;
     };
   }, []);
-
-  async function handlePublish() {
-    if (inFlightRef.current) return;
-    inFlightRef.current = true;
-    setPendingAction("publish");
-    setActionError(null);
-    setConfirmingUnpublish(false);
-    try {
-      const updated = await publishMyAccountantProfile();
-      setProfile(updated);
-    } catch (err) {
-      console.error(err);
-      setActionError(
-        actionErrorMessage(
-          err,
-          "Could not publish your profile. Check your connection and try again."
-        )
-      );
-    } finally {
-      inFlightRef.current = false;
-      setPendingAction(null);
-    }
-  }
 
   function requestUnpublish() {
     if (inFlightRef.current) return;
@@ -224,23 +200,75 @@ export default function ProfileVisibilitySection() {
   const messages = readinessMessages(profile.publish_readiness_errors);
   const busy = pendingAction !== null;
   const incompleteDraft = isDraft && !ready;
-  // Incomplete drafts: only Continue profile setup (no View / Edit / Unpublish).
-  const showContinueSetup = incompleteDraft || (isDraft && ready) || (isPublished && !isPublic);
-  const showLiveActions = isPublic && !incompleteDraft;
-  const showPublish = isDraft && ready;
-  const showUnpublish = isPublished && !incompleteDraft;
+  const readyDraft = isDraft && ready;
+  const publishedPublic = isPublished && isPublic;
+  const publishedHidden = isPublished && !isPublic;
   const setupHref = continueSetupPath(profile.publish_readiness_errors);
 
   let statusText = "";
   if (incompleteDraft) {
     statusText = "Your profile is private.";
-  } else if (isDraft && ready) {
+  } else if (readyDraft) {
     statusText = "Your profile is ready to publish.";
-  } else if (isPublished && ready) {
+  } else if (publishedPublic) {
     statusText = "Your profile is live.";
-  } else if (isPublished && !ready) {
+  } else if (publishedHidden) {
     statusText =
       "Your profile is currently hidden because information is missing.";
+  }
+
+  function renderUnpublishConfirm() {
+    return (
+      <div
+        role="group"
+        aria-label="Confirm unpublish"
+        style={{
+          marginTop: 14,
+          padding: 12,
+          borderRadius: 8,
+          border: "1px solid #fecaca",
+          background: "#fef2f2",
+        }}
+      >
+        <div style={{ fontSize: 13, color: "#7f1d1d", lineHeight: 1.45, marginBottom: 10 }}>
+          {UNPUBLISH_EXPLANATION}
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <button
+            type="button"
+            onClick={() => void confirmUnpublish()}
+            disabled={busy}
+            style={{
+              ...primaryButton(busy),
+              background: busy ? "#fca5a5" : "#b91c1c",
+            }}
+          >
+            {pendingAction === "unpublish" ? "Unpublishing…" : "Confirm unpublish"}
+          </button>
+          <button
+            type="button"
+            onClick={cancelUnpublishConfirm}
+            disabled={busy}
+            style={secondaryButton(busy)}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderUnpublishControl() {
+    return (
+      <button
+        type="button"
+        onClick={requestUnpublish}
+        disabled={busy}
+        style={destructiveTextButton(busy)}
+      >
+        Unpublish profile
+      </button>
+    );
   }
 
   return (
@@ -248,12 +276,12 @@ export default function ProfileVisibilitySection() {
       <div style={{ fontWeight: 700, marginBottom: 4 }}>Profile visibility</div>
       <div style={{ fontSize: 14, color: "#111827", marginBottom: 6 }}>{statusText}</div>
 
-      {isPublished && !ready && (
+      {publishedHidden ? (
         <div style={{ ...muted, marginBottom: 8 }}>
           It remains marked as published, but clients cannot see it until the
           issues below are fixed.
         </div>
-      )}
+      ) : null}
 
       {messages.length > 0 && (
         <ul
@@ -290,109 +318,46 @@ export default function ProfileVisibilitySection() {
 
       {incompleteDraft ? (
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-          <Link
-            to={setupHref}
-            style={{
-              ...primaryButton(false),
-              display: "inline-block",
-              textDecoration: "none",
-              lineHeight: "normal",
-            }}
-          >
+          <Link to={setupHref} style={primaryActionLink}>
             Continue profile setup
           </Link>
         </div>
-      ) : (
+      ) : null}
+
+      {readyDraft ? (
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <Link to={PREVIEW_PATH} style={primaryActionLink}>
+            Preview and publish
+          </Link>
+        </div>
+      ) : null}
+
+      {publishedPublic ? (
         <>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            {showContinueSetup ? (
-              <Link
-                to={setupHref}
-                style={{
-                  ...primaryButton(false),
-                  display: "inline-block",
-                  textDecoration: "none",
-                  lineHeight: "normal",
-                }}
-              >
-                Continue profile setup
-              </Link>
-            ) : null}
-
-            {showLiveActions ? (
-              <>
-                <Link to={`/accountants/${profile.user_id}`} style={primaryActionLink}>
-                  View profile
-                </Link>
-                <Link to={ACCOUNTANT_ONBOARDING_ENTRY} style={secondaryActionLink}>
-                  Edit profile
-                </Link>
-              </>
-            ) : null}
-
-            {showPublish ? (
-              <button
-                type="button"
-                onClick={() => void handlePublish()}
-                disabled={busy}
-                style={primaryButton(busy)}
-              >
-                {pendingAction === "publish" ? "Publishing…" : "Publish profile"}
-              </button>
-            ) : null}
-
-            {showUnpublish && !confirmingUnpublish ? (
-              <button
-                type="button"
-                onClick={requestUnpublish}
-                disabled={busy}
-                style={destructiveTextButton(busy)}
-              >
-                Unpublish profile
-              </button>
-            ) : null}
+            <Link to={`/accountants/${profile.user_id}`} style={primaryActionLink}>
+              View profile
+            </Link>
+            <Link to={ACCOUNTANT_ONBOARDING_ENTRY} style={secondaryActionLink}>
+              Edit profile
+            </Link>
+            {!confirmingUnpublish ? renderUnpublishControl() : null}
           </div>
-
-          {showUnpublish && confirmingUnpublish ? (
-            <div
-              role="group"
-              aria-label="Confirm unpublish"
-              style={{
-                marginTop: 14,
-                padding: 12,
-                borderRadius: 8,
-                border: "1px solid #fecaca",
-                background: "#fef2f2",
-              }}
-            >
-              <div style={{ fontSize: 13, color: "#7f1d1d", lineHeight: 1.45, marginBottom: 10 }}>
-                {UNPUBLISH_EXPLANATION}
-              </div>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                <button
-                  type="button"
-                  onClick={() => void confirmUnpublish()}
-                  disabled={busy}
-                  style={{
-                    ...primaryButton(busy),
-                    background: busy ? "#fca5a5" : "#b91c1c",
-                  }}
-                >
-                  {pendingAction === "unpublish" ? "Unpublishing…" : "Confirm unpublish"}
-                </button>
-                <button
-                  type="button"
-                  onClick={cancelUnpublishConfirm}
-                  disabled={busy}
-                  style={secondaryButton(busy)}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : null}
+          {confirmingUnpublish ? renderUnpublishConfirm() : null}
         </>
-      )}
+      ) : null}
+
+      {publishedHidden ? (
+        <>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <Link to={setupHref} style={primaryActionLink}>
+              Fix profile
+            </Link>
+            {!confirmingUnpublish ? renderUnpublishControl() : null}
+          </div>
+          {confirmingUnpublish ? renderUnpublishConfirm() : null}
+        </>
+      ) : null}
     </section>
   );
 }
