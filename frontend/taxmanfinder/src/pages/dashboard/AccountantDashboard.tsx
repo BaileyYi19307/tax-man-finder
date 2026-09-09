@@ -4,6 +4,7 @@ import NeedsAttentionSection from "../../attention/NeedsAttentionSection";
 import { useAttentionSummary } from "../../attention/useAttentionSummary";
 import { listMyInquiries, type InquiryListItem } from "../../api/client";
 import { getAccessToken } from "../../auth/session";
+import ProfileVisibilitySection from "./ProfileVisibilitySection";
 
 const page = {
   minHeight: "100vh",
@@ -71,6 +72,8 @@ export default function AccountantDashboard() {
         </div>
 
         <NeedsAttentionSection summary={summary} />
+
+        <ProfileVisibilitySection />
 
         <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
           <Link

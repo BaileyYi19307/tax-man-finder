@@ -2,13 +2,22 @@ import { MemoryRouter } from "react-router-dom";
 import { render, screen, waitFor } from "@testing-library/react";
 import { AuthProvider } from "../../auth/AuthProvider";
 import AccountantDashboard from "./AccountantDashboard";
-import { getMe, listMyBookings, listMyInquiries } from "../../api/client";
+import {
+  getMe,
+  getMyAccountantProfile,
+  listMyBookings,
+  listMyInquiries,
+} from "../../api/client";
 import { ACCESS_TOKEN_KEY, USER_ID_KEY } from "../../auth/session";
 
 jest.mock("../../api/client", () => ({
   getMe: jest.fn(),
+  getMyAccountantProfile: jest.fn(),
   listMyBookings: jest.fn(async () => []),
   listMyInquiries: jest.fn(),
+  publishMyAccountantProfile: jest.fn(),
+  unpublishMyAccountantProfile: jest.fn(),
+  apiFieldError: jest.requireActual("../../api/client").apiFieldError,
 }));
 
 function renderDashboard() {
@@ -24,9 +33,27 @@ function renderDashboard() {
 beforeEach(() => {
   localStorage.clear();
   getMe.mockReset();
+  getMyAccountantProfile.mockReset();
   listMyBookings.mockReset();
   listMyInquiries.mockReset();
   listMyBookings.mockResolvedValue([]);
+  getMyAccountantProfile.mockResolvedValue({
+    user_id: 22,
+    email: "pro@test.com",
+    first_name: "Pat",
+    last_name: "Pro",
+    bio: "Helps with taxes",
+    credentials: "CPA",
+    years_experience: 5,
+    firm_name: "Pro Tax",
+    location: "Austin, TX",
+    services: [],
+    publication_status: "draft",
+    is_publish_ready: true,
+    is_public: false,
+    profile_complete: true,
+    publish_readiness_errors: {},
+  });
   getMe.mockResolvedValue({
     id: 22,
     email: "pro@test.com",
@@ -61,6 +88,18 @@ test("My profile routes to the accountant profile editor", async () => {
     "href",
     "/dashboard/profile"
   );
+});
+
+test("dashboard includes profile visibility controls", async () => {
+  localStorage.setItem(ACCESS_TOKEN_KEY, "token");
+  localStorage.setItem(USER_ID_KEY, "22");
+  listMyInquiries.mockResolvedValue([]);
+  renderDashboard();
+
+  expect(await screen.findByText("Profile visibility")).toBeInTheDocument();
+  expect(
+    await screen.findByText("Your profile is ready to publish.")
+  ).toBeInTheDocument();
 });
 
 test("empty inquiry list is not treated as an error", async () => {
