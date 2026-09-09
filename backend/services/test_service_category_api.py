@@ -319,7 +319,8 @@ class OnboardingCategoryApiTest(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("category_id", resp.data)
-        self.assertTrue(AccountantProfile.objects.filter(user=self.user).exists())
+        # Invalid primary-service payload fails before writes.
+        self.assertFalse(AccountantProfile.objects.filter(user=self.user).exists())
         self.assertEqual(Service.objects.filter(accountant=self.user).count(), 0)
 
     def test_onboarding_invalid_category_does_not_create_service(self):
@@ -335,6 +336,7 @@ class OnboardingCategoryApiTest(TestCase):
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("category_id", resp.data)
+        self.assertFalse(AccountantProfile.objects.filter(user=self.user).exists())
         self.assertEqual(Service.objects.filter(accountant=self.user).count(), 0)
 
 

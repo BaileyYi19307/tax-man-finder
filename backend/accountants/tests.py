@@ -18,6 +18,8 @@ class ProfileStatusTest(TestCase):
             email="acct@test.com",
             password="password123",
             is_accountant=True,
+            first_name="Acct",
+            last_name="User",
         )
 
         cls.profile = AccountantProfile.objects.create(
@@ -58,6 +60,8 @@ class ProfileStatusTest(TestCase):
         self.profile.bio="hi"
         self.profile.years_experience = 3
         self.profile.location = "Boston, MA"
+        self.profile.languages = ["English"]
+        self.profile.offers_remote = True
         self.profile.save()
 
         # Service.accountant is a User, not AccountantProfile
@@ -95,6 +99,8 @@ class PublicAccountantProfileTest(TestCase):
             years_experience=5,
             firm_name="Public Tax",
             location="Remote",
+            languages=["English"],
+            offers_remote=True,
             publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
         )
         cls.service = Service.objects.create(
@@ -139,6 +145,8 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
             years_experience=5,
             firm_name="Listed Tax",
             location="Boston, MA",
+            languages=["English"],
+            offers_in_person=True,
             publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
         )
         Service.objects.create(
@@ -267,15 +275,17 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
         self.assertEqual(empty.accountant_profile.bio, "Now complete.")
         self.assertEqual(empty.accountant_profile.credentials, "CPA")
 
-    def test_create_profile_requires_bio_and_credentials(self):
+    def test_create_profile_allows_incomplete_draft(self):
         self.client.force_authenticate(user=self.client_user)
         resp = self.client.post(
             reverse("create_accountant"),
-            {"bio": "", "credentials": "CPA"},
+            {"bio": "", "credentials": ""},
             format="json",
         )
-        self.assertEqual(resp.status_code, 400)
-        self.assertFalse(AccountantProfile.objects.filter(user=self.client_user).exists())
+        self.assertEqual(resp.status_code, 201)
+        self.assertTrue(AccountantProfile.objects.filter(user=self.client_user).exists())
+        self.assertFalse(resp.data["is_publish_ready"])
+        self.assertEqual(resp.data["publication_status"], "draft")
 
     def test_own_profile_requires_auth(self):
         resp = self.client.get(reverse("my-accountant-profile"))
@@ -298,6 +308,8 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
                 "bio": "I prepare individual returns.",
                 "credentials": "EA",
                 "years_experience": 4,
+                "languages": ["English"],
+                "offers_remote": True,
                 "service_name": "Individual tax returns",
                 "service_description": "Form 1040 preparation",
                 "category_id": self.individual_category.id,
@@ -388,6 +400,8 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
                     "years_experience": 6,
                     "firm_name": "Casey CPA",
                     "location": "Boston, MA",
+                    "languages": ["English"],
+                    "offers_in_person": True,
                     "service_name": "Tax planning",
                     "category_id": self.tax_planning_category.id,
                 },
@@ -439,6 +453,8 @@ class MapDiscoveryDirectoryTest(TestCase):
             latitude=39.9500,
             longitude=-75.1600,
             service_scope=AccountantProfile.ServiceScope.LOCAL,
+            languages=["English"],
+            offers_in_person=True,
             publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
         )
         Service.objects.create(
@@ -466,6 +482,8 @@ class MapDiscoveryDirectoryTest(TestCase):
             latitude=34.0522,
             longitude=-118.2437,
             service_scope=AccountantProfile.ServiceScope.NATIONWIDE,
+            languages=["English"],
+            offers_remote=True,
             publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
         )
         Service.objects.create(
@@ -493,6 +511,8 @@ class MapDiscoveryDirectoryTest(TestCase):
             latitude=None,
             longitude=None,
             service_scope=AccountantProfile.ServiceScope.REMOTE,
+            languages=["English"],
+            offers_remote=True,
             publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
         )
         Service.objects.create(
@@ -584,6 +604,8 @@ class MapDiscoveryDirectoryTest(TestCase):
             email="edge@test.com",
             password="password123",
             is_verified=True,
+            first_name="Edge",
+            last_name="Case",
         )
         AccountantProfile.objects.create(
             user=edge_user,
@@ -592,6 +614,8 @@ class MapDiscoveryDirectoryTest(TestCase):
             location="Philadelphia, PA",
             latitude=point_lat,
             longitude=point_lng,
+            languages=["English"],
+            offers_in_person=True,
             publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
         )
         Service.objects.create(

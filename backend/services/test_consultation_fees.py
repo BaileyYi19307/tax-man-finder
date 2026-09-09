@@ -19,12 +19,16 @@ class ConsultationFeeServiceTests(TestCase):
             password="testpassword",
             is_accountant=True,
             is_verified=True,
+            first_name="Fee",
+            last_name="Acct",
         )
         AccountantProfile.objects.create(
             user=cls.accountant,
             bio="Fee accountant",
             credentials="CPA",
             location="Boston, MA",
+            languages=["English"],
+            offers_remote=True,
             publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
         )
         cls.category_id = ServiceCategory.objects.get(slug="tax-planning").id

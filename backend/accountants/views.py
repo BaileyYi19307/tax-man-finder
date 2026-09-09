@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from django.db import transaction
 from .serializers import AccountantProfileSerializer, AccountantProfileStatusSerializer
 from .models import AccountantProfile
 from .geo import (
@@ -124,27 +125,67 @@ def _parse_service_scope(raw):
     return value
 
 
-_PROFESSIONAL_DETAIL_FIELDS = (
+_OPTIONAL_TEXT_FIELDS = (
+    "bio",
+    "credentials",
+    "firm_name",
+    "location",
     "headline",
-    "languages",
-    "offers_remote",
-    "offers_in_person",
-    "industries",
-    "website",
     "license_information",
 )
 
+_MAX_NAME_LENGTH = 150
 
-def _merge_professional_detail_fields(payload, request_data):
-    """Include professional-detail keys present on the request payload."""
-    for field in _PROFESSIONAL_DETAIL_FIELDS:
+
+def _parse_provided_name(request_data, field_name: str):
+    """
+    Return a cleaned name when the field is present; None when omitted.
+
+    Blank or whitespace-only values are rejected.
+    """
+    if field_name not in request_data:
+        return None
+    value = str(request_data.get(field_name) or "").strip()
+    if not value:
+        raise ValueError(f"{field_name} cannot be blank.")
+    if len(value) > _MAX_NAME_LENGTH:
+        raise ValueError(
+            f"{field_name} must be at most {_MAX_NAME_LENGTH} characters."
+        )
+    return value
+
+
+def _build_profile_payload(request_data):
+    """
+    Build serializer payload from request keys that are present.
+
+    Omitted fields are left unchanged on update / defaulted on create.
+    """
+    payload = {}
+    for field in _OPTIONAL_TEXT_FIELDS:
+        if field in request_data:
+            payload[field] = str(request_data.get(field) or "").strip()
+
+    if "website" in request_data:
+        payload["website"] = str(request_data.get("website") or "").strip()
+
+    if "years_experience" in request_data:
+        payload["years_experience"] = request_data.get("years_experience")
+
+    if "service_scope" in request_data:
+        payload["service_scope"] = _parse_service_scope(
+            request_data.get("service_scope")
+        )
+
+    for field in ("languages", "industries", "offers_remote", "offers_in_person"):
         if field in request_data:
             payload[field] = request_data.get(field)
+
     return payload
 
 
 class CreateAccountantProfile(APIView):
-    """Authenticated users create or complete their own accountant profile."""
+    """Authenticated users create or update their own accountant profile (draft-safe)."""
 
     permission_classes = [IsAuthenticated]
 
@@ -158,81 +199,91 @@ class CreateAccountantProfile(APIView):
         return Response(_owner_profile_payload(profile), status=status.HTTP_200_OK)
 
     def post(self, request):
-        bio = str(request.data.get("bio") or "").strip()
-        credentials = str(request.data.get("credentials") or "").strip()
-        if not bio or not credentials:
+        try:
+            first_name = _parse_provided_name(request.data, "first_name")
+            last_name = _parse_provided_name(request.data, "last_name")
+        except ValueError as exc:
+            message = str(exc)
+            field = (
+                "first_name" if message.startswith("first_name") else "last_name"
+            )
             return Response(
-                {
-                    "detail": "Bio and credentials are required to set up an accountant profile."
-                },
+                {field: [message]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        location = str(request.data.get("location") or "").strip()
         try:
-            service_scope = _parse_service_scope(request.data.get("service_scope"))
+            payload = _build_profile_payload(request.data)
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        payload = {
-            "bio": bio,
-            "credentials": credentials,
-            "firm_name": str(request.data.get("firm_name") or "").strip(),
-            "location": location,
-            "service_scope": service_scope,
-        }
-        if "years_experience" in request.data:
-            payload["years_experience"] = request.data.get("years_experience")
-        _merge_professional_detail_fields(payload, request.data)
+        service_name = str(request.data.get("service_name") or "").strip()
+        service_description = str(
+            request.data.get("service_description") or ""
+        ).strip()
+        create_primary_service = False
+        category = None
 
         profile = AccountantProfile.objects.filter(user=request.user).first()
         created = profile is None
+
+        # Validate optional primary-service payload before any writes.
+        if service_name:
+            create_primary_service = profile is None or not profile.has_services
+            if create_primary_service:
+                try:
+                    category = resolve_assignable_category(
+                        request.data.get("category_id")
+                    )
+                except DRFValidationError as exc:
+                    detail = exc.detail
+                    if isinstance(detail, dict):
+                        return Response(detail, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        {"category_id": detail},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
         if profile is None:
             serializer = AccountantProfileSerializer(data=payload)
-            serializer.is_valid(raise_exception=True)
-            profile = serializer.save(user=request.user)
         else:
-            serializer = AccountantProfileSerializer(profile, data=payload, partial=True)
-            serializer.is_valid(raise_exception=True)
-            profile = serializer.save()
-
-        _apply_location_coordinates(profile, location)
-        profile.save(update_fields=["latitude", "longitude", "updated_at"])
-
-        first_name = str(request.data.get("first_name") or "").strip()
-        last_name = str(request.data.get("last_name") or "").strip()
-        if first_name or last_name:
-            if first_name:
-                request.user.first_name = first_name
-            if last_name:
-                request.user.last_name = last_name
-            request.user.save(update_fields=["first_name", "last_name", "updated_at"])
-
-        service_name = str(request.data.get("service_name") or "").strip()
-        service_description = str(request.data.get("service_description") or "").strip()
-        if service_name and not profile.has_services:
-            # Validate category before creating a Service so a failed category
-            # never leaves an orphan offering. Profile upsert above is preserved
-            # (same as prior onboarding: profile can exist before first service).
-            try:
-                category = resolve_assignable_category(
-                    request.data.get("category_id")
-                )
-            except DRFValidationError as exc:
-                detail = exc.detail
-                if isinstance(detail, dict):
-                    return Response(detail, status=status.HTTP_400_BAD_REQUEST)
-                return Response(
-                    {"category_id": detail},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            Service.objects.create(
-                accountant=request.user,
-                name=service_name,
-                description=service_description or service_name,
-                pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
-                category=category,
+            serializer = AccountantProfileSerializer(
+                profile, data=payload, partial=True
             )
+        serializer.is_valid(raise_exception=True)
+
+        with transaction.atomic():
+            if created:
+                profile = serializer.save(user=request.user)
+            else:
+                profile = serializer.save()
+
+            if "location" in request.data:
+                _apply_location_coordinates(
+                    profile, str(request.data.get("location") or "").strip()
+                )
+                profile.save(update_fields=["latitude", "longitude", "updated_at"])
+
+            user = request.user
+            name_updates = []
+            if first_name is not None:
+                user.first_name = first_name
+                name_updates.append("first_name")
+            if last_name is not None:
+                user.last_name = last_name
+                name_updates.append("last_name")
+            if name_updates:
+                name_updates.append("updated_at")
+                user.save(update_fields=name_updates)
+
+            if create_primary_service and category is not None:
+                Service.objects.create(
+                    accountant=request.user,
+                    name=service_name,
+                    description=service_description or service_name,
+                    pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
+                    category=category,
+                )
 
         profile.refresh_from_db()
         profile.user.refresh_from_db()

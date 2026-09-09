@@ -44,6 +44,9 @@ def _make_ready_profile(
         location=location,
         years_experience=4,
         firm_name="Ready Tax",
+        languages=["English"],
+        offers_remote=True,
+        offers_in_person=False,
         publication_status=(
             AccountantProfile.PublicationStatus.PUBLISHED
             if publish
@@ -86,6 +89,52 @@ class PublishReadinessModelTest(TestCase):
 
     def test_ready_with_valid_active_categorized_service(self):
         _, profile, _ = _make_ready_profile(email="ready-ok@test.com")
+        self.assertTrue(profile.is_publish_ready)
+        self.assertEqual(profile.publish_readiness_errors(), {})
+
+    def test_missing_first_name_is_not_ready(self):
+        user, profile, _ = _make_ready_profile(email="ready-fn@test.com")
+        user.first_name = ""
+        user.save(update_fields=["first_name"])
+        profile.refresh_from_db()
+        self.assertFalse(profile.is_publish_ready)
+        self.assertIn("first_name", profile.publish_readiness_errors())
+
+    def test_missing_last_name_is_not_ready(self):
+        user, profile, _ = _make_ready_profile(email="ready-ln@test.com")
+        user.last_name = "  "
+        user.save(update_fields=["last_name"])
+        profile.refresh_from_db()
+        self.assertFalse(profile.is_publish_ready)
+        self.assertIn("last_name", profile.publish_readiness_errors())
+
+    def test_missing_languages_is_not_ready(self):
+        _, profile, _ = _make_ready_profile(email="ready-lang@test.com")
+        profile.languages = []
+        profile.save(update_fields=["languages"])
+        self.assertFalse(profile.is_publish_ready)
+        self.assertIn("languages", profile.publish_readiness_errors())
+
+    def test_missing_availability_is_not_ready(self):
+        _, profile, _ = _make_ready_profile(email="ready-avail@test.com")
+        profile.offers_remote = False
+        profile.offers_in_person = False
+        profile.save(update_fields=["offers_remote", "offers_in_person"])
+        self.assertFalse(profile.is_publish_ready)
+        self.assertIn("availability", profile.publish_readiness_errors())
+        # Legacy service_scope alone does not satisfy readiness.
+        profile.service_scope = AccountantProfile.ServiceScope.REMOTE
+        profile.save(update_fields=["service_scope"])
+        self.assertFalse(profile.is_publish_ready)
+
+    def test_optional_fields_do_not_affect_readiness(self):
+        _, profile, _ = _make_ready_profile(email="ready-optional@test.com")
+        profile.headline = ""
+        profile.industries = []
+        profile.website = ""
+        profile.license_information = ""
+        profile.years_experience = 0
+        profile.save()
         self.assertTrue(profile.is_publish_ready)
         self.assertEqual(profile.publish_readiness_errors(), {})
 
