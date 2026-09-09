@@ -18,6 +18,10 @@ from services.category_assignment import (
     resolve_public_category_slug,
 )
 from services.models import Service
+from services.title_uniqueness import (
+    DUPLICATE_SERVICE_TITLE_MESSAGE,
+    find_conflicting_service,
+)
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from django.db.models import Exists, OuterRef
@@ -243,6 +247,14 @@ class CreateAccountantProfile(APIView):
                         {"category_id": detail},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+                if find_conflicting_service(
+                    accountant=request.user,
+                    name=service_name,
+                ):
+                    return Response(
+                        {"service_name": [DUPLICATE_SERVICE_TITLE_MESSAGE]},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
         if profile is None:
             serializer = AccountantProfileSerializer(data=payload)
@@ -279,7 +291,7 @@ class CreateAccountantProfile(APIView):
             if create_primary_service and category is not None:
                 Service.objects.create(
                     accountant=request.user,
-                    name=service_name,
+                    name=service_name.strip(),
                     description=service_description or service_name,
                     pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
                     category=category,

@@ -288,6 +288,37 @@ test("backend category_id errors are shown on the category field", async () => {
   expect(await screen.findByText("Category is not active.")).toBeInTheDocument();
 });
 
+test("backend name uniqueness errors are shown on the name field", async () => {
+  localStorage.setItem("access_token", "token");
+  getMyServices.mockResolvedValue([]);
+  const err = new Error(
+    "You already have a service with this title. Edit or reactivate the existing service instead."
+  );
+  err.fields = {
+    name: "You already have a service with this title. Edit or reactivate the existing service instead.",
+  };
+  createMyService.mockRejectedValue(err);
+
+  render(
+    <MemoryRouter>
+      <MyServices />
+    </MemoryRouter>
+  );
+
+  userEvent.click(await screen.findByRole("button", { name: "Add service" }));
+  const categorySelect = await screen.findByLabelText("Service category");
+  await waitFor(() => expect(categorySelect).toBeEnabled());
+  userEvent.type(screen.getByLabelText("Name"), "Freelancer Tax Filing");
+  userEvent.type(screen.getByLabelText("Description"), "Details");
+  userEvent.selectOptions(categorySelect, "3");
+  userEvent.click(screen.getByRole("button", { name: "Create service" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    /You already have a service with this title/i
+  );
+  expect(screen.getByLabelText("Name")).toHaveAttribute("aria-invalid", "true");
+});
+
 test("accountant can remove a service from their public profile", async () => {
   localStorage.setItem("access_token", "token");
   getMyServices.mockResolvedValue([categorizedService()]);

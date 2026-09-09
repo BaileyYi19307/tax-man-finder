@@ -519,29 +519,33 @@ export default function ServiceManagementPanel({
               style={{ ...card, display: "grid", gap: 10, marginBottom: 0 }}
             >
               <div style={{ fontWeight: 700, color: "#111827" }}>New service</div>
-              <label style={{ fontSize: 13, color: "#111827" }}>
-                Name
-                <input
-                  value={createName}
-                  onChange={(e) => setCreateName(e.target.value)}
-                  required
-                  aria-invalid={Boolean(createFieldErrors.name)}
-                  style={{ ...field, marginTop: 6 }}
-                />
+              <div>
+                <label style={{ fontSize: 13, color: "#111827", display: "block" }}>
+                  Name
+                  <input
+                    value={createName}
+                    onChange={(e) => setCreateName(e.target.value)}
+                    required
+                    aria-invalid={Boolean(createFieldErrors.name)}
+                    style={{ ...field, marginTop: 6 }}
+                  />
+                </label>
                 {fieldError(createFieldErrors.name)}
-              </label>
-              <label style={{ fontSize: 13, color: "#111827" }}>
-                Description
-                <textarea
-                  value={createDescription}
-                  onChange={(e) => setCreateDescription(e.target.value)}
-                  required
-                  rows={3}
-                  aria-invalid={Boolean(createFieldErrors.description)}
-                  style={{ ...field, marginTop: 6, resize: "vertical" }}
-                />
+              </div>
+              <div>
+                <label style={{ fontSize: 13, color: "#111827", display: "block" }}>
+                  Description
+                  <textarea
+                    value={createDescription}
+                    onChange={(e) => setCreateDescription(e.target.value)}
+                    required
+                    rows={3}
+                    aria-invalid={Boolean(createFieldErrors.description)}
+                    style={{ ...field, marginTop: 6, resize: "vertical" }}
+                  />
+                </label>
                 {fieldError(createFieldErrors.description)}
-              </label>
+              </div>
               <ServiceCategorySelect
                 selectId="create-service-category"
                 categories={categories}
@@ -720,27 +724,33 @@ export default function ServiceManagementPanel({
                   }}
                   style={{ display: "grid", gap: 10 }}
                 >
-                  <label style={{ fontSize: 13, color: "#111827" }}>
-                    Name
-                    <input
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                      style={{ ...field, marginTop: 6 }}
-                    />
+                  <div>
+                    <label style={{ fontSize: 13, color: "#111827", display: "block" }}>
+                      Name
+                      <input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        required
+                        aria-invalid={Boolean(editFieldErrors.name)}
+                        style={{ ...field, marginTop: 6 }}
+                      />
+                    </label>
                     {fieldError(editFieldErrors.name)}
-                  </label>
-                  <label style={{ fontSize: 13, color: "#111827" }}>
-                    Description
-                    <textarea
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      required
-                      rows={3}
-                      style={{ ...field, marginTop: 6, resize: "vertical" }}
-                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 13, color: "#111827", display: "block" }}>
+                      Description
+                      <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        required
+                        rows={3}
+                        aria-invalid={Boolean(editFieldErrors.description)}
+                        style={{ ...field, marginTop: 6, resize: "vertical" }}
+                      />
+                    </label>
                     {fieldError(editFieldErrors.description)}
-                  </label>
+                  </div>
                   <ServiceCategorySelect
                     selectId={`edit-service-category-${s.id}`}
                     categories={categories}

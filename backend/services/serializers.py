@@ -4,6 +4,10 @@ from rest_framework import serializers
 
 from .category_assignment import category_is_assignable, resolve_assignable_category
 from .models import Service, ServiceCategory
+from .title_uniqueness import (
+    DUPLICATE_SERVICE_TITLE_MESSAGE,
+    find_conflicting_service,
+)
 
 
 class ServiceCategorySerializer(serializers.ModelSerializer):
@@ -24,6 +28,13 @@ class ServiceSerializer(serializers.ModelSerializer):
         required=False, allow_null=True, write_only=True
     )
 
+    def validate_name(self, value):
+        # Strip surrounding whitespace only; keep the accountant's capitalization.
+        cleaned = str(value or "").strip()
+        if not cleaned:
+            raise serializers.ValidationError("Name is required.")
+        return cleaned
+
     def validate_consultation_fee(self, value):
         if value is None:
             return value
@@ -38,6 +49,16 @@ class ServiceSerializer(serializers.ModelSerializer):
                 "Consultation fee cannot be negative."
             )
         return amount
+
+    def _accountant_for_title_check(self):
+        if self.instance is not None:
+            return self.instance.accountant
+        request = self.context.get("request")
+        if request is not None and getattr(request, "user", None) is not None:
+            user = request.user
+            if getattr(user, "is_authenticated", False):
+                return user
+        return None
 
     def validate(self, data):
         pricing_type = data.get("pricing_type")
@@ -93,6 +114,22 @@ class ServiceSerializer(serializers.ModelSerializer):
                         )
                     }
                 )
+
+        name = data.get("name", serializers.empty)
+        if name is serializers.empty and self.instance is not None:
+            name = self.instance.name
+        if name is not serializers.empty and name is not None:
+            accountant = self._accountant_for_title_check()
+            if accountant is not None:
+                conflict = find_conflicting_service(
+                    accountant=accountant,
+                    name=name,
+                    exclude_pk=self.instance.pk if self.instance else None,
+                )
+                if conflict is not None:
+                    raise serializers.ValidationError(
+                        {"name": DUPLICATE_SERVICE_TITLE_MESSAGE}
+                    )
 
         return data
 
