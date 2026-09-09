@@ -1,14 +1,17 @@
 """
 Consultation payment domain logic.
 
-Demo completion and a future Stripe webhook should both call the same
+Stripe webhooks and the optional demo endpoint both call the same
 success/payable transitions. No card data is collected here.
 """
+
+from typing import Tuple
 
 from django.db import transaction
 from django.utils import timezone
 
 from .consultation import booking_requires_payment, normalize_consultation_fee
+from .lifecycle_messages import MSG_PAYMENT_COMPLETED, post_booking_lifecycle_message
 from .models import Booking, BookingStatus, Payment, PaymentStatus
 
 
@@ -34,37 +37,52 @@ def create_payment_for_booking(booking: Booking) -> Payment:
     )
 
 
-def mark_payment_succeeded(payment: Payment, *, processor_reference: str = "") -> Payment:
+def mark_payment_succeeded(
+    payment: Payment, *, processor_reference: str = ""
+) -> Tuple[Payment, bool]:
     """
     Record successful client payment and confirm the booking.
 
-    Today the demo endpoint calls this after Complete Demo Payment.
-    Later a Stripe webhook (or Checkout success handler) should call the same
-    function after authoritative payment success — without changing Booking
-    status anywhere else.
+    Returns (payment, transitioned). When transitioned is False the payment was
+    already completed (idempotent retry with the same processor reference).
     """
-    booking = payment.booking
-    if booking.status != BookingStatus.AWAITING_PAYMENT:
-        raise PaymentError(
-            "Only bookings awaiting payment can be paid.",
-            "invalid_booking_status",
-        )
-    if payment.status != PaymentStatus.PENDING:
-        raise PaymentError("Payment is not pending.", "invalid_payment_status")
-
-    amount = normalize_consultation_fee(booking.consultation_fee)
-    if payment.amount != amount:
-        raise PaymentError("Payment amount does not match booking fee.", "amount_mismatch")
-
-    now = timezone.now()
     with transaction.atomic():
-        payment.status = PaymentStatus.PAID
-        payment.paid_at = now
+        locked = (
+            Payment.objects.select_for_update()
+            .select_related("booking")
+            .get(pk=payment.pk)
+        )
+        booking = locked.booking
+
+        if locked.status == PaymentStatus.PAID:
+            if processor_reference and locked.processor_reference:
+                if locked.processor_reference != processor_reference:
+                    raise PaymentError(
+                        "Payment already completed with a different processor reference.",
+                        "processor_mismatch",
+                    )
+            return locked, False
+
+        if booking.status != BookingStatus.AWAITING_PAYMENT:
+            raise PaymentError(
+                "Only bookings awaiting payment can be paid.",
+                "invalid_booking_status",
+            )
+        if locked.status != PaymentStatus.PENDING:
+            raise PaymentError("Payment is not pending.", "invalid_payment_status")
+
+        amount = normalize_consultation_fee(booking.consultation_fee)
+        if locked.amount != amount:
+            raise PaymentError("Payment amount does not match booking fee.", "amount_mismatch")
+
+        now = timezone.now()
+        locked.status = PaymentStatus.PAID
+        locked.paid_at = now
         if processor_reference:
-            payment.processor_reference = processor_reference
-        elif not payment.processor_reference:
-            payment.processor_reference = f"demo_{payment.id}_{int(now.timestamp())}"
-        payment.save(
+            locked.processor_reference = processor_reference
+        elif not locked.processor_reference:
+            locked.processor_reference = f"demo_{locked.id}_{int(now.timestamp())}"
+        locked.save(
             update_fields=[
                 "status",
                 "paid_at",
@@ -74,11 +92,36 @@ def mark_payment_succeeded(payment: Payment, *, processor_reference: str = "") -
         )
         booking.status = BookingStatus.CONFIRMED
         booking.save(update_fields=["status", "updated_at"])
-    return payment
+        return locked, True
 
 
 # Back-compat alias used by earlier call sites / tests.
-complete_payment = mark_payment_succeeded
+def complete_payment(payment: Payment, *, processor_reference: str = "") -> Payment:
+    updated, _ = mark_payment_succeeded(payment, processor_reference=processor_reference)
+    return updated
+
+
+def complete_consultation_payment(
+    payment: Payment,
+    *,
+    actor,
+    processor_reference: str = "",
+) -> Tuple[Payment, bool]:
+    """
+    Domain payment success plus inquiry timeline notice.
+
+    Stripe webhooks and authenticated demo completion should both call this.
+    """
+    updated, transitioned = mark_payment_succeeded(
+        payment, processor_reference=processor_reference
+    )
+    if transitioned and actor is not None:
+        post_booking_lifecycle_message(
+            inquiry=updated.booking.inquiry,
+            actor=actor,
+            content=MSG_PAYMENT_COMPLETED,
+        )
+    return updated, transitioned
 
 
 def mark_payable(payment: Payment) -> Payment:

@@ -114,6 +114,7 @@ test("accountant can edit name and description of an owned service", async () =>
   });
   expect(await screen.findByText("Updated Returns")).toBeInTheDocument();
   expect(screen.getByText("Corrected description")).toBeInTheDocument();
+  expect(screen.getByText("Service saved.")).toBeInTheDocument();
 });
 
 test("empty state works", async () => {

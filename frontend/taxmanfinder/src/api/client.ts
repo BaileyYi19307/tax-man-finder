@@ -40,6 +40,49 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   return res;
 }
 
+/**
+ * Turn a failed DRF/JSON API response into a short Error message.
+ * Prefers `detail` (string or list); falls back to first field error; else raw text.
+ */
+export async function readApiError(
+  res: Response,
+  fallback = "Request failed"
+): Promise<Error> {
+  const text = await res.text();
+  if (!text) {
+    return new Error(`${fallback} (${res.status})`);
+  }
+  try {
+    const data = JSON.parse(text) as Record<string, unknown>;
+    const detail = data.detail;
+    if (typeof detail === "string" && detail.trim()) {
+      return new Error(detail);
+    }
+    if (Array.isArray(detail) && detail.length > 0) {
+      const parts = detail.map((item) =>
+        typeof item === "string"
+          ? item
+          : item && typeof item === "object" && "string" in item
+            ? String((item as { string: unknown }).string)
+            : JSON.stringify(item)
+      );
+      return new Error(parts.filter(Boolean).join(" ") || fallback);
+    }
+    for (const [key, value] of Object.entries(data)) {
+      if (key === "detail") continue;
+      if (typeof value === "string" && value.trim()) {
+        return new Error(value);
+      }
+      if (Array.isArray(value) && value.length > 0 && typeof value[0] === "string") {
+        return new Error(value[0]);
+      }
+    }
+  } catch {
+    // Non-JSON body — use raw text below.
+  }
+  return new Error(text);
+}
+
 export type CatalogService = {
   id: number;
   name: string;
@@ -60,9 +103,15 @@ export type BookingPayment = {
   status_label: string;
   paid_at: string | null;
   payable_at: string | null;
+  checkout_session_id: string;
   processor_reference: string;
   created_at: string;
   updated_at: string;
+};
+
+export type PaymentOptions = {
+  stripe_checkout: boolean;
+  demo_payment: boolean;
 };
 
 export type Booking = {
@@ -140,32 +189,47 @@ export async function requestConsultation(body: {
 
 export async function listMyBookings() {
   const res = await apiFetch("/bookings/");
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw await readApiError(res, "Could not load bookings");
   return (await res.json()) as Booking[];
 }
 
 export async function listInquiryBookings(inquiryId: number | string) {
   const res = await apiFetch(`/bookings/by-inquiry/${inquiryId}/`);
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw await readApiError(res, "Could not load bookings");
   return (await res.json()) as Booking[];
 }
 
 export async function acceptBooking(bookingId: number) {
   const res = await apiFetch(`/bookings/${bookingId}/accept/`, { method: "POST" });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw await readApiError(res, "Could not accept consultation");
   return (await res.json()) as Booking;
 }
 
 export async function declineBooking(bookingId: number) {
   const res = await apiFetch(`/bookings/${bookingId}/decline/`, { method: "POST" });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw await readApiError(res, "Could not decline consultation");
   return (await res.json()) as Booking;
 }
 
 export async function cancelBooking(bookingId: number) {
   const res = await apiFetch(`/bookings/${bookingId}/cancel/`, { method: "POST" });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw await readApiError(res, "Could not cancel consultation");
   return (await res.json()) as Booking;
+}
+
+export async function getPaymentOptions() {
+  const res = await apiFetch("/bookings/payment-options/");
+  if (!res.ok) throw await readApiError(res, "Could not load payment options");
+  return (await res.json()) as PaymentOptions;
+}
+
+export async function createBookingCheckout(bookingId: number) {
+  const res = await apiFetch(`/bookings/${bookingId}/checkout/`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) throw await readApiError(res, "Could not start Stripe Checkout");
+  return (await res.json()) as { checkout_url: string };
 }
 
 export async function completeDemoPayment(bookingId: number) {
@@ -173,7 +237,7 @@ export async function completeDemoPayment(bookingId: number) {
     method: "POST",
     body: JSON.stringify({}),
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw await readApiError(res, "Could not complete demo payment");
   return (await res.json()) as Booking;
 }
 

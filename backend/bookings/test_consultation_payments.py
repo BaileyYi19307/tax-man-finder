@@ -1,7 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -23,6 +23,10 @@ from .models import Booking, BookingStatus, Payment, PaymentStatus
 from .payment_service import mark_payable
 
 
+@override_settings(
+    # Independent of developer .env (e.g. local Stripe keys that disable demo by default).
+    ALLOW_DEMO_PAYMENT=True,
+)
 class ConsultationPaymentTests(TestCase):
     def setUp(self):
         self.api = APIClient()

@@ -5,12 +5,38 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 
-SECRET_KEY = os.getenv("SECRET_KEY","django-insecure-r_u^8tm1r7op_*04o!dt&qoz&tiq(^^!-zcr6o88si-&e7y2f0")
+
+# Documented local-only fallback when SECRET_KEY is unset and ENV != production.
+# Copy backend/.env.example → backend/.env for normal local setup.
+_LOCAL_DEV_SECRET_KEY = "django-insecure-change-me-for-local-dev"
+
+
+def resolve_secret_key(environ=None):
+    """
+    Resolve Django SECRET_KEY from the environment.
+
+    Production (ENV=production) requires an explicit non-empty SECRET_KEY.
+    Local/dev may omit it and receive a clearly insecure placeholder.
+    """
+    env = os.environ if environ is None else environ
+    key = (env.get("SECRET_KEY") or "").strip()
+    if key:
+        return key
+    if env.get("ENV") == "production":
+        raise ImproperlyConfigured(
+            "SECRET_KEY must be set to a non-empty value when ENV=production."
+        )
+    return _LOCAL_DEV_SECRET_KEY
+
+
+SECRET_KEY = resolve_secret_key()
 DEBUG = os.getenv("DEBUG","False") == "True"
 
 def env_list(name,default=""):
@@ -36,6 +62,15 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 # Local/dev defaults to console email so signup works without SMTP.
 # Set EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend for real mail.
 _IS_PRODUCTION = os.getenv("ENV") == "production"
+# Stripe Checkout (consultation fees). Webhook URL: {BACKEND_URL}/bookings/stripe/webhook/
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+# Demo payment without Stripe: defaults on in local dev when Stripe is not configured.
+_default_demo_payment = str(
+    DEBUG and not _IS_PRODUCTION and not STRIPE_SECRET_KEY
+).lower()
+ALLOW_DEMO_PAYMENT = os.getenv("ALLOW_DEMO_PAYMENT", _default_demo_payment).lower() == "true"
+
 EMAIL_BACKEND = os.getenv(
     "EMAIL_BACKEND",
     "django.core.mail.backends.smtp.EmailBackend"
@@ -128,6 +163,18 @@ from datetime import timedelta
 
 ROOT_URLCONF = "config.urls"
 
+
+# Test-only: ChannelsLiveServerTestCase runs Daphne in a child process that does
+# not inherit Django override_settings. Opt-in ChatTests
+# (TMF_RUN_CHANNELS_LIVE_TESTS=1) sets TMF_CHANNELS_LIVE_TEST=1 so that child
+# loads tutorial URLConf/ASGI. Never set TMF_CHANNELS_LIVE_TEST in production.
+if os.getenv("TMF_CHANNELS_LIVE_TEST") == "1":
+    ROOT_URLCONF = "chats.tests_live_urls"
+    ASGI_APPLICATION = "chats.tests_live_asgi.application"
+    CHANNEL_LAYERS = {
+        "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
+    }
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -162,11 +209,15 @@ if _IS_PRODUCTION:
         }
     }
 else:
-    # Local default: SQLite. Tests use a separate in-memory-style temp DB name.
+    # Local default: SQLite. Use a file-backed test DB so ChannelsLiveServerTestCase
+    # can run (it cannot use Django's default in-memory SQLite test database).
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": BASE_DIR / "db.sqlite3",
+            "TEST": {
+                "NAME": BASE_DIR / "test_db.sqlite3",
+            },
         }
     }
 

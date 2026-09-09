@@ -54,6 +54,7 @@ export default function ConversationView() {
   const [attachments, setAttachments] = useState<AttachmentPayload[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [inquiryStatus, setInquiryStatus] = useState<string | null>(null);
   const [inquiryClientId, setInquiryClientId] = useState<number | null>(null);
   const [inquiryAccountantId, setInquiryAccountantId] = useState<number | null>(null);
@@ -262,10 +263,13 @@ export default function ConversationView() {
   async function onAccept(id: number) {
     try {
       setActionError(null);
+      setActionSuccess(null);
       await acceptBooking(id);
       await refreshBookings();
       await reloadMessages();
+      setActionSuccess("Consultation accepted.");
     } catch {
+      setActionSuccess(null);
       setActionError("Could not accept booking.");
     }
   }
@@ -273,10 +277,13 @@ export default function ConversationView() {
   async function onDecline(id: number) {
     try {
       setActionError(null);
+      setActionSuccess(null);
       await declineBooking(id);
       await refreshBookings();
       await reloadMessages();
+      setActionSuccess("Consultation declined.");
     } catch {
+      setActionSuccess(null);
       setActionError("Could not decline booking.");
     }
   }
@@ -284,10 +291,13 @@ export default function ConversationView() {
   async function onCancel(id: number) {
     try {
       setActionError(null);
+      setActionSuccess(null);
       await cancelBooking(id);
       await refreshBookings();
       await reloadMessages();
+      setActionSuccess("Consultation cancelled.");
     } catch {
+      setActionSuccess(null);
       setActionError("Could not cancel booking.");
     }
   }
@@ -361,6 +371,7 @@ export default function ConversationView() {
       });
       closeBookingForm();
       setActionError(null);
+      setActionSuccess(null);
       await refreshBookings();
       await reloadMessages();
     } catch (e) {
@@ -671,6 +682,22 @@ export default function ConversationView() {
         inquiryId={inquiryId}
         onDownloadAttachment={onDownloadAttachment}
       />
+      {actionSuccess && (
+        <div
+          role="status"
+          style={{
+            color: "#166534",
+            background: "#f0fdf4",
+            border: "1px solid #bbf7d0",
+            borderRadius: 8,
+            padding: "8px 12px",
+            margin: "8px 12px 0",
+            fontSize: 13,
+          }}
+        >
+          {actionSuccess}
+        </div>
+      )}
       {actionError && (
         <div style={{ color: "#b91c1c", fontSize: 13, padding: "8px 12px" }}>{actionError}</div>
       )}

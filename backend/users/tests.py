@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 from accountants.models import AccountantProfile
 from django.urls import reverse
@@ -274,4 +274,73 @@ class RolePermissionTest(TestCase):
         self.assertEqual(response.status_code, 401)
 
 
+class VerifyEmailTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.url = reverse("verify-email")
+        self.user = User.objects.create_user(
+            email="verify.me@email.com",
+            password="password123",
+            is_verified=False,
+        )
+
+    def test_missing_token_returns_detail(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["detail"], "Missing token.")
+
+    def test_invalid_token_returns_safe_detail(self):
+        response = self.client.get(self.url, {"token": "not-a-valid-token"})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.data["detail"],
+            "Invalid or expired verification link.",
+        )
+        self.assertNotIn("error:", response.data)
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.is_verified)
+
+    def test_valid_token_verifies_and_redirects(self):
+        from django.core import signing
+        from django.test import override_settings
+
+        token = signing.dumps(
+            {"user_id": self.user.id, "email": self.user.email},
+            salt="email-verify",
+        )
+        with override_settings(FRONTEND_URL="http://localhost:3000"):
+            response = self.client.get(self.url, {"token": token})
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/login?verified=true", response["Location"])
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.is_verified)
+
+
+class VerificationEmailLoggingTests(TestCase):
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    def test_send_verification_email_does_not_print_token(self):
+        from io import StringIO
+        from unittest.mock import patch
+
+        from django.core import mail
+
+        from users.utils import send_verification_email
+
+        user = User.objects.create_user(
+            email="nolog@email.com",
+            password="password123",
+            is_verified=False,
+        )
+        stdout = StringIO()
+        with patch("sys.stdout", stdout), patch("builtins.print") as mock_print:
+            send_verification_email(user)
+
+        printed = " ".join(
+            " ".join(str(arg) for arg in call.args) for call in mock_print.call_args_list
+        )
+        captured = stdout.getvalue() + printed
+        self.assertNotIn("verify-email", captured)
+        self.assertNotIn("token=", captured)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("verify-email?token=", mail.outbox[0].body)
 

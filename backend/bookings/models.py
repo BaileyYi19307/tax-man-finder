@@ -139,7 +139,9 @@ class Payment(models.Model):
     )
     paid_at = models.DateTimeField(null=True, blank=True)
     payable_at = models.DateTimeField(null=True, blank=True)
-    # Future Stripe PaymentIntent / charge id; demo uses a local reference.
+    # Stripe Checkout Session id while payment is pending (cs_...).
+    checkout_session_id = models.CharField(max_length=255, blank=True, default="")
+    # Stripe PaymentIntent / charge id after success; demo uses a local reference.
     processor_reference = models.CharField(max_length=255, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

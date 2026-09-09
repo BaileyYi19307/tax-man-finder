@@ -5,6 +5,15 @@ jest.mock("./api/client", () => ({
   getMe: jest.fn(),
 }));
 
+// App eagerly imports AccountantsDirectory → DirectoryMap → react-leaflet (ESM).
+// This smoke test does not exercise the map; stub the leaf dependency.
+jest.mock("./pages/accountants/DirectoryMap", () => ({
+  __esModule: true,
+  default: function MockDirectoryMap() {
+    return <div data-testid="directory-map" />;
+  },
+}));
+
 test("renders the home page with shared navigation", async () => {
   render(<App />);
 

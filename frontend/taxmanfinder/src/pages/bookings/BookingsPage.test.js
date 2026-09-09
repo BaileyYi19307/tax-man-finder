@@ -75,4 +75,27 @@ test("disables cancel while the request is in flight", async () => {
     expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
   });
   expect(screen.getByText("Cancelled")).toBeInTheDocument();
+  expect(screen.getByText("Consultation cancelled.")).toBeInTheDocument();
+});
+
+test("shows payment flash success from demo payment navigation", async () => {
+  listMyBookings.mockResolvedValue([]);
+  render(
+    <MemoryRouter
+      initialEntries={[
+        {
+          pathname: "/bookings",
+          state: {
+            flash: "Payment completed. Your consultation is confirmed.",
+          },
+        },
+      ]}
+    >
+      <BookingsPage />
+    </MemoryRouter>
+  );
+
+  expect(
+    await screen.findByText("Payment completed. Your consultation is confirmed.")
+  ).toBeInTheDocument();
 });

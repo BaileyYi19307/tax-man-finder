@@ -124,15 +124,17 @@ class VerifyEmail(APIView):
     permission_classes = [AllowAny]
     
     def get(self, request):
-        print("Currently in verify email!!")
         token = request.query_params.get("token")
         if not token: 
             return Response({"detail": "Missing token."}, status=status.HTTP_400_BAD_REQUEST)
         try:
             data = signing.loads(token, salt="email-verify", max_age=60 * 60 * 24)
             user = User.objects.get(id=data["user_id"], email=data["email"])
-        except Exception as e:
-            return Response({"error:",e},status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response(
+                {"detail": "Invalid or expired verification link."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
             
         user.is_verified = True
         user.save(update_fields=["is_verified"])

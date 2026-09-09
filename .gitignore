@@ -69,6 +69,22 @@ web_modules/
 .env
 .env.*
 !.env.example
+!.env*.example
+
+# Secrets, keys, and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+id_rsa
+id_rsa.pub
+id_dsa
+id_dsa.pub
+*.keystore
+credentials.json
+service-account*.json
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -142,40 +158,44 @@ vite.config.ts.timestamp-*
 
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
 
-# virtual environments
+# Virtual environments
 venv/
 venve/
-.env
-
-#Python 
-__pycache__/
-*.py[cod]
-
-#Virtual envs
-.env
 env/
 .venv/
-venv/
 
-#Django
-db.sqlite3
-media/
-backend/media/
-
-#OS
-.DS_Store
-
-# Python
-__pycache__/
-*.pyc
-
-# Django / local dev
+# Django / local databases and uploads
 db.sqlite3
 *.sqlite3
+*.sqlite
+media/
+backend/media/
+staticfiles/
+backend/staticfiles/
 
-config/__pycache__/*
+# OS / editor
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+!.vscode/extensions.json
 
 # Personal / local-only notes — never commit
 REPO_AUDIT.md
