@@ -46,7 +46,7 @@ export default function AccountantOnboarding() {
   const [categoryId, setCategoryId] = useState("");
   const [categoryError, setCategoryError] = useState<string | null>(null);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
-  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [hasExistingService, setHasExistingService] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -133,7 +133,7 @@ export default function AccountantOnboarding() {
 
   const creatingPrimaryService = !hasExistingService && Boolean(serviceName.trim());
   const categoryControlsBlocked =
-    creatingPrimaryService &&
+    !hasExistingService &&
     (categoriesLoading || Boolean(categoriesError) || categories.length === 0);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {

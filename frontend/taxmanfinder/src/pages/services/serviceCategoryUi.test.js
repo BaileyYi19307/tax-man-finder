@@ -1,4 +1,9 @@
-import { categorySelectValue, isSelectableCategory } from "./serviceCategoryUi";
+import {
+  categoryIdFromService,
+  categorySelectValue,
+  isSelectableCategory,
+  reconcileCategorySelectValue,
+} from "./serviceCategoryUi";
 
 const options = [
   { id: 1, name: "Individual tax returns", slug: "individual-tax-returns" },
@@ -17,6 +22,15 @@ test("selectable when category is in the active options list", () => {
   );
 });
 
+test("categoryIdFromService ignores whether options have loaded", () => {
+  expect(
+    categoryIdFromService({ id: 1, name: "Individual tax returns", slug: "individual-tax-returns" })
+  ).toBe("1");
+  expect(categoryIdFromService(null)).toBe("");
+  expect(reconcileCategorySelectValue("1", [])).toBe("");
+  expect(reconcileCategorySelectValue("1", options)).toBe("1");
+});
+
 test("legacy null or unavailable categories force an empty placeholder value", () => {
   expect(isSelectableCategory(null, options)).toBe(false);
   expect(categorySelectValue(null, options)).toBe("");
@@ -26,4 +40,5 @@ test("legacy null or unavailable categories force an empty placeholder value", (
       options
     )
   ).toBe("");
+  expect(reconcileCategorySelectValue("99", options)).toBe("");
 });

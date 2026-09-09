@@ -12,7 +12,10 @@ import {
 import { loginPath } from "../../auth/intent";
 import { formatServicePrice, type CatalogService } from "./serviceDisplay";
 import ServiceCategorySelect from "./ServiceCategorySelect";
-import { categorySelectValue } from "./serviceCategoryUi";
+import {
+  categoryIdFromService,
+  reconcileCategorySelectValue,
+} from "./serviceCategoryUi";
 
 const page = {
   minHeight: "100vh",
@@ -121,6 +124,16 @@ export default function MyServices() {
     void loadCategories();
   }, [token, loadCategories]);
 
+  // After a successful category load, drop ids that are no longer assignable.
+  // On load failure, keep editCategoryId so a retry can restore the selection.
+  useEffect(() => {
+    if (categoriesLoading || categoriesError) return;
+    if (editingId == null) return;
+    setEditCategoryId((current) =>
+      reconcileCategorySelectValue(current, categories)
+    );
+  }, [categories, categoriesLoading, categoriesError, editingId]);
+
   const categoryControlsBlocked =
     categoriesLoading || Boolean(categoriesError) || categories.length === 0;
 
@@ -134,7 +147,7 @@ export default function MyServices() {
     setConsultationPaid(paid);
     setConsultationFee(paid ? service.consultation_fee || "" : "");
     setCancellationPolicy(service.cancellation_policy || "");
-    setEditCategoryId(categorySelectValue(service.category, categories));
+    setEditCategoryId(categoryIdFromService(service.category));
     setEditCategoryError(null);
     setSaveError(null);
     setSaveSuccess(null);

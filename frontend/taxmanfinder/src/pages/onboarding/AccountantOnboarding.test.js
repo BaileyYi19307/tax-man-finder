@@ -158,3 +158,50 @@ test("onboarding with a valid service category sends category_id", async () => {
   });
   expect(await screen.findByText("Accountant dash")).toBeInTheDocument();
 });
+
+test("onboarding shows loading categories before the request resolves", async () => {
+  getMyAccountantProfile.mockResolvedValue(null);
+  listServiceCategories.mockImplementation(() => new Promise(() => {}));
+  renderOnboarding();
+
+  expect(await screen.findByLabelText("Primary service")).toBeInTheDocument();
+  expect(await screen.findByLabelText("Service category")).toBeDisabled();
+  expect(screen.getByText("Loading categories…")).toBeInTheDocument();
+  expect(
+    screen.queryByText(/No service categories are available right now/i)
+  ).not.toBeInTheDocument();
+});
+
+test("onboarding shows empty-state only after a successful empty response", async () => {
+  getMyAccountantProfile.mockResolvedValue(null);
+  listServiceCategories.mockResolvedValue([]);
+  renderOnboarding();
+
+  expect(
+    await screen.findByText(/No service categories are available right now/i)
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/Could not load service categories/i)).not.toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Save profile and continue" })
+  ).toBeDisabled();
+});
+
+test("onboarding shows failure/retry instead of empty-state on load error", async () => {
+  getMyAccountantProfile.mockResolvedValue(null);
+  listServiceCategories
+    .mockRejectedValueOnce(new Error("network"))
+    .mockResolvedValueOnce(categories);
+  renderOnboarding();
+
+  expect(
+    await screen.findByText(/Could not load service categories/i)
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByText(/No service categories are available right now/i)
+  ).not.toBeInTheDocument();
+
+  userEvent.click(screen.getByRole("button", { name: "Retry loading categories" }));
+  const categorySelect = await screen.findByLabelText("Service category");
+  await waitFor(() => expect(categorySelect).toBeEnabled());
+  expect(listServiceCategories).toHaveBeenCalledTimes(2);
+});

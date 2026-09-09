@@ -110,6 +110,11 @@ export default function ServiceCategorySelect({
         <option value="" disabled>
           {loading ? "Loading categories…" : "Select a category."}
         </option>
+        {loading &&
+          value &&
+          !categories.some((category) => String(category.id) === value) && (
+            <option value={value}>Loading categories…</option>
+          )}
         {categories.map((category) => (
           <option key={category.id} value={String(category.id)}>
             {category.name}

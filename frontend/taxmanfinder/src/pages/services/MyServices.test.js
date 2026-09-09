@@ -311,3 +311,101 @@ test("accountant can remove a service from their public profile", async () => {
   expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
   window.confirm.mockRestore();
 });
+
+test("edit before categories resolve keeps the existing category id", async () => {
+  localStorage.setItem("access_token", "token");
+  getMyServices.mockResolvedValue([categorizedService()]);
+  let resolveCategories;
+  listServiceCategories.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        resolveCategories = resolve;
+      })
+  );
+
+  render(
+    <MemoryRouter>
+      <MyServices />
+    </MemoryRouter>
+  );
+
+  expect(await screen.findByText("My Returns")).toBeInTheDocument();
+  userEvent.click(screen.getByRole("button", { name: "Edit" }));
+
+  const categorySelect = await screen.findByLabelText("Service category");
+  expect(categorySelect).toBeDisabled();
+  expect(categorySelect).toHaveValue("1");
+  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+
+  resolveCategories(categories);
+  await waitFor(() => expect(categorySelect).toBeEnabled());
+  expect(categorySelect).toHaveValue("1");
+  expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+});
+
+test("category load failure then retry while edit is open restores selection", async () => {
+  localStorage.setItem("access_token", "token");
+  getMyServices.mockResolvedValue([categorizedService()]);
+  listServiceCategories
+    .mockRejectedValueOnce(new Error("network"))
+    .mockResolvedValueOnce(categories);
+
+  render(
+    <MemoryRouter>
+      <MyServices />
+    </MemoryRouter>
+  );
+
+  expect(await screen.findByText("My Returns")).toBeInTheDocument();
+  userEvent.click(screen.getByRole("button", { name: "Edit" }));
+
+  expect(
+    await screen.findByText(/Could not load service categories/i)
+  ).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+
+  userEvent.click(screen.getByRole("button", { name: "Retry loading categories" }));
+  const categorySelect = await screen.findByLabelText("Service category");
+  await waitFor(() => expect(categorySelect).toBeEnabled());
+  expect(categorySelect).toHaveValue("1");
+});
+
+test("existing category absent from active response clears the select", async () => {
+  localStorage.setItem("access_token", "token");
+  getMyServices.mockResolvedValue([categorizedService()]);
+  listServiceCategories.mockResolvedValue([
+    { id: 3, name: "Bookkeeping", slug: "bookkeeping" },
+  ]);
+
+  render(
+    <MemoryRouter>
+      <MyServices />
+    </MemoryRouter>
+  );
+
+  expect(await screen.findByText("My Returns")).toBeInTheDocument();
+  userEvent.click(screen.getByRole("button", { name: "Edit" }));
+  const categorySelect = await screen.findByLabelText("Service category");
+  await waitFor(() => {
+    expect(categorySelect).toBeEnabled();
+    expect(categorySelect).toHaveValue("");
+  });
+  expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+});
+
+test("save stays disabled while categories are unavailable", async () => {
+  localStorage.setItem("access_token", "token");
+  getMyServices.mockResolvedValue([categorizedService()]);
+  listServiceCategories.mockImplementation(() => new Promise(() => {}));
+
+  render(
+    <MemoryRouter>
+      <MyServices />
+    </MemoryRouter>
+  );
+
+  expect(await screen.findByText("My Returns")).toBeInTheDocument();
+  userEvent.click(screen.getByRole("button", { name: "Edit" }));
+  expect(await screen.findByLabelText("Service category")).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+});
