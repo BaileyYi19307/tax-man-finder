@@ -75,7 +75,8 @@ class ServiceCategoryNullableFkTest(TestCase):
             is_verified=True,
         )
 
-    def test_service_category_is_optional(self):
+    def test_service_category_remains_nullable_at_orm_level(self):
+        """DB FK stays nullable for migration compatibility; API enforces separately."""
         service = Service.objects.create(
             name="Custom offering",
             description="Accountant-authored description",

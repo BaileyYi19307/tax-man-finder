@@ -9,5 +9,10 @@ router.register("", views.ServicesViewSet, basename="service")
 
 # the API URLs are now determined automatically by the router
 urlpatterns = [
+    path(
+        "categories/",
+        views.ServiceCategoryListView.as_view(),
+        name="service-category-list",
+    ),
     path("", include(router.urls)),
 ]

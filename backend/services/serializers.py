@@ -2,11 +2,21 @@ from decimal import Decimal, InvalidOperation
 
 from rest_framework import serializers
 
-from .models import Service
+from .category_assignment import category_is_assignable, resolve_assignable_category
+from .models import Service, ServiceCategory
+
+
+class ServiceCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ServiceCategory
+        fields = ("id", "name", "slug")
 
 
 class ServiceSerializer(serializers.ModelSerializer):
     """Validates and creates a service."""
+
+    category = ServiceCategorySerializer(read_only=True)
+    category_id = serializers.IntegerField(write_only=True, required=False)
 
     # Write-only: Free vs Paid consultation. Maps onto consultation_fee.
     # Paid requires a positive fee; Free stores 0.00.
@@ -61,13 +71,44 @@ class ServiceSerializer(serializers.ModelSerializer):
         elif is_paid is False:
             data["consultation_fee"] = Decimal("0.00")
 
+        category_id = data.pop("category_id", serializers.empty)
+        if category_id is not serializers.empty:
+            # resolve_assignable_category raises {"category_id": ...}
+            data["category"] = resolve_assignable_category(category_id)
+        elif self.instance is None:
+            raise serializers.ValidationError(
+                {"category_id": "A valid active category is required."}
+            )
+        elif not category_is_assignable(self.instance.category):
+            raise serializers.ValidationError(
+                {
+                    "category_id": (
+                        "A valid active category is required when the "
+                        "service has no category, Uncategorized, or an "
+                        "inactive category."
+                    )
+                }
+            )
+
         return data
 
     class Meta:
         model = Service
-        fields = "__all__"
+        fields = [
+            "id",
+            "name",
+            "description",
+            "accountant",
+            "category",
+            "category_id",
+            "pricing_type",
+            "indicative_price",
+            "consultation_fee",
+            "consultation_is_paid",
+            "cancellation_policy",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
         # Set from request.user in ServicesViewSet.perform_create — not from the client body
-        # category is additive foundation only; API writes come later.
-        read_only_fields = ["accountant", "category"]
-
-
+        read_only_fields = ["accountant", "category", "created_at", "updated_at"]
