@@ -12,10 +12,14 @@ from .geo import (
     within_radius,
 )
 from .geocoding import geocode_query
-from services.category_assignment import resolve_assignable_category
+from services.category_assignment import (
+    resolve_assignable_category,
+    resolve_public_category_slug,
+)
 from services.models import Service
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError as DRFValidationError
+from django.db.models import Exists, OuterRef
 
 
 def _float_or_none(value):
@@ -289,7 +293,7 @@ class CheckProfileStatus(APIView):
 
 
 class PublicAccountantDirectoryView(APIView):
-    """Public list of accountant profiles for discovery (optional fixed-radius filter)."""
+    """Public list of accountant profiles for discovery (optional filters)."""
 
     permission_classes = [AllowAny]
 
@@ -318,11 +322,35 @@ class PublicAccountantDirectoryView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+        category = None
+        raw_category = request.query_params.get("category")
+        if raw_category not in (None, ""):
+            try:
+                category = resolve_public_category_slug(raw_category)
+            except DRFValidationError as exc:
+                detail = exc.detail
+                if isinstance(detail, dict):
+                    return Response(detail, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"category": detail},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         profiles = (
             AccountantProfile.objects.publicly_visible()
             .select_related("user")
             .order_by("user_id")
         )
+        if category is not None:
+            matching_service = Service.objects.filter(
+                accountant_id=OuterRef("user_id"),
+                is_active=True,
+                category_id=category.id,
+            )
+            profiles = profiles.annotate(
+                _matches_category=Exists(matching_service)
+            ).filter(_matches_category=True)
+
         listed = []
         for profile in profiles:
             if use_geo:
