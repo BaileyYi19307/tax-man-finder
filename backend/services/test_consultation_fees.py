@@ -20,7 +20,13 @@ class ConsultationFeeServiceTests(TestCase):
             is_accountant=True,
             is_verified=True,
         )
-        AccountantProfile.objects.create(user=cls.accountant)
+        AccountantProfile.objects.create(
+            user=cls.accountant,
+            bio="Fee accountant",
+            credentials="CPA",
+            location="Boston, MA",
+            publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
+        )
         cls.category_id = ServiceCategory.objects.get(slug="tax-planning").id
 
     def setUp(self):

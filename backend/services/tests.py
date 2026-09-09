@@ -106,13 +106,25 @@ class ServiceMineAndOwnershipTest(TestCase):
             password="testpassword",
             is_verified=True,
         )
-        AccountantProfile.objects.create(user=cls.accountant_a)
+        AccountantProfile.objects.create(
+            user=cls.accountant_a,
+            bio="Accountant A",
+            credentials="CPA",
+            location="Boston, MA",
+            publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
+        )
         cls.accountant_b = User.objects.create_user(
             email="acct-b@example.com",
             password="testpassword",
             is_verified=True,
         )
-        AccountantProfile.objects.create(user=cls.accountant_b)
+        AccountantProfile.objects.create(
+            user=cls.accountant_b,
+            bio="Accountant B",
+            credentials="EA",
+            location="Boston, MA",
+            publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
+        )
         cls.client_user = User.objects.create_user(
             email="seeker@example.com",
             password="testpassword",

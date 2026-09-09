@@ -78,7 +78,7 @@ class Login(APIView):
                     "last_name": user.last_name,
                     "has_accountant_profile": has_profile,
                     "accountant_profile_complete": (
-                        has_profile and user.accountant_profile.is_complete
+                        has_profile and user.accountant_profile.is_publish_ready
                     ),
                 },
                 "tokens": {

@@ -91,4 +91,5 @@ class MeSerializer(serializers.ModelSerializer):
     def get_accountant_profile_complete(self, obj):
         if not obj.has_accountant_profile():
             return False
-        return obj.accountant_profile.is_complete
+        # Compatibility: publish readiness (not publication_status).
+        return obj.accountant_profile.is_publish_ready
