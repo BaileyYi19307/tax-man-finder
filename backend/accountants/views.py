@@ -68,6 +68,13 @@ def _profile_payload(profile, *, for_owner: bool = False):
         "latitude": _float_or_none(profile.latitude),
         "longitude": _float_or_none(profile.longitude),
         "service_scope": profile.service_scope,
+        "headline": profile.headline,
+        "languages": profile.languages or [],
+        "offers_remote": profile.offers_remote,
+        "offers_in_person": profile.offers_in_person,
+        "industries": profile.industries or [],
+        "website": profile.website or "",
+        "license_information": profile.license_information,
         "map_eligible": profile.is_map_eligible,
         "services": services,
         "publication_status": profile.publication_status,
@@ -117,6 +124,25 @@ def _parse_service_scope(raw):
     return value
 
 
+_PROFESSIONAL_DETAIL_FIELDS = (
+    "headline",
+    "languages",
+    "offers_remote",
+    "offers_in_person",
+    "industries",
+    "website",
+    "license_information",
+)
+
+
+def _merge_professional_detail_fields(payload, request_data):
+    """Include professional-detail keys present on the request payload."""
+    for field in _PROFESSIONAL_DETAIL_FIELDS:
+        if field in request_data:
+            payload[field] = request_data.get(field)
+    return payload
+
+
 class CreateAccountantProfile(APIView):
     """Authenticated users create or complete their own accountant profile."""
 
@@ -157,6 +183,7 @@ class CreateAccountantProfile(APIView):
         }
         if "years_experience" in request.data:
             payload["years_experience"] = request.data.get("years_experience")
+        _merge_professional_detail_fields(payload, request.data)
 
         profile = AccountantProfile.objects.filter(user=request.user).first()
         created = profile is None

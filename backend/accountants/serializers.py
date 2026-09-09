@@ -1,9 +1,40 @@
 from rest_framework import serializers
+
+from .field_utils import normalize_string_list
 from .models import AccountantProfile
+
+
+class StringListField(serializers.Field):
+    """Read/write JSON string lists with normalization rules."""
+
+    def __init__(self, *, field_name: str, **kwargs):
+        self.field_name = field_name
+        kwargs.setdefault("required", False)
+        super().__init__(**kwargs)
+
+    def to_representation(self, value):
+        if value is None:
+            return []
+        return list(value)
+
+    def to_internal_value(self, data):
+        return normalize_string_list(data, field_name=self.field_name)
 
 
 class AccountantProfileSerializer(serializers.ModelSerializer):
     """Validates and creates an Accountant Profile"""
+
+    languages = StringListField(field_name="languages")
+    industries = StringListField(field_name="industries")
+    headline = serializers.CharField(
+        max_length=160, allow_blank=True, required=False
+    )
+    website = serializers.URLField(
+        allow_blank=True, required=False, max_length=500
+    )
+    license_information = serializers.CharField(
+        allow_blank=True, required=False, trim_whitespace=True
+    )
 
     class Meta:
         model = AccountantProfile
@@ -17,6 +48,9 @@ class AccountantProfileSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def validate_headline(self, value):
+        return str(value or "").strip()
 
 
 class AccountantProfileStatusSerializer(serializers.Serializer):

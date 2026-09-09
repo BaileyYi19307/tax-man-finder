@@ -84,6 +84,13 @@ class AccountantProfile(models.Model):
         choices=ServiceScope.choices,
         default=ServiceScope.LOCAL,
     )
+    headline = models.CharField(max_length=160, blank=True, default="")
+    languages = models.JSONField(default=list, blank=True)
+    offers_remote = models.BooleanField(default=False)
+    offers_in_person = models.BooleanField(default=False)
+    industries = models.JSONField(default=list, blank=True)
+    website = models.URLField(max_length=500, blank=True, default="")
+    license_information = models.TextField(blank=True, default="")
     # Explicit publication state (independent of readiness).
     publication_status = models.CharField(
         max_length=20,
