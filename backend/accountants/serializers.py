@@ -26,3 +26,9 @@ class AccountantProfileStatusSerializer(serializers.Serializer):
     publication_status = serializers.CharField()
     is_publish_ready = serializers.BooleanField()
     is_public = serializers.BooleanField()
+    # Owner/dashboard only; omitted from public status responses.
+    publish_readiness_errors = serializers.DictField(
+        child=serializers.ListField(child=serializers.CharField()),
+        required=False,
+        read_only=True,
+    )

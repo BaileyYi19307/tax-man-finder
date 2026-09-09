@@ -24,8 +24,13 @@ def _float_or_none(value):
     return float(value)
 
 
-def _profile_payload(profile):
-    """Owner and public payload shape with explicit publication fields."""
+def _profile_payload(profile, *, for_owner: bool = False):
+    """
+    Profile payload with explicit publication fields.
+
+    Owner/dashboard responses include publish_readiness_errors; public discovery
+    payloads omit that owner-specific detail.
+    """
     user = profile.user
     services = list(
         Service.objects.filter(accountant_id=user.id, is_active=True)
@@ -46,7 +51,7 @@ def _profile_payload(profile):
         fee = service.get("consultation_fee")
         if fee is not None:
             service["consultation_fee"] = str(fee)
-    return {
+    data = {
         "user_id": user.id,
         "email": user.email,
         "first_name": user.first_name,
@@ -67,10 +72,17 @@ def _profile_payload(profile):
         # Compatibility: same meaning as is_publish_ready (not publication_status).
         "profile_complete": profile.is_publish_ready,
     }
+    if for_owner:
+        data["publish_readiness_errors"] = profile.publish_readiness_errors()
+    return data
 
 
 # Backward-compatible alias used by older call sites/tests.
 _profile_public_payload = _profile_payload
+
+
+def _owner_profile_payload(profile):
+    return _profile_payload(profile, for_owner=True)
 
 
 def _apply_location_coordinates(profile, location_text):
@@ -113,7 +125,7 @@ class CreateAccountantProfile(APIView):
                 {"detail": "No accountant profile."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        return Response(_profile_payload(profile), status=status.HTTP_200_OK)
+        return Response(_owner_profile_payload(profile), status=status.HTTP_200_OK)
 
     def post(self, request):
         bio = str(request.data.get("bio") or "").strip()
@@ -193,7 +205,7 @@ class CreateAccountantProfile(APIView):
 
         profile.refresh_from_db()
         profile.user.refresh_from_db()
-        body = _profile_payload(profile)
+        body = _owner_profile_payload(profile)
         return Response(
             body,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
@@ -219,7 +231,7 @@ class PublishAccountantProfileView(APIView):
             profile.publication_status = AccountantProfile.PublicationStatus.PUBLISHED
             profile.save(update_fields=["publication_status", "updated_at"])
         profile.refresh_from_db()
-        return Response(_profile_payload(profile), status=status.HTTP_200_OK)
+        return Response(_owner_profile_payload(profile), status=status.HTTP_200_OK)
 
 
 class UnpublishAccountantProfileView(APIView):
@@ -238,7 +250,7 @@ class UnpublishAccountantProfileView(APIView):
             profile.publication_status = AccountantProfile.PublicationStatus.DRAFT
             profile.save(update_fields=["publication_status", "updated_at"])
         profile.refresh_from_db()
-        return Response(_profile_payload(profile), status=status.HTTP_200_OK)
+        return Response(_owner_profile_payload(profile), status=status.HTTP_200_OK)
 
 
 class CheckProfileStatus(APIView):
@@ -246,6 +258,7 @@ class CheckProfileStatus(APIView):
     Readiness snapshot for a profile.
 
     Public for publicly visible profiles; owners may always read their own.
+    Owner/dashboard responses include publish_readiness_errors.
     """
 
     permission_classes = [AllowAny]
@@ -268,6 +281,8 @@ class CheckProfileStatus(APIView):
             "is_publish_ready": profile.is_publish_ready,
             "is_public": profile.is_public,
         }
+        if is_owner:
+            data["publish_readiness_errors"] = profile.publish_readiness_errors()
 
         serializer = AccountantProfileStatusSerializer(data)
         return Response(serializer.data, status=status.HTTP_200_OK)
