@@ -98,6 +98,7 @@ function renderServices(initialPath = "/onboarding/accountant/services") {
             path="/onboarding/accountant/services"
             element={<ServicesOnboardingStep />}
           />
+          <Route path="/onboarding/accountant/preview" element={<div>Preview step</div>} />
           <Route path="/dashboard/accountant" element={<div>Accountant dash</div>} />
         </Routes>
       </AuthProvider>
@@ -134,7 +135,10 @@ test("services route shows active wizard step with previous steps linked", async
     "href",
     "/onboarding/accountant/professional"
   );
-  expect(screen.getByText("4. Preview").closest("a")).toBeNull();
+  expect(screen.getByText("4. Preview").closest("a")).toHaveAttribute(
+    "href",
+    "/onboarding/accountant/preview"
+  );
 });
 
 test("redirects to Basic Profile when no accountant profile exists", async () => {
@@ -335,11 +339,10 @@ test("Save and exit goes to the accountant dashboard", async () => {
   expect(await screen.findByText("Accountant dash")).toBeInTheDocument();
 });
 
-test("Save and continue stays on services with preview-coming notice", async () => {
+test("Save and continue navigates to Preview", async () => {
   renderServices();
 
   expect(await screen.findByRole("button", { name: "Save and continue" })).toBeInTheDocument();
   userEvent.click(screen.getByRole("button", { name: "Save and continue" }));
-  expect(await screen.findByText(/Profile preview coming next/i)).toBeInTheDocument();
-  expect(screen.getByText("3. Services")).toHaveAttribute("aria-current", "step");
+  expect(await screen.findByText("Preview step")).toBeInTheDocument();
 });

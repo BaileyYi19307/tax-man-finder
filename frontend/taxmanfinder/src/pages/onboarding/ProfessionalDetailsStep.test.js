@@ -102,7 +102,10 @@ test("route shows professional details as the active wizard step", async () => {
     "href",
     "/onboarding/accountant/services"
   );
-  expect(screen.getByText("4. Preview").closest("a")).toBeNull();
+  expect(screen.getByText("4. Preview").closest("a")).toHaveAttribute(
+    "href",
+    "/onboarding/accountant/preview"
+  );
   expect(
     screen.getByText(/Credentials, at least one language, and remote or in-person availability are required before publishing/i)
   ).toBeInTheDocument();

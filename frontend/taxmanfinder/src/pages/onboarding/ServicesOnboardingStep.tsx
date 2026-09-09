@@ -9,14 +9,11 @@ import {
   onboardingSecondaryButton,
 } from "./onboardingFormUtils";
 import ServiceManagementPanel from "../services/ServiceManagementPanel";
-import type { CatalogService } from "../services/serviceDisplay";
 
 export default function ServicesOnboardingStep() {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [continueNotice, setContinueNotice] = useState<string | null>(null);
-  const [services, setServices] = useState<CatalogService[]>([]);
 
   const ensureProfile = useCallback(async () => {
     setChecking(true);
@@ -51,10 +48,6 @@ export default function ServicesOnboardingStep() {
     }
     void ensureProfile();
   }, [navigate, ensureProfile]);
-
-  const onServicesChange = useCallback((rows: CatalogService[]) => {
-    setServices(rows);
-  }, []);
 
   if (checking) {
     return (
@@ -114,26 +107,8 @@ export default function ServicesOnboardingStep() {
           emptyMessage="No services yet. Add your first offering below."
           showPublishGuidance
           deactivateLabel="Deactivate"
-          onServicesChange={onServicesChange}
         />
       </div>
-
-      {continueNotice ? (
-        <div
-          role="status"
-          style={{
-            fontSize: 13,
-            color: "#166534",
-            background: "#f0fdf4",
-            border: "1px solid #bbf7d0",
-            borderRadius: 8,
-            padding: 10,
-            marginTop: 16,
-          }}
-        >
-          {continueNotice}
-        </div>
-      ) : null}
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 16 }}>
         <button
@@ -145,13 +120,7 @@ export default function ServicesOnboardingStep() {
         </button>
         <button
           type="button"
-          onClick={() => {
-            setContinueNotice(
-              services.length === 0
-                ? "Profile preview coming next. You can keep editing services here, or exit to your dashboard — publishing still needs at least one active service."
-                : "Profile preview coming next. You can keep editing services here or exit to your dashboard."
-            );
-          }}
+          onClick={() => navigate("/onboarding/accountant/preview")}
           style={onboardingPrimaryButton(false)}
         >
           Save and continue

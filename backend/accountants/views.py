@@ -41,25 +41,41 @@ def _profile_payload(profile, *, for_owner: bool = False):
     payloads omit that owner-specific detail.
     """
     user = profile.user
-    services = list(
+    service_rows = (
         Service.objects.filter(accountant_id=user.id, is_active=True)
+        .select_related("category")
         .order_by("name")
-        .values(
-            "id",
-            "name",
-            "pricing_type",
-            "indicative_price",
-            "consultation_fee",
-            "cancellation_policy",
-        )
     )
-    for service in services:
-        price = service.get("indicative_price")
-        if price is not None:
-            service["indicative_price"] = str(price)
-        fee = service.get("consultation_fee")
-        if fee is not None:
-            service["consultation_fee"] = str(fee)
+    services = []
+    for service in service_rows:
+        category = service.category
+        row = {
+            "id": service.id,
+            "name": service.name,
+            "description": service.description or "",
+            "pricing_type": service.pricing_type,
+            "indicative_price": (
+                str(service.indicative_price)
+                if service.indicative_price is not None
+                else None
+            ),
+            "consultation_fee": (
+                str(service.consultation_fee)
+                if service.consultation_fee is not None
+                else None
+            ),
+            "cancellation_policy": service.cancellation_policy or "",
+            "category": (
+                {
+                    "id": category.id,
+                    "name": category.name,
+                    "slug": category.slug,
+                }
+                if category is not None
+                else None
+            ),
+        }
+        services.append(row)
     data = {
         "user_id": user.id,
         "email": user.email,
@@ -325,6 +341,31 @@ class PublishAccountantProfileView(APIView):
             profile.publication_status = AccountantProfile.PublicationStatus.PUBLISHED
             profile.save(update_fields=["publication_status", "updated_at"])
         profile.refresh_from_db()
+        return Response(_owner_profile_payload(profile), status=status.HTTP_200_OK)
+
+
+class OwnerAccountantPreviewView(APIView):
+    """
+    Owner-only customer-facing preview of a draft or published profile.
+
+    Returns the same shape as the public profile payload, plus owner readiness
+    fields. Does not require the profile to be public. Inactive services are
+    omitted (same as public discovery).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        profile = (
+            AccountantProfile.objects.select_related("user")
+            .filter(user=request.user)
+            .first()
+        )
+        if profile is None:
+            return Response(
+                {"detail": "No accountant profile."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         return Response(_owner_profile_payload(profile), status=status.HTTP_200_OK)
 
 

@@ -28,7 +28,26 @@ const listed = {
   years_experience: 4,
   firm_name: "Lovelace Tax",
   location: "Remote",
-  services: [{ id: 3, name: "Individual tax returns" }],
+  headline: "Friendly tax help",
+  languages: ["English"],
+  offers_remote: true,
+  offers_in_person: false,
+  industries: ["Individuals"],
+  website: "https://ada.example",
+  license_information: "EA #9",
+  services: [
+    {
+      id: 3,
+      name: "Individual tax returns",
+      description: "1040s",
+      pricing_type: "consultation_required",
+      consultation_fee: "0",
+      category: { id: 1, name: "Individual tax returns", slug: "individual-tax-returns" },
+    },
+  ],
+  publication_status: "published",
+  is_publish_ready: true,
+  is_public: true,
   profile_complete: true,
 };
 
@@ -66,6 +85,17 @@ test("shows name, firm, and location instead of email", async () => {
     "href",
     "/accountants"
   );
+});
+
+test("reuses presentation fields on the public profile route", async () => {
+  renderProfile();
+  expect(await screen.findByText("Friendly tax help")).toBeInTheDocument();
+  expect(screen.getByText("English")).toBeInTheDocument();
+  expect(screen.getAllByText("Remote").length).toBeGreaterThan(0);
+  expect(screen.getByText("Individuals")).toBeInTheDocument();
+  expect(screen.getByText("EA #9")).toBeInTheDocument();
+  expect(screen.getByText("1040s")).toBeInTheDocument();
+  expect(screen.getByText("AL")).toBeInTheDocument();
 });
 
 test("shows Message Accountant and never Go to inbox", async () => {

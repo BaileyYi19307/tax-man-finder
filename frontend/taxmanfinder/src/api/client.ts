@@ -312,10 +312,12 @@ export type AccountantProfilePayload = {
   services: {
     id: number;
     name: string;
+    description?: string;
     pricing_type?: "fixed" | "hourly" | "consultation_required";
     indicative_price?: string | null;
     consultation_fee?: string | null;
     cancellation_policy?: string;
+    category?: ServiceCategory | null;
   }[];
 } & AccountantPublicationState;
 
@@ -423,6 +425,13 @@ export async function getMyAccountantProfile() {
   const res = await apiFetch("/accountants/me/");
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(await res.text());
+  return (await res.json()) as AccountantMyProfilePayload;
+}
+
+export async function getMyAccountantPreview() {
+  const res = await apiFetch("/accountants/me/preview/");
+  if (res.status === 404) return null;
+  if (!res.ok) throw await readApiError(res, "Could not load profile preview");
   return (await res.json()) as AccountantMyProfilePayload;
 }
 

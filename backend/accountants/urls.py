@@ -11,6 +11,11 @@ urlpatterns = [
         name="publish-accountant-profile",
     ),
     path(
+        "me/preview/",
+        views.OwnerAccountantPreviewView.as_view(),
+        name="preview-accountant-profile",
+    ),
+    path(
         "me/unpublish/",
         views.UnpublishAccountantProfileView.as_view(),
         name="unpublish-accountant-profile",

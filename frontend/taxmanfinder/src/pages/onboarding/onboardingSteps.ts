@@ -30,7 +30,7 @@ export const ACCOUNTANT_ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: "preview",
     label: "Preview",
-    path: null,
+    path: "/onboarding/accountant/preview",
   },
 ];
 
