@@ -134,7 +134,7 @@ test("accountant header uses profile capability, not leftover signup intent", as
   ).toHaveAttribute("href", "/dashboard/accountant");
   expect(screen.getByRole("link", { name: "My profile" })).toHaveAttribute(
     "href",
-    "/dashboard/profile"
+    "/onboarding/accountant/basic"
   );
   expect(screen.getByRole("link", { name: /^Messages/ })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: /^Consultations/ })).toBeInTheDocument();

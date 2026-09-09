@@ -208,6 +208,7 @@ export default function PreviewOnboardingStep() {
     <AccountantOnboardingLayout
       currentStepId="preview"
       title="Preview & publish"
+      navigationLocked={publishing}
       description="This is how clients will see your profile. Fix any gaps below, then publish."
     >
       {showLiveConfirmation ? (
@@ -244,7 +245,7 @@ export default function PreviewOnboardingStep() {
               Go to dashboard
             </Link>
             <Link
-              to="/dashboard/profile"
+              to="/onboarding/accountant/basic"
               style={{ fontSize: 13, color: "#166534", fontWeight: 700 }}
             >
               Edit profile

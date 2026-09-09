@@ -77,20 +77,30 @@ test("My Services routes to the accountant-owned services page", async () => {
   );
 });
 
-test("My profile routes to the accountant profile editor", async () => {
+test("separate Continue setup / My profile dashboard card is removed", async () => {
   localStorage.setItem(ACCESS_TOKEN_KEY, "token");
   localStorage.setItem(USER_ID_KEY, "22");
   listMyInquiries.mockResolvedValue([]);
   renderDashboard();
 
-  expect(await screen.findByText("My profile")).toBeInTheDocument();
-  expect(screen.getByText("My profile").closest("a")).toHaveAttribute(
-    "href",
-    "/dashboard/profile"
+  expect(
+    await screen.findByRole("link", { name: "Continue profile setup" })
+  ).toBeInTheDocument();
+  expect(screen.queryByText("My profile")).not.toBeInTheDocument();
+  const continueLinks = screen.getAllByRole("link", {
+    name: "Continue profile setup",
+  });
+  expect(continueLinks).toHaveLength(1);
+  expect(continueLinks[0].closest("section")).toHaveAttribute(
+    "aria-label",
+    "Profile visibility"
   );
+  expect(screen.getByText("My Services")).toBeInTheDocument();
+  expect(screen.getByText("Inbox")).toBeInTheDocument();
+  expect(screen.getByText("Consultations")).toBeInTheDocument();
 });
 
-test("incomplete draft shows continue profile setup action", async () => {
+test("incomplete draft shows Continue profile setup inside Profile Visibility", async () => {
   localStorage.setItem(ACCESS_TOKEN_KEY, "token");
   localStorage.setItem(USER_ID_KEY, "22");
   getMe.mockResolvedValue({
@@ -123,12 +133,10 @@ test("incomplete draft shows continue profile setup action", async () => {
   listMyInquiries.mockResolvedValue([]);
   renderDashboard();
 
-  expect(await screen.findByText("Continue profile setup")).toBeInTheDocument();
-  expect(screen.getByText("Continue profile setup").closest("a")).toHaveAttribute(
-    "href",
-    "/onboarding/accountant/basic"
-  );
-  expect(await screen.findByText("Profile visibility")).toBeInTheDocument();
+  expect(
+    await screen.findByRole("link", { name: "Continue profile setup" })
+  ).toHaveAttribute("href", "/onboarding/accountant/basic");
+  expect(screen.getByText("Profile visibility")).toBeInTheDocument();
 });
 
 test("dashboard includes profile visibility controls", async () => {

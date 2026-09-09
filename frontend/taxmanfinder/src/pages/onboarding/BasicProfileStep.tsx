@@ -207,6 +207,7 @@ export default function BasicProfileStep() {
     <AccountantOnboardingLayout
       currentStepId="basic"
       title="Basic profile"
+      navigationLocked={saving}
       description={
         hasProfile
           ? "Update your draft. Incomplete details are fine — you can publish later."

@@ -9,6 +9,10 @@ import {
   type ApiError,
   type PublishReadinessErrors,
 } from "../../api/client";
+import {
+  ACCOUNTANT_ONBOARDING_ENTRY,
+  continueSetupPath,
+} from "../onboarding/onboardingSteps";
 
 const card = {
   background: "#fff",
@@ -42,6 +46,35 @@ const secondaryButton = (disabled: boolean) => ({
   cursor: disabled ? "not-allowed" : "pointer",
 });
 
+const primaryActionLink = {
+  ...primaryButton(false),
+  display: "inline-block" as const,
+  textDecoration: "none" as const,
+  lineHeight: "normal" as const,
+};
+
+const secondaryActionLink = {
+  ...secondaryButton(false),
+  display: "inline-block" as const,
+  textDecoration: "none" as const,
+  lineHeight: "normal" as const,
+};
+
+const destructiveTextButton = (disabled: boolean) => ({
+  padding: 0,
+  border: "none",
+  background: "transparent",
+  color: disabled ? "#fca5a5" : "#b91c1c",
+  fontWeight: 500,
+  fontSize: 13,
+  cursor: disabled ? "not-allowed" : "pointer",
+  textDecoration: "underline" as const,
+  textUnderlineOffset: 2,
+});
+
+export const UNPUBLISH_EXPLANATION =
+  "Unpublishing removes your profile from customer discovery. Your services and existing bookings are preserved.";
+
 function readinessMessages(errors: PublishReadinessErrors | undefined): string[] {
   if (!errors) return [];
   return Object.values(errors).flatMap((messages) =>
@@ -57,7 +90,6 @@ function actionErrorMessage(err: unknown, fallback: string): string {
     const fieldMsg = apiFieldError(apiErr, key);
     if (fieldMsg) return fieldMsg;
   }
-  // Prefer structured API messages (detail / first field) from readApiError.
   if (apiErr.fields && Object.keys(apiErr.fields).length > 0) {
     return Object.values(apiErr.fields)[0] || fallback;
   }
@@ -79,6 +111,7 @@ export default function ProfileVisibilitySection() {
   const [pendingAction, setPendingAction] = useState<"publish" | "unpublish" | null>(
     null
   );
+  const [confirmingUnpublish, setConfirmingUnpublish] = useState(false);
   const inFlightRef = useRef(false);
 
   useEffect(() => {
@@ -112,6 +145,7 @@ export default function ProfileVisibilitySection() {
     inFlightRef.current = true;
     setPendingAction("publish");
     setActionError(null);
+    setConfirmingUnpublish(false);
     try {
       const updated = await publishMyAccountantProfile();
       setProfile(updated);
@@ -129,7 +163,18 @@ export default function ProfileVisibilitySection() {
     }
   }
 
-  async function handleUnpublish() {
+  function requestUnpublish() {
+    if (inFlightRef.current) return;
+    setActionError(null);
+    setConfirmingUnpublish(true);
+  }
+
+  function cancelUnpublishConfirm() {
+    if (inFlightRef.current) return;
+    setConfirmingUnpublish(false);
+  }
+
+  async function confirmUnpublish() {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
     setPendingAction("unpublish");
@@ -137,6 +182,7 @@ export default function ProfileVisibilitySection() {
     try {
       const updated = await unpublishMyAccountantProfile();
       setProfile(updated);
+      setConfirmingUnpublish(false);
     } catch (err) {
       console.error(err);
       setActionError(
@@ -174,11 +220,19 @@ export default function ProfileVisibilitySection() {
   const isDraft = profile.publication_status === "draft";
   const isPublished = profile.publication_status === "published";
   const ready = profile.is_publish_ready;
+  const isPublic = profile.is_public;
   const messages = readinessMessages(profile.publish_readiness_errors);
   const busy = pendingAction !== null;
+  const incompleteDraft = isDraft && !ready;
+  // Incomplete drafts: only Continue profile setup (no View / Edit / Unpublish).
+  const showContinueSetup = incompleteDraft || (isDraft && ready) || (isPublished && !isPublic);
+  const showLiveActions = isPublic && !incompleteDraft;
+  const showPublish = isDraft && ready;
+  const showUnpublish = isPublished && !incompleteDraft;
+  const setupHref = continueSetupPath(profile.publish_readiness_errors);
 
   let statusText = "";
-  if (isDraft && !ready) {
+  if (incompleteDraft) {
     statusText = "Your profile is private.";
   } else if (isDraft && ready) {
     statusText = "Your profile is ready to publish.";
@@ -217,23 +271,6 @@ export default function ProfileVisibilitySection() {
         </ul>
       )}
 
-      {((isDraft && !ready) || (isPublished && !ready)) && (
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
-          <Link
-            to="/dashboard/profile"
-            style={{ fontSize: 13, color: "#2563eb", fontWeight: 600, textDecoration: "none" }}
-          >
-            Edit profile
-          </Link>
-          <Link
-            to="/dashboard/services"
-            style={{ fontSize: 13, color: "#2563eb", fontWeight: 600, textDecoration: "none" }}
-          >
-            Manage services
-          </Link>
-        </div>
-      )}
-
       {actionError && (
         <div
           role="alert"
@@ -251,28 +288,111 @@ export default function ProfileVisibilitySection() {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {isDraft && ready && (
-          <button
-            type="button"
-            onClick={() => void handlePublish()}
-            disabled={busy}
-            style={primaryButton(busy)}
+      {incompleteDraft ? (
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+          <Link
+            to={setupHref}
+            style={{
+              ...primaryButton(false),
+              display: "inline-block",
+              textDecoration: "none",
+              lineHeight: "normal",
+            }}
           >
-            {pendingAction === "publish" ? "Publishing…" : "Publish profile"}
-          </button>
-        )}
-        {isPublished && (
-          <button
-            type="button"
-            onClick={() => void handleUnpublish()}
-            disabled={busy}
-            style={secondaryButton(busy)}
-          >
-            {pendingAction === "unpublish" ? "Unpublishing…" : "Unpublish profile"}
-          </button>
-        )}
-      </div>
+            Continue profile setup
+          </Link>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            {showContinueSetup ? (
+              <Link
+                to={setupHref}
+                style={{
+                  ...primaryButton(false),
+                  display: "inline-block",
+                  textDecoration: "none",
+                  lineHeight: "normal",
+                }}
+              >
+                Continue profile setup
+              </Link>
+            ) : null}
+
+            {showLiveActions ? (
+              <>
+                <Link to={`/accountants/${profile.user_id}`} style={primaryActionLink}>
+                  View profile
+                </Link>
+                <Link to={ACCOUNTANT_ONBOARDING_ENTRY} style={secondaryActionLink}>
+                  Edit profile
+                </Link>
+              </>
+            ) : null}
+
+            {showPublish ? (
+              <button
+                type="button"
+                onClick={() => void handlePublish()}
+                disabled={busy}
+                style={primaryButton(busy)}
+              >
+                {pendingAction === "publish" ? "Publishing…" : "Publish profile"}
+              </button>
+            ) : null}
+
+            {showUnpublish && !confirmingUnpublish ? (
+              <button
+                type="button"
+                onClick={requestUnpublish}
+                disabled={busy}
+                style={destructiveTextButton(busy)}
+              >
+                Unpublish profile
+              </button>
+            ) : null}
+          </div>
+
+          {showUnpublish && confirmingUnpublish ? (
+            <div
+              role="group"
+              aria-label="Confirm unpublish"
+              style={{
+                marginTop: 14,
+                padding: 12,
+                borderRadius: 8,
+                border: "1px solid #fecaca",
+                background: "#fef2f2",
+              }}
+            >
+              <div style={{ fontSize: 13, color: "#7f1d1d", lineHeight: 1.45, marginBottom: 10 }}>
+                {UNPUBLISH_EXPLANATION}
+              </div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                <button
+                  type="button"
+                  onClick={() => void confirmUnpublish()}
+                  disabled={busy}
+                  style={{
+                    ...primaryButton(busy),
+                    background: busy ? "#fca5a5" : "#b91c1c",
+                  }}
+                >
+                  {pendingAction === "unpublish" ? "Unpublishing…" : "Confirm unpublish"}
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelUnpublishConfirm}
+                  disabled={busy}
+                  style={secondaryButton(busy)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </>
+      )}
     </section>
   );
 }

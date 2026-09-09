@@ -152,7 +152,7 @@ test("owner can optionally open the profile editor", async () => {
   renderProfile();
   expect(await screen.findByRole("link", { name: "Edit profile" })).toHaveAttribute(
     "href",
-    "/dashboard/profile"
+    "/onboarding/accountant/basic"
   );
   expect(screen.queryByRole("button", { name: "Message Accountant" })).not.toBeInTheDocument();
   expect(

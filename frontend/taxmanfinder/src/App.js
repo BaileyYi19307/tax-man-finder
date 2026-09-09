@@ -12,7 +12,6 @@ import ServiceDetail from "./pages/services/ServiceDetail";
 import AccountantProfilePage from "./pages/accountants/AccountantProfile.tsx";
 import AccountantsDirectory from "./pages/accountants/AccountantsDirectory.tsx";
 import AccountantDashboard from "./pages/dashboard/AccountantDashboard";
-import AccountantProfileEdit from "./pages/dashboard/AccountantProfileEdit.tsx";
 import ClientDashboard from "./pages/dashboard/ClientDashboard.tsx";
 import BookingsPage from "./pages/bookings/BookingsPage.tsx";
 import DemoPaymentPage from "./pages/bookings/DemoPaymentPage.tsx";
@@ -65,7 +64,10 @@ const AppRoutes = () => {
               <Route path="/dashboard/services" element={<MyServices />} />
               <Route element={<RequireAccountantDashboard />}>
                 <Route path="/dashboard/accountant" element={<AccountantDashboard />} />
-                <Route path="/dashboard/profile" element={<AccountantProfileEdit />} />
+                <Route
+                  path="/dashboard/profile"
+                  element={<Navigate to={ACCOUNTANT_ONBOARDING_ENTRY} replace />}
+                />
               </Route>
               <Route path="/chat" element={<ChatLayout />}>
                 <Route index element={<ChatEmptyState />} />

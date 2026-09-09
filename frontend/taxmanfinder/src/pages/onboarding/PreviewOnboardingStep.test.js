@@ -84,7 +84,7 @@ function renderPreview(initialPath = "/onboarding/accountant/preview") {
         <Routes>
           <Route
             path="/onboarding/accountant/basic"
-            element={<div>Basic step</div>}
+            element={<div>Basic wizard step</div>}
           />
           <Route
             path="/onboarding/accountant/professional"
@@ -99,7 +99,6 @@ function renderPreview(initialPath = "/onboarding/accountant/preview") {
             element={<PreviewOnboardingStep />}
           />
           <Route path="/dashboard/accountant" element={<div>Accountant dash</div>} />
-          <Route path="/dashboard/profile" element={<div>Edit profile page</div>} />
           <Route
             path="/accountants/:userId"
             element={<div>Customer public profile</div>}
@@ -224,7 +223,7 @@ test("Publish success shows live confirmation and customer view link from API us
   );
   expect(screen.getByRole("link", { name: "Edit profile" })).toHaveAttribute(
     "href",
-    "/dashboard/profile"
+    "/onboarding/accountant/basic"
   );
 });
 
@@ -307,7 +306,7 @@ test("wizard marks previous steps clickable and Preview active", async () => {
   );
 });
 
-test("Edit profile from live confirmation navigates to profile editor", async () => {
+test("Edit profile from live confirmation navigates to the wizard", async () => {
   getMyAccountantPreview.mockResolvedValue(
     previewProfile({
       publication_status: "published",
@@ -317,7 +316,7 @@ test("Edit profile from live confirmation navigates to profile editor", async ()
   renderPreview();
   expect(await screen.findByText("Your profile is live")).toBeInTheDocument();
   userEvent.click(screen.getByRole("link", { name: "Edit profile" }));
-  expect(await screen.findByText("Edit profile page")).toBeInTheDocument();
+  expect(await screen.findByText("Basic wizard step")).toBeInTheDocument();
 });
 
 test("View as a customer navigates to public profile route", async () => {

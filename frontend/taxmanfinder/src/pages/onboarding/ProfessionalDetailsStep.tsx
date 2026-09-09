@@ -246,6 +246,7 @@ export default function ProfessionalDetailsStep() {
     <AccountantOnboardingLayout
       currentStepId="professional"
       title="Professional details"
+      navigationLocked={saving}
       description="Drafts can be incomplete. Credentials, at least one language, and remote or in-person availability are required before publishing."
     >
       <form

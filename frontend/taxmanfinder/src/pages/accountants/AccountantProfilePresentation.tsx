@@ -64,7 +64,7 @@ export default function AccountantProfilePresentation({
   actions,
   header,
   showEditLink = false,
-  editHref = "/dashboard/profile",
+  editHref = "/onboarding/accountant/basic",
 }: AccountantProfilePresentationProps) {
   const subtitle = accountantFirmLocationLine(profile);
   const availability = availabilityLabel(profile);
