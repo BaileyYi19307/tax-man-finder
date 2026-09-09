@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
@@ -15,7 +16,6 @@ from .lifecycle_messages import (
     MSG_ACCEPTED_PAID,
     MSG_CANCELLED,
     MSG_DECLINED,
-    MSG_PAYMENT_COMPLETED,
     post_booking_lifecycle_message,
 )
 from .models import (
@@ -27,9 +27,10 @@ from .models import (
 )
 from .payment_service import (
     PaymentError,
+    complete_consultation_payment,
     create_payment_for_booking,
-    mark_payment_succeeded,
 )
+from .stripe_service import StripeConfigurationError, create_checkout_session_for_payment, stripe_configured
 from .serializers import (
     BookingCreateSerializer,
     BookingSerializer,
@@ -208,14 +209,76 @@ class BookingsViewSet(viewsets.ModelViewSet):
         )
         return Response(BookingSerializer(booking).data)
 
+    @action(detail=False, methods=["get"], url_path="payment-options")
+    def payment_options(self, request):
+        """Which client payment flows are enabled on this deployment."""
+        return Response(
+            {
+                "stripe_checkout": stripe_configured(),
+                "demo_payment": settings.ALLOW_DEMO_PAYMENT,
+            }
+        )
+
+    @action(detail=True, methods=["post"], url_path="checkout")
+    def checkout(self, request, pk=None):
+        """
+        Create a Stripe Checkout Session for the booking client.
+
+        Amount and metadata are derived server-side from the Payment snapshot.
+        """
+        if not stripe_configured():
+            return Response(
+                {"detail": "Stripe Checkout is not configured."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        booking = self._get_participant_booking(pk)
+        if request.user.id != booking.client_id:
+            return Response(
+                {"detail": "Only the booking client can start checkout."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if booking.status != BookingStatus.AWAITING_PAYMENT:
+            return Response(
+                {"detail": "This booking is not awaiting payment."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            payment = booking.payment
+        except Payment.DoesNotExist:
+            return Response(
+                {"detail": "No payment record exists for this booking."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            checkout_url = create_checkout_session_for_payment(payment)
+        except StripeConfigurationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except PaymentError as exc:
+            status_code = (
+                status.HTTP_502_BAD_GATEWAY
+                if getattr(exc, "code", None) == "stripe_unavailable"
+                else status.HTTP_400_BAD_REQUEST
+            )
+            return Response({"detail": exc.detail}, status=status_code)
+
+        return Response({"checkout_url": checkout_url})
+
     @action(detail=True, methods=["post"], url_path="complete-demo-payment")
     def complete_demo_payment(self, request, pk=None):
         """
         Demo-only payment success path for the booking client.
 
         Amount and parties are derived server-side from the booking snapshot.
-        Request body amounts/status are ignored.
+        Request body amounts/status are ignored. Disabled when ALLOW_DEMO_PAYMENT is False.
         """
+        if not settings.ALLOW_DEMO_PAYMENT:
+            return Response(
+                {"detail": "Demo payment is disabled."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         booking = self._get_participant_booking(pk)
         if request.user.id != booking.client_id:
             return Response(
@@ -236,15 +299,13 @@ class BookingsViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            mark_payment_succeeded(payment)
+            complete_consultation_payment(
+                payment,
+                actor=request.user,
+                processor_reference="",
+            )
         except PaymentError as exc:
             return Response({"detail": exc.detail}, status=status.HTTP_400_BAD_REQUEST)
-
-        post_booking_lifecycle_message(
-            inquiry=booking.inquiry,
-            actor=request.user,
-            content=MSG_PAYMENT_COMPLETED,
-        )
 
         booking.refresh_from_db()
         return Response(BookingSerializer(booking).data)

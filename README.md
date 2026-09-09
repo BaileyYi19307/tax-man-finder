@@ -35,6 +35,18 @@ Verification emails go to the terminal when using the console email backend (def
 
 Full env list: `backend/.env.example`. Do not commit `backend/.env`.
 
+### Stripe Checkout (paid consultations)
+
+1. Add keys to `backend/.env`:
+   - `STRIPE_SECRET_KEY` — Stripe Dashboard → Developers → API keys (test mode for local)
+   - `STRIPE_WEBHOOK_SECRET` — from Stripe CLI or Dashboard webhook endpoint
+2. Forward webhooks locally:
+   ```bash
+   stripe listen --forward-to localhost:8000/bookings/stripe/webhook/
+   ```
+3. Client flow: accept paid booking → **Pay consultation fee** → Stripe Checkout → webhook confirms booking.
+4. Without Stripe keys, **Complete Demo Payment** remains available in local dev (`ALLOW_DEMO_PAYMENT`).
+
 ## Frontend
 
 ```bash

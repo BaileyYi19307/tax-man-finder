@@ -24,6 +24,7 @@ class PaymentSerializer(serializers.ModelSerializer):
             "status_label",
             "paid_at",
             "payable_at",
+            "checkout_session_id",
             "processor_reference",
             "created_at",
             "updated_at",

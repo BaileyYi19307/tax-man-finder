@@ -62,6 +62,15 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 # Local/dev defaults to console email so signup works without SMTP.
 # Set EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend for real mail.
 _IS_PRODUCTION = os.getenv("ENV") == "production"
+# Stripe Checkout (consultation fees). Webhook URL: {BACKEND_URL}/bookings/stripe/webhook/
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+# Demo payment without Stripe: defaults on in local dev when Stripe is not configured.
+_default_demo_payment = str(
+    DEBUG and not _IS_PRODUCTION and not STRIPE_SECRET_KEY
+).lower()
+ALLOW_DEMO_PAYMENT = os.getenv("ALLOW_DEMO_PAYMENT", _default_demo_payment).lower() == "true"
+
 EMAIL_BACKEND = os.getenv(
     "EMAIL_BACKEND",
     "django.core.mail.backends.smtp.EmailBackend"
