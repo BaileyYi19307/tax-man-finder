@@ -87,14 +87,12 @@ export default function ProfessionalDetailsStep() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [continueNotice, setContinueNotice] = useState<string | null>(null);
 
   const loadDraft = useCallback(async () => {
     setChecking(true);
     setLoadError(null);
     setFormError(null);
     setFieldErrors({});
-    setContinueNotice(null);
     try {
       const profile = await getMyAccountantProfile();
       if (profile) {
@@ -155,7 +153,6 @@ export default function ProfessionalDetailsStep() {
     setSaving(true);
     setFormError(null);
     setFieldErrors({});
-    setContinueNotice(null);
 
     try {
       const { body, yearsError } = buildProfessionalPayload({
@@ -184,9 +181,7 @@ export default function ProfessionalDetailsStep() {
         return;
       }
 
-      setContinueNotice(
-        "Professional details saved. Services setup coming next — you can keep editing here or exit to your dashboard."
-      );
+      navigate("/onboarding/accountant/services");
     } catch (err: unknown) {
       const apiErr = err as ApiError;
       if (apiErr?.fields && Object.keys(apiErr.fields).length > 0) {
@@ -413,22 +408,6 @@ export default function ProfessionalDetailsStep() {
             }}
           >
             {formError}
-          </div>
-        ) : null}
-
-        {continueNotice ? (
-          <div
-            role="status"
-            style={{
-              fontSize: 13,
-              color: "#166534",
-              background: "#f0fdf4",
-              border: "1px solid #bbf7d0",
-              borderRadius: 8,
-              padding: 10,
-            }}
-          >
-            {continueNotice}
           </div>
         ) : null}
 

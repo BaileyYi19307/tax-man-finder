@@ -67,6 +67,10 @@ function renderProfessional() {
             path="/onboarding/accountant/professional"
             element={<ProfessionalDetailsStep />}
           />
+          <Route
+            path="/onboarding/accountant/services"
+            element={<div>Services step</div>}
+          />
           <Route path="/dashboard/accountant" element={<div>Accountant dash</div>} />
         </Routes>
       </AuthProvider>
@@ -94,7 +98,10 @@ test("route shows professional details as the active wizard step", async () => {
     "href",
     "/onboarding/accountant/basic"
   );
-  expect(screen.getByText("3. Services").closest("a")).toBeNull();
+  expect(screen.getByText("3. Services").closest("a")).toHaveAttribute(
+    "href",
+    "/onboarding/accountant/services"
+  );
   expect(screen.getByText("4. Preview").closest("a")).toBeNull();
   expect(
     screen.getByText(/Credentials, at least one language, and remote or in-person availability are required before publishing/i)
@@ -150,7 +157,7 @@ test("partial draft save sends professional fields without blocking empty availa
     license_information: "",
     firm_name: "",
   });
-  expect(await screen.findByText(/Services setup coming next/i)).toBeInTheDocument();
+  expect(await screen.findByText("Services step")).toBeInTheDocument();
 });
 
 test("languages support add, remove, and case-insensitive deduplication", async () => {
@@ -283,8 +290,8 @@ test("pending save disables controls and prevents duplicate submissions", async 
   );
   renderProfessional();
 
-  expect(await screen.findByRole("button", { name: "Save and continue" })).toBeInTheDocument();
-  userEvent.click(screen.getByRole("button", { name: "Save and continue" }));
+  expect(await screen.findByRole("button", { name: "Save and exit" })).toBeInTheDocument();
+  userEvent.click(screen.getByRole("button", { name: "Save and exit" }));
 
   await waitFor(() => {
     const buttons = screen.getAllByRole("button", { name: "Saving…" });
@@ -297,9 +304,7 @@ test("pending save disables controls and prevents duplicate submissions", async 
   await act(async () => {
     resolveSave(draftProfile());
   });
-  await waitFor(() =>
-    expect(screen.getByRole("button", { name: "Save and continue" })).not.toBeDisabled()
-  );
+  expect(await screen.findByText("Accountant dash")).toBeInTheDocument();
 });
 
 test("load failure shows retryable error", async () => {

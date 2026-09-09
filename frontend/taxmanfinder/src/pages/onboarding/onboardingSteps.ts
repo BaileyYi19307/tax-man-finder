@@ -25,7 +25,7 @@ export const ACCOUNTANT_ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: "services",
     label: "Services",
-    path: null,
+    path: "/onboarding/accountant/services",
   },
   {
     id: "preview",

@@ -170,6 +170,7 @@ test("edit form preserves an existing valid category and sends category_id", asy
     expect(updateMyService).toHaveBeenCalledWith(7, {
       name: "Updated Returns",
       description: "Corrected description",
+      pricing_type: "consultation_required",
       consultation_fee: "0.00",
       consultation_is_paid: false,
       cancellation_policy: "",

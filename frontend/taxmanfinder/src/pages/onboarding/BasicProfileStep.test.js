@@ -108,7 +108,10 @@ test("wizard shell shows progress steps with basic profile active", async () => 
     "href",
     "/onboarding/accountant/professional"
   );
-  expect(screen.getByText("3. Services").closest("a")).toBeNull();
+  expect(screen.getByText("3. Services").closest("a")).toHaveAttribute(
+    "href",
+    "/onboarding/accountant/services"
+  );
   expect(screen.getByText("4. Preview").closest("a")).toBeNull();
   expect(screen.getByRole("button", { name: "Save and exit" })).toBeInTheDocument();
 });
