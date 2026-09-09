@@ -62,6 +62,7 @@ export default function MyServices() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
 
@@ -96,6 +97,7 @@ export default function MyServices() {
     setConsultationFee(paid ? service.consultation_fee || "" : "");
     setCancellationPolicy(service.cancellation_policy || "");
     setSaveError(null);
+    setSaveSuccess(null);
   }
 
   function cancelEdit() {
@@ -112,6 +114,7 @@ export default function MyServices() {
     setCreateConsultationFee("");
     setCreateCancellationPolicy("");
     setCreateError(null);
+    setSaveSuccess(null);
   }
 
   function cancelCreate() {
@@ -134,6 +137,7 @@ export default function MyServices() {
     }
     setSaving(true);
     setCreateError(null);
+    setSaveSuccess(null);
     try {
       const created = await createMyService({
         name: createName.trim(),
@@ -152,8 +156,10 @@ export default function MyServices() {
       setCreateConsultationPaid(false);
       setCreateConsultationFee("");
       setCreateCancellationPolicy("");
+      setSaveSuccess("Service saved.");
     } catch (err) {
       console.error(err);
+      setSaveSuccess(null);
       setCreateError("Could not create this service. Please try again.");
     } finally {
       setSaving(false);
@@ -198,6 +204,7 @@ export default function MyServices() {
     }
     setSaving(true);
     setSaveError(null);
+    setSaveSuccess(null);
     try {
       const body: {
         name: string;
@@ -219,8 +226,10 @@ export default function MyServices() {
       const updated = await updateMyService(service.id, body);
       setServices((rows) => rows.map((row) => (row.id === service.id ? updated : row)));
       setEditingId(null);
+      setSaveSuccess("Service saved.");
     } catch (e) {
       console.error(e);
+      setSaveSuccess(null);
       setSaveError("Could not save this service. Please try again.");
     } finally {
       setSaving(false);
@@ -239,6 +248,23 @@ export default function MyServices() {
         <div style={{ ...muted, fontSize: 13, marginTop: 4, marginBottom: 16 }}>
           Manage the services listed on your public profile.
         </div>
+
+        {saveSuccess && (
+          <div
+            role="status"
+            style={{
+              color: "#166534",
+              background: "#f0fdf4",
+              border: "1px solid #bbf7d0",
+              borderRadius: 8,
+              padding: 10,
+              fontSize: 13,
+              marginBottom: 16,
+            }}
+          >
+            {saveSuccess}
+          </div>
+        )}
 
         {!loading && !error && (
           <div style={{ marginBottom: 16 }}>
