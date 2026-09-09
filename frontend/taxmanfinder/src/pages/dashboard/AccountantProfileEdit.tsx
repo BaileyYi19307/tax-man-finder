@@ -5,6 +5,8 @@ import {
   createAccountantProfile,
   getMyAccountantProfile,
 } from "../../api/client";
+import StringListInput from "../onboarding/StringListInput";
+import { normalizeStringList } from "../onboarding/onboardingFormUtils";
 
 const page = {
   minHeight: "100vh",
@@ -45,12 +47,19 @@ export default function AccountantProfileEdit() {
   const [lastName, setLastName] = useState("");
   const [firmName, setFirmName] = useState("");
   const [location, setLocation] = useState("");
+  const [headline, setHeadline] = useState("");
   const [serviceScope, setServiceScope] = useState<"local" | "remote" | "nationwide">(
     "local"
   );
+  const [offersRemote, setOffersRemote] = useState(false);
+  const [offersInPerson, setOffersInPerson] = useState(false);
   const [bio, setBio] = useState("");
   const [credentials, setCredentials] = useState("");
   const [yearsExperience, setYearsExperience] = useState("0");
+  const [languages, setLanguages] = useState<string[]>([]);
+  const [industries, setIndustries] = useState<string[]>([]);
+  const [website, setWebsite] = useState("");
+  const [licenseInformation, setLicenseInformation] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -70,14 +79,29 @@ export default function AccountantProfileEdit() {
           setLastName(profile.last_name || "");
           setFirmName(profile.firm_name || "");
           setLocation(profile.location || "");
+          setHeadline(profile.headline || "");
           setServiceScope(
             profile.service_scope === "remote" || profile.service_scope === "nationwide"
               ? profile.service_scope
               : "local"
           );
+          setOffersRemote(Boolean(profile.offers_remote));
+          setOffersInPerson(Boolean(profile.offers_in_person));
           setBio(profile.bio || "");
           setCredentials(profile.credentials || "");
           setYearsExperience(String(profile.years_experience || 0));
+          setLanguages(
+            Array.isArray(profile.languages)
+              ? profile.languages.map(String).filter((v) => v.trim())
+              : []
+          );
+          setIndustries(
+            Array.isArray(profile.industries)
+              ? profile.industries.map(String).filter((v) => v.trim())
+              : []
+          );
+          setWebsite(profile.website || "");
+          setLicenseInformation(profile.license_information || "");
         }
       } catch (e) {
         console.error(e);
@@ -105,7 +129,14 @@ export default function AccountantProfileEdit() {
         years_experience: Number(yearsExperience) || 0,
         firm_name: firmName.trim(),
         location: location.trim(),
+        headline: headline.trim(),
         service_scope: serviceScope,
+        languages: normalizeStringList(languages),
+        offers_remote: offersRemote,
+        offers_in_person: offersInPerson,
+        industries: normalizeStringList(industries),
+        website: website.trim(),
+        license_information: licenseInformation.trim(),
       });
       setUserId(profile.user_id);
       await refreshUser();
@@ -169,6 +200,15 @@ export default function AccountantProfileEdit() {
               />
             </label>
             <label style={{ fontSize: 13, color: "#111" }}>
+              Headline
+              <input
+                value={headline}
+                onChange={(e) => setHeadline(e.target.value)}
+                placeholder="Short tagline clients see first"
+                style={{ ...field, marginTop: 6 }}
+              />
+            </label>
+            <label style={{ fontSize: 13, color: "#111" }}>
               Firm or practice name
               <input
                 value={firmName}
@@ -200,6 +240,34 @@ export default function AccountantProfileEdit() {
                 <option value="nationwide">Nationwide</option>
               </select>
             </label>
+            <fieldset
+              style={{ border: "1px solid #e5e7eb", borderRadius: 8, padding: 12, margin: 0 }}
+            >
+              <legend style={{ fontSize: 13, color: "#111", padding: "0 4px" }}>
+                Availability
+              </legend>
+              <div style={{ fontSize: 12, ...muted, marginBottom: 8 }}>
+                Used for publish readiness and the public profile.
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                <label style={{ fontSize: 14, color: "#111", display: "flex", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={offersRemote}
+                    onChange={(e) => setOffersRemote(e.target.checked)}
+                  />
+                  Remote
+                </label>
+                <label style={{ fontSize: 14, color: "#111", display: "flex", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={offersInPerson}
+                    onChange={(e) => setOffersInPerson(e.target.checked)}
+                  />
+                  In person
+                </label>
+              </div>
+            </fieldset>
             <label style={{ fontSize: 13, color: "#111" }}>
               Credentials
               <input
@@ -217,6 +285,42 @@ export default function AccountantProfileEdit() {
                 value={yearsExperience}
                 onChange={(e) => setYearsExperience(e.target.value)}
                 style={{ ...field, marginTop: 6 }}
+              />
+            </label>
+            <StringListInput
+              id="edit-languages"
+              label="Languages"
+              values={languages}
+              onChange={setLanguages}
+              placeholder="e.g. English"
+              disabled={loading}
+            />
+            <StringListInput
+              id="edit-industries"
+              label="Industries / client types"
+              values={industries}
+              onChange={setIndustries}
+              placeholder="e.g. Startups"
+              disabled={loading}
+            />
+            <label style={{ fontSize: 13, color: "#111" }}>
+              Website
+              <input
+                type="url"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                placeholder="https://example.com"
+                style={{ ...field, marginTop: 6 }}
+              />
+            </label>
+            <label style={{ fontSize: 13, color: "#111" }}>
+              License information
+              <textarea
+                value={licenseInformation}
+                onChange={(e) => setLicenseInformation(e.target.value)}
+                rows={3}
+                placeholder="State licenses, registration numbers, etc."
+                style={{ ...field, marginTop: 6, resize: "vertical" }}
               />
             </label>
             <label style={{ fontSize: 13, color: "#111" }}>
