@@ -60,3 +60,22 @@ def resolve_assignable_category(category_id) -> ServiceCategory:
             {"category_id": "Category is not active."}
         )
     return category
+
+
+def resolve_public_category_slug(slug) -> ServiceCategory:
+    """
+    Resolve a public directory category slug.
+
+    Accepts only active, non-Uncategorized categories. Raises DRF
+    ValidationError with a category field error otherwise.
+    """
+    cleaned = str(slug or "").strip()
+    if not cleaned:
+        raise ValidationError({"category": "A valid category slug is required."})
+
+    category = public_category_queryset().filter(slug=cleaned).first()
+    if category is None:
+        raise ValidationError(
+            {"category": "Unknown or inactive category."}
+        )
+    return category
