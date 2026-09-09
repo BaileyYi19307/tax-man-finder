@@ -1,6 +1,6 @@
 import "../../styles/BookingsPage.css";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   acceptBooking,
   cancelBooking,
@@ -8,6 +8,10 @@ import {
   listMyBookings,
   type Booking,
 } from "../../api/client";
+
+type BookingsLocationState = {
+  flash?: string;
+};
 
 function paymentSummary(booking: Booking, isAccountant: boolean): string | null {
   const amount = `$${booking.payment?.amount ?? booking.consultation_fee}`;
@@ -55,9 +59,27 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [actingBookingId, setActingBookingId] = useState<number | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const currentUserId = Number(localStorage.getItem("user_id"));
+
+  useEffect(() => {
+    const flash = (location.state as BookingsLocationState | null)?.flash;
+    if (flash) {
+      setActionSuccess(flash);
+      setActionError(null);
+      navigate(location.pathname, { replace: true, state: {} });
+      return;
+    }
+    const params = new URLSearchParams(location.search);
+    if (params.get("payment") === "success") {
+      setActionSuccess("Payment completed. Your consultation is confirmed.");
+      setActionError(null);
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.pathname, location.search, location.state, navigate]);
 
   useEffect(() => {
     async function fetchBookings() {
@@ -86,16 +108,20 @@ export default function BookingsPage() {
   async function runBookingAction(
     bookingId: number,
     action: () => Promise<unknown>,
-    failureMessage: string
+    failureMessage: string,
+    successMessage: string
   ) {
     if (actingBookingId !== null) return;
     try {
       setActingBookingId(bookingId);
       setActionError(null);
+      setActionSuccess(null);
       await action();
       await refresh();
+      setActionSuccess(successMessage);
     } catch (e) {
       console.error(e);
+      setActionSuccess(null);
       setActionError(failureMessage);
     } finally {
       setActingBookingId(null);
@@ -108,6 +134,21 @@ export default function BookingsPage() {
   return (
     <div className="bookings-page">
       <h2>My consultations</h2>
+      {actionSuccess && (
+        <p
+          role="status"
+          style={{
+            color: "#166534",
+            background: "#f0fdf4",
+            border: "1px solid #bbf7d0",
+            borderRadius: 8,
+            padding: 10,
+            fontSize: 13,
+          }}
+        >
+          {actionSuccess}
+        </p>
+      )}
       {actionError && <p style={{ color: "#b91c1c" }}>{actionError}</p>}
       {bookings.length === 0 ? (
         <p>No bookings yet.</p>
@@ -150,7 +191,8 @@ export default function BookingsPage() {
                           runBookingAction(
                             b.id,
                             () => acceptBooking(b.id),
-                            "Could not accept booking. It may overlap another confirmed consultation."
+                            "Could not accept booking. It may overlap another confirmed consultation.",
+                            "Consultation accepted."
                           )
                         }
                       >
@@ -164,7 +206,8 @@ export default function BookingsPage() {
                           runBookingAction(
                             b.id,
                             () => declineBooking(b.id),
-                            "Could not decline booking."
+                            "Could not decline booking.",
+                            "Consultation declined."
                           )
                         }
                       >
@@ -192,7 +235,8 @@ export default function BookingsPage() {
                         runBookingAction(
                           b.id,
                           () => cancelBooking(b.id),
-                          "Could not cancel booking."
+                          "Could not cancel booking.",
+                          "Consultation cancelled."
                         )
                       }
                     >

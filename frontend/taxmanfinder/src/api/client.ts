@@ -103,9 +103,15 @@ export type BookingPayment = {
   status_label: string;
   paid_at: string | null;
   payable_at: string | null;
+  checkout_session_id: string;
   processor_reference: string;
   created_at: string;
   updated_at: string;
+};
+
+export type PaymentOptions = {
+  stripe_checkout: boolean;
+  demo_payment: boolean;
 };
 
 export type Booking = {
@@ -209,6 +215,21 @@ export async function cancelBooking(bookingId: number) {
   const res = await apiFetch(`/bookings/${bookingId}/cancel/`, { method: "POST" });
   if (!res.ok) throw await readApiError(res, "Could not cancel consultation");
   return (await res.json()) as Booking;
+}
+
+export async function getPaymentOptions() {
+  const res = await apiFetch("/bookings/payment-options/");
+  if (!res.ok) throw await readApiError(res, "Could not load payment options");
+  return (await res.json()) as PaymentOptions;
+}
+
+export async function createBookingCheckout(bookingId: number) {
+  const res = await apiFetch(`/bookings/${bookingId}/checkout/`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) throw await readApiError(res, "Could not start Stripe Checkout");
+  return (await res.json()) as { checkout_url: string };
 }
 
 export async function completeDemoPayment(bookingId: number) {
