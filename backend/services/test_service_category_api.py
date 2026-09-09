@@ -396,3 +396,189 @@ class BookingServiceCategoryStabilityTest(TestCase):
         self.assertEqual(booking.consultation_fee, Decimal("25.00"))
         self.assertEqual(booking.cancellation_policy, "24h notice")
         self.assertTrue(Service.objects.filter(pk=service_id).exists())
+
+
+class LegacyServiceDeactivateApiTest(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.accountant = User.objects.create_user(
+            email="legacy-deact@example.com",
+            password="testpassword",
+            is_verified=True,
+        )
+        AccountantProfile.objects.create(user=cls.accountant)
+        cls.bookkeeping = ServiceCategory.objects.get(slug="bookkeeping")
+        cls.uncategorized = ServiceCategory.objects.get(slug="uncategorized")
+        cls.inactive_category = ServiceCategory.objects.create(
+            name="Retired legacy cat",
+            slug="retired-legacy-cat",
+            is_active=False,
+            sort_order=700,
+        )
+
+    def setUp(self):
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.accountant)
+
+    def _detail(self, service_id):
+        return reverse("service-detail", args=[service_id])
+
+    def test_active_uncategorized_can_be_deactivated_without_category_id(self):
+        service = Service.objects.create(
+            accountant=self.accountant,
+            name="Uncat active",
+            description="Legacy",
+            pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
+            category=self.uncategorized,
+            is_active=True,
+        )
+        resp = self.client.patch(
+            self._detail(service.id), {"is_active": False}, format="json"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        service.refresh_from_db()
+        self.assertFalse(service.is_active)
+        self.assertEqual(service.category_id, self.uncategorized.id)
+
+    def test_already_inactive_legacy_can_be_deactivated_again(self):
+        service = Service.objects.create(
+            accountant=self.accountant,
+            name="Uncat inactive",
+            description="Legacy",
+            pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
+            category=self.uncategorized,
+            is_active=False,
+        )
+        resp = self.client.patch(
+            self._detail(service.id), {"is_active": False}, format="json"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        service.refresh_from_db()
+        self.assertFalse(service.is_active)
+
+    def test_null_category_can_be_deactivated(self):
+        service = Service.objects.create(
+            accountant=self.accountant,
+            name="Null cat",
+            description="Legacy",
+            pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
+            category=None,
+            is_active=True,
+        )
+        resp = self.client.patch(
+            self._detail(service.id), {"is_active": False}, format="json"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        service.refresh_from_db()
+        self.assertFalse(service.is_active)
+        self.assertIsNone(service.category_id)
+
+    def test_inactive_category_service_can_be_deactivated(self):
+        service = Service.objects.create(
+            accountant=self.accountant,
+            name="Inactive cat svc",
+            description="Legacy",
+            pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
+            category=self.inactive_category,
+            is_active=True,
+        )
+        resp = self.client.patch(
+            self._detail(service.id), {"is_active": False}, format="json"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        service.refresh_from_db()
+        self.assertFalse(service.is_active)
+
+    def test_legacy_cannot_reactivate_without_valid_category(self):
+        service = Service.objects.create(
+            accountant=self.accountant,
+            name="Needs reclass",
+            description="Legacy",
+            pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
+            category=self.uncategorized,
+            is_active=False,
+        )
+        resp = self.client.patch(
+            self._detail(service.id), {"is_active": True}, format="json"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("category_id", resp.data)
+        service.refresh_from_db()
+        self.assertFalse(service.is_active)
+
+    def test_legacy_cannot_edit_ordinary_fields_without_category(self):
+        service = Service.objects.create(
+            accountant=self.accountant,
+            name="Legacy title",
+            description="Legacy",
+            pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
+            category=None,
+            is_active=True,
+        )
+        resp = self.client.patch(
+            self._detail(service.id),
+            {"name": "Renamed without category", "is_active": False},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("category_id", resp.data)
+        service.refresh_from_db()
+        self.assertEqual(service.name, "Legacy title")
+        self.assertTrue(service.is_active)
+
+    def test_legacy_can_reclassify_and_reactivate_with_valid_category(self):
+        service = Service.objects.create(
+            accountant=self.accountant,
+            name="Reclass me",
+            description="Legacy",
+            pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
+            category=self.uncategorized,
+            is_active=False,
+        )
+        resp = self.client.patch(
+            self._detail(service.id),
+            {
+                "category_id": self.bookkeeping.id,
+                "is_active": True,
+                "name": "Reclassified books",
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        service.refresh_from_db()
+        self.assertTrue(service.is_active)
+        self.assertEqual(service.category_id, self.bookkeeping.id)
+        self.assertEqual(service.name, "Reclassified books")
+        self.assertEqual(resp.data["category"]["slug"], "bookkeeping")
+
+    def test_valid_categorized_service_update_behavior_unchanged(self):
+        service = Service.objects.create(
+            accountant=self.accountant,
+            name="Valid books",
+            description="Has category",
+            pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
+            category=self.bookkeeping,
+            is_active=True,
+        )
+        rename = self.client.patch(
+            self._detail(service.id),
+            {"name": "Valid books updated"},
+            format="json",
+        )
+        self.assertEqual(rename.status_code, status.HTTP_200_OK)
+        self.assertEqual(rename.data["category"]["id"], self.bookkeeping.id)
+
+        deactivate = self.client.patch(
+            self._detail(service.id), {"is_active": False}, format="json"
+        )
+        self.assertEqual(deactivate.status_code, status.HTTP_200_OK)
+        service.refresh_from_db()
+        self.assertFalse(service.is_active)
+
+        reactivate = self.client.patch(
+            self._detail(service.id), {"is_active": True}, format="json"
+        )
+        self.assertEqual(reactivate.status_code, status.HTTP_200_OK)
+        service.refresh_from_db()
+        self.assertTrue(service.is_active)
+        self.assertEqual(service.category_id, self.bookkeeping.id)

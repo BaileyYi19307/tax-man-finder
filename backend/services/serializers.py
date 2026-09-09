@@ -80,17 +80,30 @@ class ServiceSerializer(serializers.ModelSerializer):
                 {"category_id": "A valid active category is required."}
             )
         elif not category_is_assignable(self.instance.category):
-            raise serializers.ValidationError(
-                {
-                    "category_id": (
-                        "A valid active category is required when the "
-                        "service has no category, Uncategorized, or an "
-                        "inactive category."
-                    )
-                }
-            )
+            # Narrow exception: is_active=false-only PATCH may hide legacy
+            # offerings without reclassification. Reactivation and any other
+            # field edits still require a valid active category.
+            if not self._is_deactivate_only_patch():
+                raise serializers.ValidationError(
+                    {
+                        "category_id": (
+                            "A valid active category is required when the "
+                            "service has no category, Uncategorized, or an "
+                            "inactive category."
+                        )
+                    }
+                )
 
         return data
+
+    def _is_deactivate_only_patch(self) -> bool:
+        """True only for partial updates whose sole payload field is is_active=false."""
+        if self.instance is None or not getattr(self, "partial", False):
+            return False
+        if set(self.initial_data.keys()) != {"is_active"}:
+            return False
+        value = self.initial_data.get("is_active")
+        return value is False
 
     class Meta:
         model = Service
