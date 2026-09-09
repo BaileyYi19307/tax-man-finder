@@ -5,12 +5,38 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 
-SECRET_KEY = os.getenv("SECRET_KEY","django-insecure-r_u^8tm1r7op_*04o!dt&qoz&tiq(^^!-zcr6o88si-&e7y2f0")
+
+# Documented local-only fallback when SECRET_KEY is unset and ENV != production.
+# Copy backend/.env.example → backend/.env for normal local setup.
+_LOCAL_DEV_SECRET_KEY = "django-insecure-change-me-for-local-dev"
+
+
+def resolve_secret_key(environ=None):
+    """
+    Resolve Django SECRET_KEY from the environment.
+
+    Production (ENV=production) requires an explicit non-empty SECRET_KEY.
+    Local/dev may omit it and receive a clearly insecure placeholder.
+    """
+    env = os.environ if environ is None else environ
+    key = (env.get("SECRET_KEY") or "").strip()
+    if key:
+        return key
+    if env.get("ENV") == "production":
+        raise ImproperlyConfigured(
+            "SECRET_KEY must be set to a non-empty value when ENV=production."
+        )
+    return _LOCAL_DEV_SECRET_KEY
+
+
+SECRET_KEY = resolve_secret_key()
 DEBUG = os.getenv("DEBUG","False") == "True"
 
 def env_list(name,default=""):
