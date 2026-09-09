@@ -5,7 +5,7 @@ from rest_framework.test import APIClient
 from users.models import User
 from accountants.models import AccountantProfile
 from accountants.geo import haversine_miles, DEFAULT_RADIUS_MILES
-from services.models import Service
+from services.models import Service, ServiceCategory
 from django.urls import reverse
 
 class ProfileStatusTest(TestCase):
@@ -135,6 +135,7 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
             description="Form 1040",
             pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
             is_active=True,
+            category=ServiceCategory.objects.get(slug="individual-tax-returns"),
         )
         cls.incomplete = User.objects.create_user(
             email="incomplete@test.com",
@@ -151,6 +152,10 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
             password="password123",
             is_verified=True,
         )
+        cls.individual_category = ServiceCategory.objects.get(
+            slug="individual-tax-returns"
+        )
+        cls.tax_planning_category = ServiceCategory.objects.get(slug="tax-planning")
 
     def setUp(self):
         self.client = APIClient()
@@ -283,6 +288,7 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
                 "years_experience": 4,
                 "service_name": "Individual tax returns",
                 "service_description": "Form 1040 preparation",
+                "category_id": self.individual_category.id,
                 "user": self.listed.id,
             },
             format="json",
@@ -300,13 +306,12 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
         self.client_user.refresh_from_db()
         self.assertEqual(self.client_user.first_name, "Ada")
         self.assertEqual(self.client_user.last_name, "Lovelace")
-        self.assertTrue(
-            Service.objects.filter(
-                accountant=self.client_user,
-                name="Individual tax returns",
-                is_active=True,
-            ).exists()
+        service = Service.objects.get(
+            accountant=self.client_user,
+            name="Individual tax returns",
+            is_active=True,
         )
+        self.assertEqual(service.category_id, self.individual_category.id)
         self.assertEqual(resp.data["first_name"], "Ada")
         self.assertTrue(resp.data["profile_complete"])
 
@@ -327,6 +332,7 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
             "credentials": "EA",
             "years_experience": 4,
             "service_name": "Individual tax returns",
+            "category_id": self.individual_category.id,
         }
         first = self.client.post(reverse("create_accountant"), payload, format="json")
         second = self.client.post(
@@ -371,6 +377,7 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
                     "firm_name": "Casey CPA",
                     "location": "Boston, MA",
                     "service_name": "Tax planning",
+                    "category_id": self.tax_planning_category.id,
                 },
                 format="json",
             )
@@ -381,6 +388,10 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
         self.assertEqual(empty.accountant_profile.firm_name, "Casey CPA")
         self.assertTrue(empty.accountant_profile.is_complete)
         self.assertEqual(Service.objects.filter(accountant=empty).count(), 1)
+        self.assertEqual(
+            Service.objects.get(accountant=empty).category_id,
+            self.tax_planning_category.id,
+        )
 
     def test_complete_profile_get_returns_existing_without_creating_another(self):
         self.client.force_authenticate(user=self.listed)
@@ -713,6 +724,7 @@ class MapDiscoveryDirectoryTest(TestCase):
                 "credentials": "CPA",
                 "location": "Boston, MA",
                 "service_name": "Tax planning",
+                "category_id": ServiceCategory.objects.get(slug="tax-planning").id,
             },
             format="json",
         )

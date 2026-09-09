@@ -3,7 +3,7 @@ from rest_framework.test import APIClient
 from django.urls import reverse
 from users.models import User
 from rest_framework import status
-from .models import Service
+from .models import Service, ServiceCategory
 from accountants.models import AccountantProfile
 
 
@@ -27,11 +27,13 @@ class ServiceCreatePermissionsTest(TestCase):
             is_accountant=False,
             is_verified=True,
         )
+        cls.category = ServiceCategory.objects.get(slug="bookkeeping")
 
         cls.service_data = {
             "name": "test service",
             "description": "this is a test service",
             "indicative_price": 200.00,
+            "category_id": cls.category.id,
         }
 
     def setUp(self):
@@ -50,6 +52,16 @@ class ServiceCreatePermissionsTest(TestCase):
         service = Service.objects.get()
         self.assertEqual(service.accountant_id, self.accountant.id)
         self.assertEqual(response.data["accountant"], self.accountant.id)
+        self.assertEqual(service.category_id, self.category.id)
+        self.assertEqual(
+            response.data["category"],
+            {
+                "id": self.category.id,
+                "name": self.category.name,
+                "slug": self.category.slug,
+            },
+        )
+        self.assertNotIn("category_id", response.data)
 
     def test_accountant_cannot_assign_service_to_another_user(self):
         other = User.objects.create_user(
@@ -107,17 +119,21 @@ class ServiceMineAndOwnershipTest(TestCase):
             is_verified=True,
         )
 
+        individual = ServiceCategory.objects.get(slug="individual-tax-returns")
+        bookkeeping = ServiceCategory.objects.get(slug="bookkeeping")
         cls.service_a = Service.objects.create(
             accountant=cls.accountant_a,
             name="A Returns",
             description="Owned by A",
             pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
+            category=individual,
         )
         cls.service_b = Service.objects.create(
             accountant=cls.accountant_b,
             name="B Bookkeeping",
             description="Owned by B",
             pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
+            category=bookkeeping,
         )
 
         cls.mine_url = reverse("service-mine")

@@ -43,22 +43,38 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
 /**
  * Turn a failed DRF/JSON API response into a short Error message.
  * Prefers `detail` (string or list); falls back to first field error; else raw text.
+ * Field-level messages are also attached on `error.fields` when present.
  */
+export type ApiError = Error & { fields?: Record<string, string> };
+
 export async function readApiError(
   res: Response,
   fallback = "Request failed"
-): Promise<Error> {
+): Promise<ApiError> {
   const text = await res.text();
   if (!text) {
     return new Error(`${fallback} (${res.status})`);
   }
   try {
     const data = JSON.parse(text) as Record<string, unknown>;
-    const detail = data.detail;
-    if (typeof detail === "string" && detail.trim()) {
-      return new Error(detail);
+    const fields: Record<string, string> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (key === "detail") continue;
+      if (typeof value === "string" && value.trim()) {
+        fields[key] = value;
+      } else if (
+        Array.isArray(value) &&
+        value.length > 0 &&
+        typeof value[0] === "string"
+      ) {
+        fields[key] = value[0];
+      }
     }
-    if (Array.isArray(detail) && detail.length > 0) {
+    const detail = data.detail;
+    let message = "";
+    if (typeof detail === "string" && detail.trim()) {
+      message = detail;
+    } else if (Array.isArray(detail) && detail.length > 0) {
       const parts = detail.map((item) =>
         typeof item === "string"
           ? item
@@ -66,22 +82,35 @@ export async function readApiError(
             ? String((item as { string: unknown }).string)
             : JSON.stringify(item)
       );
-      return new Error(parts.filter(Boolean).join(" ") || fallback);
+      message = parts.filter(Boolean).join(" ");
+    } else if (Object.keys(fields).length > 0) {
+      message = Object.values(fields)[0];
     }
-    for (const [key, value] of Object.entries(data)) {
-      if (key === "detail") continue;
-      if (typeof value === "string" && value.trim()) {
-        return new Error(value);
-      }
-      if (Array.isArray(value) && value.length > 0 && typeof value[0] === "string") {
-        return new Error(value[0]);
-      }
+    const err = new Error(message || fallback) as ApiError;
+    if (Object.keys(fields).length > 0) {
+      err.fields = fields;
     }
+    return err;
   } catch {
     // Non-JSON body — use raw text below.
   }
   return new Error(text);
 }
+
+export function apiFieldError(err: unknown, field: string): string | null {
+  if (!err || typeof err !== "object" || !("fields" in err)) {
+    return null;
+  }
+  const fields = (err as ApiError).fields;
+  const value = fields?.[field];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+export type ServiceCategory = {
+  id: number;
+  name: string;
+  slug: string;
+};
 
 export type CatalogService = {
   id: number;
@@ -93,6 +122,8 @@ export type CatalogService = {
   cancellation_policy?: string;
   accountant?: number;
   is_active?: boolean;
+  /** Nested category from the API, or null for legacy uncategorized rows. */
+  category?: ServiceCategory | null;
 };
 
 export type BookingPayment = {
@@ -353,41 +384,48 @@ export async function createAccountantProfile(body: {
   service_scope?: AccountantServiceScope;
   service_name?: string;
   service_description?: string;
+  category_id?: number;
 }) {
   const res = await apiFetch("/accountants/create/", {
     method: "POST",
     body: JSON.stringify(body),
   });
-  const text = await res.text();
-  if (!res.ok) throw new Error(text || "Failed to save accountant profile");
-  return JSON.parse(text) as AccountantProfilePayload;
+  if (!res.ok) throw await readApiError(res, "Failed to save accountant profile");
+  return (await res.json()) as AccountantProfilePayload;
+}
+
+export async function listServiceCategories() {
+  const res = await fetch(`${API_BASE}/services/categories/`);
+  if (!res.ok) throw await readApiError(res, "Could not load service categories");
+  return (await res.json()) as ServiceCategory[];
 }
 
 export async function getMyServices() {
   const res = await apiFetch("/services/mine/");
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) throw await readApiError(res, "Could not load your services");
   return (await res.json()) as CatalogService[];
 }
 
 export async function updateMyService(
   serviceId: number,
   body: {
-    name: string;
-    description: string;
+    name?: string;
+    description?: string;
     pricing_type?: CatalogService["pricing_type"];
     indicative_price?: string | null;
     consultation_fee?: string | null;
     consultation_is_paid?: boolean;
     cancellation_policy?: string;
+    category_id?: number;
+    is_active?: boolean;
   }
 ) {
   const res = await apiFetch(`/services/${serviceId}/`, {
     method: "PATCH",
     body: JSON.stringify(body),
   });
-  const text = await res.text();
-  if (!res.ok) throw new Error(text || "Failed to update service");
-  return JSON.parse(text) as CatalogService;
+  if (!res.ok) throw await readApiError(res, "Failed to update service");
+  return (await res.json()) as CatalogService;
 }
 
 export async function createMyService(body: {
@@ -398,14 +436,14 @@ export async function createMyService(body: {
   consultation_fee?: string | null;
   consultation_is_paid?: boolean;
   cancellation_policy?: string;
+  category_id: number;
 }) {
   const res = await apiFetch("/services/", {
     method: "POST",
     body: JSON.stringify(body),
   });
-  const text = await res.text();
-  if (!res.ok) throw new Error(text || "Failed to create service");
-  return JSON.parse(text) as CatalogService;
+  if (!res.ok) throw await readApiError(res, "Failed to create service");
+  return (await res.json()) as CatalogService;
 }
 
 export async function deactivateMyService(serviceId: number) {
@@ -413,9 +451,8 @@ export async function deactivateMyService(serviceId: number) {
     method: "PATCH",
     body: JSON.stringify({ is_active: false }),
   });
-  const text = await res.text();
-  if (!res.ok) throw new Error(text || "Failed to deactivate service");
-  return JSON.parse(text) as CatalogService;
+  if (!res.ok) throw await readApiError(res, "Failed to deactivate service");
+  return (await res.json()) as CatalogService;
 }
 
 export async function sendInquiryMessage(

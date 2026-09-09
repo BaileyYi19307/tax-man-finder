@@ -12,8 +12,10 @@ from .geo import (
     within_radius,
 )
 from .geocoding import geocode_query
+from services.category_assignment import resolve_assignable_category
 from services.models import Service
 from django.shortcuts import get_object_or_404
+from rest_framework.exceptions import ValidationError as DRFValidationError
 
 
 def _float_or_none(value):
@@ -157,11 +159,27 @@ class CreateAccountantProfile(APIView):
         service_name = str(request.data.get("service_name") or "").strip()
         service_description = str(request.data.get("service_description") or "").strip()
         if service_name and not profile.has_services:
+            # Validate category before creating a Service so a failed category
+            # never leaves an orphan offering. Profile upsert above is preserved
+            # (same as prior onboarding: profile can exist before first service).
+            try:
+                category = resolve_assignable_category(
+                    request.data.get("category_id")
+                )
+            except DRFValidationError as exc:
+                detail = exc.detail
+                if isinstance(detail, dict):
+                    return Response(detail, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"category_id": detail},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             Service.objects.create(
                 accountant=request.user,
                 name=service_name,
                 description=service_description or service_name,
                 pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
+                category=category,
             )
 
         profile.refresh_from_db()

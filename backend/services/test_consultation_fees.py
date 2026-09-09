@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 from django.test import TestCase
 
 from accountants.models import AccountantProfile
-from services.models import Service
+from services.models import Service, ServiceCategory
 from users.models import User
 
 
@@ -21,6 +21,7 @@ class ConsultationFeeServiceTests(TestCase):
             is_verified=True,
         )
         AccountantProfile.objects.create(user=cls.accountant)
+        cls.category_id = ServiceCategory.objects.get(slug="tax-planning").id
 
     def setUp(self):
         self.api = APIClient()
@@ -34,6 +35,7 @@ class ConsultationFeeServiceTests(TestCase):
                 "description": "Free intro",
                 "pricing_type": Service.PricingType.CONSULTATION_REQUIRED,
                 "consultation_is_paid": False,
+                "category_id": self.category_id,
             },
             format="json",
         )
@@ -52,6 +54,7 @@ class ConsultationFeeServiceTests(TestCase):
                 "consultation_is_paid": True,
                 "consultation_fee": "50.00",
                 "cancellation_policy": "Cancel 24h ahead for a refund.",
+                "category_id": self.category_id,
             },
             format="json",
         )
@@ -69,6 +72,7 @@ class ConsultationFeeServiceTests(TestCase):
                 "description": "Paid consult",
                 "pricing_type": Service.PricingType.CONSULTATION_REQUIRED,
                 "consultation_is_paid": True,
+                "category_id": self.category_id,
             },
             format="json",
         )
@@ -83,6 +87,7 @@ class ConsultationFeeServiceTests(TestCase):
                 "pricing_type": Service.PricingType.CONSULTATION_REQUIRED,
                 "consultation_is_paid": True,
                 "consultation_fee": "0.00",
+                "category_id": self.category_id,
             },
             format="json",
         )
@@ -97,6 +102,7 @@ class ConsultationFeeServiceTests(TestCase):
                 "description": "Invalid",
                 "pricing_type": Service.PricingType.CONSULTATION_REQUIRED,
                 "consultation_fee": "-10.00",
+                "category_id": self.category_id,
             },
             format="json",
         )
@@ -114,6 +120,7 @@ class ConsultationFeeServiceTests(TestCase):
                 "consultation_is_paid": True,
                 "consultation_fee": "40.00",
                 "cancellation_policy": "Flexible",
+                "category_id": self.category_id,
             },
             format="json",
         )

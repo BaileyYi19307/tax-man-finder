@@ -2,11 +2,21 @@ from decimal import Decimal, InvalidOperation
 
 from rest_framework import serializers
 
-from .models import Service
+from .category_assignment import category_is_assignable, resolve_assignable_category
+from .models import Service, ServiceCategory
+
+
+class ServiceCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ServiceCategory
+        fields = ("id", "name", "slug")
 
 
 class ServiceSerializer(serializers.ModelSerializer):
     """Validates and creates a service."""
+
+    category = ServiceCategorySerializer(read_only=True)
+    category_id = serializers.IntegerField(write_only=True, required=False)
 
     # Write-only: Free vs Paid consultation. Maps onto consultation_fee.
     # Paid requires a positive fee; Free stores 0.00.
@@ -61,13 +71,57 @@ class ServiceSerializer(serializers.ModelSerializer):
         elif is_paid is False:
             data["consultation_fee"] = Decimal("0.00")
 
+        category_id = data.pop("category_id", serializers.empty)
+        if category_id is not serializers.empty:
+            # resolve_assignable_category raises {"category_id": ...}
+            data["category"] = resolve_assignable_category(category_id)
+        elif self.instance is None:
+            raise serializers.ValidationError(
+                {"category_id": "A valid active category is required."}
+            )
+        elif not category_is_assignable(self.instance.category):
+            # Narrow exception: is_active=false-only PATCH may hide legacy
+            # offerings without reclassification. Reactivation and any other
+            # field edits still require a valid active category.
+            if not self._is_deactivate_only_patch():
+                raise serializers.ValidationError(
+                    {
+                        "category_id": (
+                            "A valid active category is required when the "
+                            "service has no category, Uncategorized, or an "
+                            "inactive category."
+                        )
+                    }
+                )
+
         return data
+
+    def _is_deactivate_only_patch(self) -> bool:
+        """True only for partial updates whose sole payload field is is_active=false."""
+        if self.instance is None or not getattr(self, "partial", False):
+            return False
+        if set(self.initial_data.keys()) != {"is_active"}:
+            return False
+        value = self.initial_data.get("is_active")
+        return value is False
 
     class Meta:
         model = Service
-        fields = "__all__"
+        fields = [
+            "id",
+            "name",
+            "description",
+            "accountant",
+            "category",
+            "category_id",
+            "pricing_type",
+            "indicative_price",
+            "consultation_fee",
+            "consultation_is_paid",
+            "cancellation_policy",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
         # Set from request.user in ServicesViewSet.perform_create — not from the client body
-        # category is additive foundation only; API writes come later.
-        read_only_fields = ["accountant", "category"]
-
-
+        read_only_fields = ["accountant", "category", "created_at", "updated_at"]
