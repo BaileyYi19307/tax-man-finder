@@ -1,8 +1,9 @@
-import type { CSSProperties } from "react";
-import { Link, Outlet } from "react-router-dom";
+import type { CSSProperties, MouseEvent } from "react";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import { navLabel } from "../attention/summary";
 import { useAttentionSummary } from "../attention/useAttentionSummary";
 import { dashboardPathForUser, useAuth } from "../auth/AuthProvider";
+import { persistAccountantSignupIntent } from "../auth/intent";
 
 const headerStyle: CSSProperties = {
   display: "flex",
@@ -11,12 +12,12 @@ const headerStyle: CSSProperties = {
   justifyContent: "space-between",
   gap: 12,
   padding: "12px 16px",
-  borderBottom: "1px solid #e5e7eb",
-  background: "#fff",
+  borderBottom: "1px solid #e7e5e4",
+  background: "#fffefb",
 };
 
 const brandStyle: CSSProperties = {
-  color: "#111827",
+  color: "#1c1917",
   textDecoration: "none",
   fontWeight: 800,
   fontSize: 16,
@@ -32,8 +33,19 @@ const navStyle: CSSProperties = {
 };
 
 const linkStyle: CSSProperties = {
-  color: "#2563eb",
+  color: "#1c1917",
   textDecoration: "none",
+};
+
+const mutedNavStyle: CSSProperties = {
+  color: "#111827",
+  textDecoration: "none",
+  fontWeight: 600,
+  fontSize: 13,
+  padding: "7px 12px",
+  border: "1px solid #d1d5db",
+  borderRadius: 8,
+  background: "#fff",
 };
 
 export function AppLayout() {
@@ -43,7 +55,7 @@ export function AppLayout() {
         minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
-        background: "#f8fafc",
+        background: "#ffffff",
       }}
     >
       <AppHeader />
@@ -54,8 +66,18 @@ export function AppLayout() {
   );
 }
 
+function scrollToHowItWorks() {
+  window.requestAnimationFrame(() => {
+    document.getElementById("how-it-works")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+}
+
 export default function AppHeader() {
   const { user, ready, logout } = useAuth();
+  const location = useLocation();
   const loggedIn = Boolean(user);
   const dashboardPath = dashboardPathForUser(user);
   const isAccountant = Boolean(user?.has_accountant_profile);
@@ -68,14 +90,33 @@ export default function AppHeader() {
     ? navLabel("Consultations", summary.consultationsBadge)
     : "Consultations";
 
+  function onHowItWorksClick(event: MouseEvent<HTMLAnchorElement>) {
+    if (location.pathname === "/") {
+      event.preventDefault();
+      scrollToHowItWorks();
+    } else {
+      // After navigation to `/#how-it-works`, scroll once the home section exists.
+      window.setTimeout(scrollToHowItWorks, 50);
+    }
+  }
+
   return (
     <header style={headerStyle}>
       <Link to="/" className="app-nav-link" style={brandStyle}>
-        TaxManFinder
+        <span style={{ color: "#111827" }}>TaxMan</span>
+        <span style={{ color: "#2d5a43" }}>Finder</span>
       </Link>
       <nav aria-label="Main" style={navStyle}>
         <Link to="/accountants" className="app-nav-link" style={linkStyle}>
-          Browse
+          Browse professionals
+        </Link>
+        <Link
+          to="/#how-it-works"
+          className="app-nav-link"
+          style={linkStyle}
+          onClick={onHowItWorksClick}
+        >
+          How it works
         </Link>
         {loggedIn ? (
           <>
@@ -98,15 +139,18 @@ export default function AppHeader() {
             </button>
           </>
         ) : ready ? (
-          <>
-            <Link to="/login" className="app-nav-link" style={linkStyle}>
-              Log in
-            </Link>
-            <Link to="/signup" className="app-nav-link" style={linkStyle}>
-              Sign up
-            </Link>
-          </>
+          <Link to="/login" className="app-nav-link" style={linkStyle}>
+            Log in
+          </Link>
         ) : null}
+        <Link
+          to="/onboarding/accountant"
+          className="app-nav-link"
+          style={mutedNavStyle}
+          onClick={() => persistAccountantSignupIntent()}
+        >
+          For professionals
+        </Link>
       </nav>
     </header>
   );

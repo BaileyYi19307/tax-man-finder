@@ -72,9 +72,9 @@ const nycAccountant = {
   longitude: -74.006,
 };
 
-function renderDirectory() {
+function renderDirectory(initialPath = "/accountants") {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialPath]}>
       <AccountantsDirectory />
     </MemoryRouter>
   );
@@ -217,4 +217,23 @@ test("clearing geographic search restores the flat directory", async () => {
   expect(screen.getByText("Map Pin")).toBeInTheDocument();
   expect(screen.queryByText(/accountant near/)).not.toBeInTheDocument();
   expect(screen.getByTestId("directory-map")).toHaveAttribute("data-list-count", "2");
+});
+
+test("bootstraps geographic search from homepage location query param", async () => {
+  listPublicAccountants
+    .mockResolvedValueOnce([listed, listedWithCoords])
+    .mockResolvedValueOnce([listedWithCoords]);
+  geocodePlace.mockResolvedValue({
+    latitude: 39.95,
+    longitude: -75.16,
+    display_name: "Philadelphia, Pennsylvania, United States",
+  });
+
+  renderDirectory("/accountants?location=Philadelphia");
+
+  expect(await screen.findByText("1 accountant near Philadelphia")).toBeInTheDocument();
+  expect(geocodePlace).toHaveBeenCalledWith("Philadelphia");
+  expect(screen.getByLabelText("Search by location")).toHaveValue("Philadelphia");
+  expect(screen.getByText("Map Pin")).toBeInTheDocument();
+  expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
 });

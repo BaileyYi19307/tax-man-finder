@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   geocodePlace,
   listPublicAccountants,
@@ -42,13 +42,15 @@ function serviceScopeLabel(scope?: string) {
 }
 
 export default function AccountantsDirectory() {
+  const [searchParams] = useSearchParams();
+  const initialLocation = (searchParams.get("location") || "").trim();
   const [accountants, setAccountants] = useState<AccountantProfilePayload[]>([]);
   const [mapMatches, setMapMatches] = useState<AccountantProfilePayload[] | null>(
     null
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(initialLocation);
   const [radiusMiles, setRadiusMiles] = useState(DEFAULT_RADIUS_MILES);
   const [searchCenter, setSearchCenter] = useState<{
     latitude: number;
@@ -62,6 +64,7 @@ export default function AccountantsDirectory() {
   const searchFocusTokenRef = useRef(0);
   const cardRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const listPaneRef = useRef<HTMLDivElement | null>(null);
+  const bootstrappedLocationRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -123,9 +126,8 @@ export default function AccountantsDirectory() {
     el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [selectedUserId]);
 
-  async function onSearch(e: React.FormEvent) {
-    e.preventDefault();
-    const q = searchQuery.trim();
+  async function runLocationSearch(rawQuery: string, radius = radiusMiles) {
+    const q = rawQuery.trim();
     if (!q) return;
     setSearching(true);
     setSearchError(null);
@@ -134,7 +136,7 @@ export default function AccountantsDirectory() {
       const matches = await listPublicAccountants({
         latitude: place.latitude,
         longitude: place.longitude,
-        radius_miles: radiusMiles,
+        radius_miles: radius,
       });
       setSearchCenter({
         latitude: place.latitude,
@@ -155,6 +157,20 @@ export default function AccountantsDirectory() {
       setSearching(false);
     }
   }
+
+  async function onSearch(e: React.FormEvent) {
+    e.preventDefault();
+    await runLocationSearch(searchQuery);
+  }
+
+  useEffect(() => {
+    if (bootstrappedLocationRef.current) return;
+    if (!initialLocation) return;
+    bootstrappedLocationRef.current = true;
+    void runLocationSearch(initialLocation);
+    // Bootstrap from homepage ?location= once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialLocation]);
 
   function clearSearch() {
     setSearchCenter(null);

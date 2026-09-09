@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { AuthProvider } from "../auth/AuthProvider";
 import { AppLayout } from "./AppHeader";
 import Home from "../pages/Home";
-import { getMe } from "../api/client";
+import { getMe, listPublicServices } from "../api/client";
 import {
   ACCESS_TOKEN_KEY,
   REFRESH_TOKEN_KEY,
@@ -12,7 +12,9 @@ import {
 } from "../auth/session";
 
 jest.mock("../api/client", () => ({
+  __esModule: true,
   getMe: jest.fn(),
+  listPublicServices: jest.fn(async () => []),
   listMyBookings: jest.fn(async () => []),
   listMyInquiries: jest.fn(async () => []),
 }));
@@ -50,6 +52,7 @@ function renderShell(initialPath = "/accountants") {
             <Route path="/dashboard/profile" element={<div>Profile edit</div>} />
             <Route path="/login" element={<div>Login page</div>} />
             <Route path="/signup" element={<div>Signup page</div>} />
+            <Route path="/onboarding/accountant" element={<div>Onboarding</div>} />
           </Route>
         </Routes>
       </AuthProvider>
@@ -67,30 +70,34 @@ function seedSession(user) {
 beforeEach(() => {
   localStorage.clear();
   getMe.mockReset();
+  listPublicServices.mockReset();
+  listPublicServices.mockResolvedValue([]);
 });
 
-test("logged-out header shows Browse, Log in, and Sign up", () => {
+test("logged-out header shows browse, how it works, login, and for professionals", () => {
   renderShell();
 
-  expect(screen.getByRole("link", { name: "Browse" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "Browse professionals" })).toHaveAttribute(
     "href",
     "/accountants"
+  );
+  expect(screen.getByRole("link", { name: "How it works" })).toHaveAttribute(
+    "href",
+    "/#how-it-works"
   );
   expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute(
     "href",
     "/login"
   );
-  expect(screen.getByRole("link", { name: "Sign up" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "For professionals" })).toHaveAttribute(
     "href",
-    "/signup"
+    "/onboarding/accountant"
   );
+  expect(screen.queryByRole("link", { name: "Sign up" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Messages" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Consultations" })).not.toBeInTheDocument();
   expect(
     screen.queryByRole("link", { name: "Client Dashboard" })
-  ).not.toBeInTheDocument();
-  expect(
-    screen.queryByRole("link", { name: "Accountant Dashboard" })
   ).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Log out" })).not.toBeInTheDocument();
 });
@@ -103,7 +110,7 @@ test("client header shows client dashboard and authenticated links", async () =>
     "href",
     "/chat"
   );
-  expect(screen.getByRole("link", { name: "Browse" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "Browse professionals" })).toHaveAttribute(
     "href",
     "/accountants"
   );
@@ -115,13 +122,13 @@ test("client header shows client dashboard and authenticated links", async () =>
     "href",
     "/dashboard/client"
   );
+  expect(screen.getByRole("link", { name: "For professionals" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
   expect(
     screen.queryByRole("link", { name: "Accountant Dashboard" })
   ).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "My profile" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Log in" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("link", { name: "Sign up" })).not.toBeInTheDocument();
 });
 
 test("accountant header uses profile capability, not leftover signup intent", async () => {
@@ -138,7 +145,7 @@ test("accountant header uses profile capability, not leftover signup intent", as
   );
   expect(screen.getByRole("link", { name: /^Messages/ })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: /^Consultations/ })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Browse" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Browse professionals" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
   expect(
     screen.queryByRole("link", { name: "Client Dashboard" })
@@ -160,7 +167,7 @@ test("client user is not treated as an accountant because of leftover tax-profes
 
 test("logout clears session, updates the header, and returns to home", async () => {
   seedSession(clientUser);
-  renderShell();
+  renderShell("/");
 
   expect(await screen.findByRole("button", { name: "Log out" })).toBeInTheDocument();
   userEvent.click(screen.getByRole("button", { name: "Log out" }));
@@ -171,10 +178,13 @@ test("logout clears session, updates the header, and returns to home", async () 
   expect(localStorage.getItem(REFRESH_TOKEN_KEY)).toBeNull();
   expect(localStorage.getItem(USER_ID_KEY)).toBeNull();
   expect(screen.getByRole("link", { name: "Log in" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Sign up" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Log out" })).not.toBeInTheDocument();
   expect(
     screen.queryByRole("link", { name: "Client Dashboard" })
   ).not.toBeInTheDocument();
-  expect(screen.getByText(/Find tax help, or join as a professional/i)).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", {
+      name: "Find the right tax professional for your situation.",
+    })
+  ).toBeInTheDocument();
 });
