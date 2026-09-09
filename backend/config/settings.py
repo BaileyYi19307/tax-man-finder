@@ -154,6 +154,18 @@ from datetime import timedelta
 
 ROOT_URLCONF = "config.urls"
 
+
+# Test-only: ChannelsLiveServerTestCase runs Daphne in a child process that does
+# not inherit Django override_settings. Opt-in ChatTests
+# (TMF_RUN_CHANNELS_LIVE_TESTS=1) sets TMF_CHANNELS_LIVE_TEST=1 so that child
+# loads tutorial URLConf/ASGI. Never set TMF_CHANNELS_LIVE_TEST in production.
+if os.getenv("TMF_CHANNELS_LIVE_TEST") == "1":
+    ROOT_URLCONF = "chats.tests_live_urls"
+    ASGI_APPLICATION = "chats.tests_live_asgi.application"
+    CHANNEL_LAYERS = {
+        "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
+    }
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -188,11 +200,15 @@ if _IS_PRODUCTION:
         }
     }
 else:
-    # Local default: SQLite. Tests use a separate in-memory-style temp DB name.
+    # Local default: SQLite. Use a file-backed test DB so ChannelsLiveServerTestCase
+    # can run (it cannot use Django's default in-memory SQLite test database).
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": BASE_DIR / "db.sqlite3",
+            "TEST": {
+                "NAME": BASE_DIR / "test_db.sqlite3",
+            },
         }
     }
 

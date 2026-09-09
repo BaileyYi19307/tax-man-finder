@@ -23,31 +23,66 @@ from django.test import TestCase
 #         await communicator.disconnect()
 
 # chat/tests.py
+"""
+Channels tutorial Selenium suite (legacy room templates).
+
+Opt-in only — normal `python manage.py test` / `python manage.py test chats`
+skips these tests and never launches Chrome.
+
+To run intentionally (requires Chrome/Chromium):
+
+  TMF_RUN_CHANNELS_LIVE_TESTS=1 python manage.py test chats.tests.ChatTests
+
+When enabled, ChatTests sets TMF_CHANNELS_LIVE_TEST=1 so the Daphne child
+process loads chats.tests_live_* ASGI/URLConf. That swap never applies in
+production unless that env flag is set.
+"""
+import os
+import unittest
+
 from channels.testing import ChannelsLiveServerTestCase
 from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.wait import WebDriverWait
 
 
+@unittest.skipUnless(
+    os.getenv("TMF_RUN_CHANNELS_LIVE_TESTS") == "1",
+    "Set TMF_RUN_CHANNELS_LIVE_TESTS=1 to run Selenium Channels live tests "
+    "(requires Chrome). Example: "
+    "TMF_RUN_CHANNELS_LIVE_TESTS=1 python manage.py test chats.tests.ChatTests",
+)
 class ChatTests(ChannelsLiveServerTestCase):
     serve_static = True  # emulate StaticLiveServerTestCase
 
     @classmethod
     def setUpClass(cls):
+        # Daphne runs in a child process; override_settings does not cross that boundary.
+        # This env flag is read in config.settings only for the live-test child process.
+        os.environ["TMF_CHANNELS_LIVE_TEST"] = "1"
         super().setUpClass()
         try:
-            # NOTE: Requires "chromedriver" binary to be installed in $PATH
-            cls.driver = webdriver.Chrome()
-        except:
+            # NOTE: Requires a Chrome/Chromium binary; Selenium Manager resolves the driver.
+            options = Options()
+            options.add_argument("--headless=new")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            cls.driver = webdriver.Chrome(options=options)
+        except Exception:
             super().tearDownClass()
+            os.environ.pop("TMF_CHANNELS_LIVE_TEST", None)
             raise
 
     @classmethod
     def tearDownClass(cls):
-        cls.driver.quit()
-        super().tearDownClass()
+        try:
+            cls.driver.quit()
+            super().tearDownClass()
+        finally:
+            os.environ.pop("TMF_CHANNELS_LIVE_TEST", None)
 
     def test_when_chat_message_posted_then_seen_by_everyone_in_same_room(self):
         try:
