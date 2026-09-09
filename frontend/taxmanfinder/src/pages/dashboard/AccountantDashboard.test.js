@@ -126,7 +126,7 @@ test("incomplete draft shows continue profile setup action", async () => {
   expect(await screen.findByText("Continue profile setup")).toBeInTheDocument();
   expect(screen.getByText("Continue profile setup").closest("a")).toHaveAttribute(
     "href",
-    "/dashboard/profile"
+    "/onboarding/accountant/basic"
   );
   expect(await screen.findByText("Profile visibility")).toBeInTheDocument();
 });

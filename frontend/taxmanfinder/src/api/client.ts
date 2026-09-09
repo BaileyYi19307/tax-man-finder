@@ -298,6 +298,7 @@ export type AccountantProfilePayload = {
   years_experience: number;
   firm_name: string;
   location: string;
+  headline?: string;
   latitude?: number | null;
   longitude?: number | null;
   service_scope?: AccountantServiceScope;
@@ -311,6 +312,28 @@ export type AccountantProfilePayload = {
     cancellation_policy?: string;
   }[];
 } & AccountantPublicationState;
+
+/** Partial owner profile create/update body (draft-safe; omit unchanged fields). */
+export type AccountantProfileDraftBody = {
+  first_name?: string;
+  last_name?: string;
+  bio?: string;
+  credentials?: string;
+  years_experience?: number;
+  firm_name?: string;
+  location?: string;
+  headline?: string;
+  service_scope?: AccountantServiceScope;
+  service_name?: string;
+  service_description?: string;
+  category_id?: number;
+  languages?: string[];
+  offers_remote?: boolean;
+  offers_in_person?: boolean;
+  industries?: string[];
+  website?: string;
+  license_information?: string;
+};
 
 /** Authenticated accountant profile/dashboard payload. */
 export type AccountantMyProfilePayload = AccountantProfilePayload & {
@@ -397,19 +420,7 @@ export async function getMyAccountantProfile() {
   return (await res.json()) as AccountantMyProfilePayload;
 }
 
-export async function createAccountantProfile(body: {
-  first_name: string;
-  last_name: string;
-  bio: string;
-  credentials: string;
-  years_experience: number;
-  firm_name: string;
-  location: string;
-  service_scope?: AccountantServiceScope;
-  service_name?: string;
-  service_description?: string;
-  category_id?: number;
-}) {
+export async function createAccountantProfile(body: AccountantProfileDraftBody) {
   const res = await apiFetch("/accountants/create/", {
     method: "POST",
     body: JSON.stringify(body),

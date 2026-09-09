@@ -1,6 +1,6 @@
 import "./App.css";
 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Navigate, Routes, Route } from "react-router-dom";
 import LoginPage from "./pages/auth/Login.tsx";
 import SignUpPage from "./pages/auth/Signup.tsx";
 import ChatEmptyState from "./pages/chat/ChatLayout/ChatEmptyState.tsx";
@@ -17,7 +17,8 @@ import ClientDashboard from "./pages/dashboard/ClientDashboard.tsx";
 import BookingsPage from "./pages/bookings/BookingsPage.tsx";
 import DemoPaymentPage from "./pages/bookings/DemoPaymentPage.tsx";
 import Home from "./pages/Home.tsx";
-import AccountantOnboarding from "./pages/onboarding/AccountantOnboarding.tsx";
+import BasicProfileStep from "./pages/onboarding/BasicProfileStep.tsx";
+import { ACCOUNTANT_ONBOARDING_ENTRY } from "./pages/onboarding/onboardingSteps";
 import MyServices from "./pages/services/MyServices.tsx";
 import { AuthProvider } from "./auth/AuthProvider.tsx";
 import { AppLayout } from "./components/AppHeader.tsx";
@@ -30,7 +31,11 @@ const AppRoutes = () => {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignUpPage />} />
-          <Route path="/onboarding/accountant" element={<AccountantOnboarding />} />
+          <Route
+            path="/onboarding/accountant"
+            element={<Navigate to={ACCOUNTANT_ONBOARDING_ENTRY} replace />}
+          />
+          <Route path="/onboarding/accountant/basic" element={<BasicProfileStep />} />
 
           <Route element={<AppLayout />}>
             <Route path="/" element={<Home />} />

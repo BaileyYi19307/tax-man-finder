@@ -6,6 +6,7 @@ import { listMyInquiries, type InquiryListItem } from "../../api/client";
 import { useAuth } from "../../auth/AuthProvider";
 import { getAccessToken } from "../../auth/session";
 import ProfileVisibilitySection from "./ProfileVisibilitySection";
+import { ACCOUNTANT_ONBOARDING_ENTRY } from "../onboarding/onboardingSteps";
 
 const page = {
   minHeight: "100vh",
@@ -80,7 +81,7 @@ export default function AccountantDashboard() {
 
         <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
           <Link
-            to="/dashboard/profile"
+            to={profileNeedsSetup ? ACCOUNTANT_ONBOARDING_ENTRY : "/dashboard/profile"}
             style={{ ...card, textDecoration: "none", color: "#111827", flex: 1, minWidth: 160 }}
           >
             <div style={{ fontWeight: 700 }}>
