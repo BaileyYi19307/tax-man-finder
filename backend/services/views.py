@@ -28,9 +28,17 @@ class ServicesViewSet(viewsets.ModelViewSet):
     serializer_class = ServiceSerializer
 
     def get_queryset(self):
-        qs = Service.objects.select_related("category").all()
+        from accountants.models import AccountantProfile
+
+        qs = Service.objects.select_related("category", "accountant").all()
         if self.action in ("list", "retrieve"):
-            return qs.filter(is_active=True)
+            public_accountant_ids = AccountantProfile.objects.publicly_visible().values(
+                "user_id"
+            )
+            return qs.filter(
+                is_active=True,
+                accountant_id__in=public_accountant_ids,
+            )
         return qs
 
     def get_permissions(self):

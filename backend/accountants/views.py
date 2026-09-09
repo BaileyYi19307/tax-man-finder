@@ -24,7 +24,8 @@ def _float_or_none(value):
     return float(value)
 
 
-def _profile_public_payload(profile):
+def _profile_payload(profile):
+    """Owner and public payload shape with explicit publication fields."""
     user = profile.user
     services = list(
         Service.objects.filter(accountant_id=user.id, is_active=True)
@@ -60,8 +61,16 @@ def _profile_public_payload(profile):
         "service_scope": profile.service_scope,
         "map_eligible": profile.is_map_eligible,
         "services": services,
-        "profile_complete": profile.is_complete,
+        "publication_status": profile.publication_status,
+        "is_publish_ready": profile.is_publish_ready,
+        "is_public": profile.is_public,
+        # Compatibility: same meaning as is_publish_ready (not publication_status).
+        "profile_complete": profile.is_publish_ready,
     }
+
+
+# Backward-compatible alias used by older call sites/tests.
+_profile_public_payload = _profile_payload
 
 
 def _apply_location_coordinates(profile, location_text):
@@ -104,7 +113,7 @@ class CreateAccountantProfile(APIView):
                 {"detail": "No accountant profile."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        return Response(_profile_public_payload(profile), status=status.HTTP_200_OK)
+        return Response(_profile_payload(profile), status=status.HTTP_200_OK)
 
     def post(self, request):
         bio = str(request.data.get("bio") or "").strip()
@@ -184,22 +193,80 @@ class CreateAccountantProfile(APIView):
 
         profile.refresh_from_db()
         profile.user.refresh_from_db()
-        body = _profile_public_payload(profile)
+        body = _profile_payload(profile)
         return Response(
             body,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
 
 
+class PublishAccountantProfileView(APIView):
+    """Owner-only: set publication_status to published when ready."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        profile = AccountantProfile.objects.filter(user=request.user).first()
+        if profile is None:
+            return Response(
+                {"detail": "No accountant profile."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        errors = profile.publish_readiness_errors()
+        if errors:
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+        if profile.publication_status != AccountantProfile.PublicationStatus.PUBLISHED:
+            profile.publication_status = AccountantProfile.PublicationStatus.PUBLISHED
+            profile.save(update_fields=["publication_status", "updated_at"])
+        profile.refresh_from_db()
+        return Response(_profile_payload(profile), status=status.HTTP_200_OK)
+
+
+class UnpublishAccountantProfileView(APIView):
+    """Owner-only: return profile to draft without touching services."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        profile = AccountantProfile.objects.filter(user=request.user).first()
+        if profile is None:
+            return Response(
+                {"detail": "No accountant profile."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if profile.publication_status != AccountantProfile.PublicationStatus.DRAFT:
+            profile.publication_status = AccountantProfile.PublicationStatus.DRAFT
+            profile.save(update_fields=["publication_status", "updated_at"])
+        profile.refresh_from_db()
+        return Response(_profile_payload(profile), status=status.HTTP_200_OK)
+
+
 class CheckProfileStatus(APIView):
+    """
+    Readiness snapshot for a profile.
+
+    Public for publicly visible profiles; owners may always read their own.
+    """
+
     permission_classes = [AllowAny]
 
     def get(self, request, user_id):
         profile = get_object_or_404(AccountantProfile, user_id=user_id)
+        is_owner = (
+            request.user.is_authenticated and request.user.id == int(user_id)
+        )
+        if not profile.is_public and not is_owner:
+            return Response(
+                {"detail": "Not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         data = {
             "profile_info_complete": profile.is_profile_info_complete,
-            "services_exist": profile.has_services,
-            "profile_complete": profile.is_complete,
+            "services_exist": profile.publishable_services().exists(),
+            "profile_complete": profile.is_publish_ready,
+            "publication_status": profile.publication_status,
+            "is_publish_ready": profile.is_publish_ready,
+            "is_public": profile.is_public,
         }
 
         serializer = AccountantProfileStatusSerializer(data)
@@ -236,11 +303,13 @@ class PublicAccountantDirectoryView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        profiles = AccountantProfile.objects.select_related("user").order_by("user_id")
+        profiles = (
+            AccountantProfile.objects.publicly_visible()
+            .select_related("user")
+            .order_by("user_id")
+        )
         listed = []
         for profile in profiles:
-            if not profile.is_complete:
-                continue
             if use_geo:
                 if not profile.is_map_eligible:
                     continue
@@ -252,7 +321,7 @@ class PublicAccountantDirectoryView(APIView):
                     radius_miles=radius,
                 ):
                     continue
-            listed.append(_profile_public_payload(profile))
+            listed.append(_profile_payload(profile))
 
         return Response(listed, status=status.HTTP_200_OK)
 
@@ -288,4 +357,9 @@ class PublicAccountantProfileView(APIView):
             AccountantProfile.objects.select_related("user"),
             user_id=user_id,
         )
-        return Response(_profile_public_payload(profile), status=status.HTTP_200_OK)
+        if not profile.is_public:
+            return Response(
+                {"detail": "Not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(_profile_payload(profile), status=status.HTTP_200_OK)

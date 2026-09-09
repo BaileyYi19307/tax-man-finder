@@ -29,17 +29,21 @@ class ProfileStatusTest(TestCase):
         
     def setUp(self):
         self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
 
     def test_incomplete_initially(self):
         url = reverse("profile-status", args=[self.user.id])
         resp = self.client.get(url)
         self.assertEqual(resp.status_code, 200)
         self.assertFalse(resp.data["profile_complete"])
+        self.assertFalse(resp.data["is_publish_ready"])
+        self.assertEqual(resp.data["publication_status"], "draft")
 
     def test_bio_complete_no_services(self):
         self.profile.credentials="CPA"
         self.profile.bio="hi"
         self.profile.years_experience = 3
+        self.profile.location = "Boston, MA"
         self.profile.save()
 
         url = reverse("profile-status", args=[self.user.id])
@@ -47,11 +51,13 @@ class ProfileStatusTest(TestCase):
 
         self.assertEqual(resp.status_code,200)
         self.assertFalse(resp.data["profile_complete"])
+        self.assertFalse(resp.data["is_publish_ready"])
         
     def test_profile_complete_when_info_and_services_exist(self):
         self.profile.credentials="CPA"
         self.profile.bio="hi"
         self.profile.years_experience = 3
+        self.profile.location = "Boston, MA"
         self.profile.save()
 
         # Service.accountant is a User, not AccountantProfile
@@ -60,6 +66,7 @@ class ProfileStatusTest(TestCase):
             name="Tax Filing",
             description="This is a tax filing",
             indicative_price=100,
+            category=ServiceCategory.objects.get(slug="individual-tax-returns"),
         )
         
         url = reverse("profile-status", args=[self.user.id])
@@ -67,6 +74,8 @@ class ProfileStatusTest(TestCase):
 
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.data["profile_complete"])
+        self.assertTrue(resp.data["is_publish_ready"])
+        self.assertFalse(resp.data["is_public"])
 
 
 class PublicAccountantProfileTest(TestCase):
@@ -86,6 +95,7 @@ class PublicAccountantProfileTest(TestCase):
             years_experience=5,
             firm_name="Public Tax",
             location="Remote",
+            publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
         )
         cls.service = Service.objects.create(
             accountant=cls.user,
@@ -93,6 +103,7 @@ class PublicAccountantProfileTest(TestCase):
             description="File taxes",
             indicative_price=100,
             is_active=True,
+            category=ServiceCategory.objects.get(slug="individual-tax-returns"),
         )
 
     def setUp(self):
@@ -128,6 +139,7 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
             years_experience=5,
             firm_name="Listed Tax",
             location="Boston, MA",
+            publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
         )
         Service.objects.create(
             accountant=cls.listed,
@@ -427,6 +439,7 @@ class MapDiscoveryDirectoryTest(TestCase):
             latitude=39.9500,
             longitude=-75.1600,
             service_scope=AccountantProfile.ServiceScope.LOCAL,
+            publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
         )
         Service.objects.create(
             accountant=cls.near,
@@ -434,6 +447,7 @@ class MapDiscoveryDirectoryTest(TestCase):
             description="1040",
             pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
             is_active=True,
+            category=ServiceCategory.objects.get(slug="individual-tax-returns"),
         )
 
         cls.far = User.objects.create_user(
@@ -452,6 +466,7 @@ class MapDiscoveryDirectoryTest(TestCase):
             latitude=34.0522,
             longitude=-118.2437,
             service_scope=AccountantProfile.ServiceScope.NATIONWIDE,
+            publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
         )
         Service.objects.create(
             accountant=cls.far,
@@ -459,6 +474,7 @@ class MapDiscoveryDirectoryTest(TestCase):
             description="Biz",
             pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
             is_active=True,
+            category=ServiceCategory.objects.get(slug="small-business-tax-returns"),
         )
 
         cls.no_coords = User.objects.create_user(
@@ -477,6 +493,7 @@ class MapDiscoveryDirectoryTest(TestCase):
             latitude=None,
             longitude=None,
             service_scope=AccountantProfile.ServiceScope.REMOTE,
+            publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
         )
         Service.objects.create(
             accountant=cls.no_coords,
@@ -484,6 +501,7 @@ class MapDiscoveryDirectoryTest(TestCase):
             description="Zoom",
             pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
             is_active=True,
+            category=ServiceCategory.objects.get(slug="tax-planning"),
         )
 
         cls.incomplete = User.objects.create_user(
@@ -571,8 +589,10 @@ class MapDiscoveryDirectoryTest(TestCase):
             user=edge_user,
             credentials="CPA",
             bio="Edge",
+            location="Philadelphia, PA",
             latitude=point_lat,
             longitude=point_lng,
+            publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
         )
         Service.objects.create(
             accountant=edge_user,
@@ -580,6 +600,7 @@ class MapDiscoveryDirectoryTest(TestCase):
             description="x",
             pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
             is_active=True,
+            category=ServiceCategory.objects.get(slug="bookkeeping"),
         )
 
         inside = self.client.get(
