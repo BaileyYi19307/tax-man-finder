@@ -27,6 +27,11 @@ class Service(models.Model):
         HOURLY = "hourly", "Hourly"
         CONSULTATION_REQUIRED = "consultation_required", "Consultation Required"
 
+    class CancellationPolicyCode(models.TextChoices):
+        FREE_24H = "free_24h", "Free cancellation (24 hours)"
+        FREE_48H = "free_48h", "Free cancellation (48 hours)"
+        NON_REFUNDABLE = "non_refundable", "Non-refundable"
+
     name = models.CharField(max_length=255)
     description = models.TextField()
     accountant = models.ForeignKey(
@@ -56,6 +61,14 @@ class Service(models.Model):
     consultation_fee = models.DecimalField(
         max_digits=8, decimal_places=2, null=True, blank=True
     )
+    # Platform policy code (nullable for legacy rows until accountant re-selects).
+    cancellation_policy_code = models.CharField(
+        max_length=32,
+        choices=CancellationPolicyCode.choices,
+        null=True,
+        blank=True,
+    )
+    # Legacy/display text column; kept for compatibility. New writes sync from code.
     cancellation_policy = models.TextField(blank=True, default="")
 
     is_active = models.BooleanField(default=True)

@@ -45,6 +45,7 @@ class ConsultationFeeServiceTests(TestCase):
                 "description": "Free intro",
                 "pricing_type": Service.PricingType.CONSULTATION_REQUIRED,
                 "consultation_is_paid": False,
+                "cancellation_policy_code": "free_24h",
                 "category_id": self.category_id,
             },
             format="json",
@@ -63,7 +64,7 @@ class ConsultationFeeServiceTests(TestCase):
                 "pricing_type": Service.PricingType.CONSULTATION_REQUIRED,
                 "consultation_is_paid": True,
                 "consultation_fee": "50.00",
-                "cancellation_policy": "Cancel 24h ahead for a refund.",
+                "cancellation_policy_code": "free_24h",
                 "category_id": self.category_id,
             },
             format="json",
@@ -71,7 +72,7 @@ class ConsultationFeeServiceTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         service = Service.objects.get()
         self.assertEqual(service.consultation_fee, Decimal("50.00"))
-        self.assertEqual(service.cancellation_policy, "Cancel 24h ahead for a refund.")
+        self.assertEqual(service.cancellation_policy_code, "free_24h")
         self.assertEqual(response.data["consultation_fee"], "50.00")
 
     def test_paid_service_without_valid_fee_is_rejected(self):
@@ -82,6 +83,7 @@ class ConsultationFeeServiceTests(TestCase):
                 "description": "Paid consult",
                 "pricing_type": Service.PricingType.CONSULTATION_REQUIRED,
                 "consultation_is_paid": True,
+                "cancellation_policy_code": "free_24h",
                 "category_id": self.category_id,
             },
             format="json",
@@ -97,6 +99,7 @@ class ConsultationFeeServiceTests(TestCase):
                 "pricing_type": Service.PricingType.CONSULTATION_REQUIRED,
                 "consultation_is_paid": True,
                 "consultation_fee": "0.00",
+                "cancellation_policy_code": "free_24h",
                 "category_id": self.category_id,
             },
             format="json",
@@ -112,6 +115,7 @@ class ConsultationFeeServiceTests(TestCase):
                 "description": "Invalid",
                 "pricing_type": Service.PricingType.CONSULTATION_REQUIRED,
                 "consultation_fee": "-10.00",
+                "cancellation_policy_code": "non_refundable",
                 "category_id": self.category_id,
             },
             format="json",
@@ -129,7 +133,7 @@ class ConsultationFeeServiceTests(TestCase):
                 "indicative_price": "175.00",
                 "consultation_is_paid": True,
                 "consultation_fee": "40.00",
-                "cancellation_policy": "Flexible",
+                "cancellation_policy_code": "free_24h",
                 "category_id": self.category_id,
             },
             format="json",
@@ -142,13 +146,14 @@ class ConsultationFeeServiceTests(TestCase):
             {
                 "consultation_is_paid": True,
                 "consultation_fee": "65.00",
-                "cancellation_policy": "48h notice",
+                "cancellation_policy_code": "free_48h",
             },
             format="json",
         )
         self.assertEqual(updated.status_code, status.HTTP_200_OK)
         self.assertEqual(updated.data["consultation_fee"], "65.00")
-        self.assertEqual(updated.data["cancellation_policy"], "48h notice")
+        self.assertEqual(updated.data["cancellation_policy_code"], "free_48h")
+        self.assertIn("48 hours", updated.data["cancellation_policy"])
 
         detail = self.api.get(reverse("service-detail", args=[service_id]))
         self.assertEqual(detail.status_code, status.HTTP_200_OK)

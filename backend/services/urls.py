@@ -14,5 +14,10 @@ urlpatterns = [
         views.ServiceCategoryListView.as_view(),
         name="service-category-list",
     ),
+    path(
+        "cancellation-policies/",
+        views.CancellationPolicyListView.as_view(),
+        name="service-cancellation-policy-list",
+    ),
     path("", include(router.urls)),
 ]

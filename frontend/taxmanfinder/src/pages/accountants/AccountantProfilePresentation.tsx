@@ -229,6 +229,11 @@ export default function AccountantProfilePresentation({
                   <div style={{ ...muted, marginTop: 6, fontSize: 12 }}>
                     {formatPriceLabel(s)} · {formatConsultationFeeLabel(s.consultation_fee)}
                   </div>
+                  {s.cancellation_policy?.trim() ? (
+                    <div style={{ ...muted, marginTop: 6, fontSize: 12 }}>
+                      Cancellation: {s.cancellation_policy.trim()}
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>

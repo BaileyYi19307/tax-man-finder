@@ -31,6 +31,7 @@ class ServiceTitleUniquenessApiTest(TestCase):
         AccountantProfile.objects.create(user=cls.other_accountant)
 
         cls.existing = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=cls.accountant,
             name="Freelancer Tax Filing",
             description="Original offering",
@@ -49,6 +50,7 @@ class ServiceTitleUniquenessApiTest(TestCase):
             "pricing_type": "consultation_required",
             "consultation_is_paid": False,
             "category_id": self.category.id,
+            "cancellation_policy_code": "free_24h",
         }
         data.update(overrides)
         return data
@@ -131,6 +133,7 @@ class ServiceTitleUniquenessApiTest(TestCase):
 
     def test_update_to_conflicting_title_rejected(self):
         other = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=self.accountant,
             name="Payroll Support",
             description="Second offering",

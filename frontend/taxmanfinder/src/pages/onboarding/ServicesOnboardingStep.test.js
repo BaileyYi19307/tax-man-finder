@@ -11,6 +11,7 @@ import {
   getMe,
   getMyAccountantProfile,
   getMyServices,
+  listCancellationPolicies,
   listServiceCategories,
   updateMyService,
 } from "../../api/client";
@@ -24,6 +25,7 @@ jest.mock("../../api/client", () => ({
   createMyService: jest.fn(),
   deactivateMyService: jest.fn(),
   listServiceCategories: jest.fn(),
+  listCancellationPolicies: jest.fn(),
   createAccountantProfile: jest.fn(),
   apiFieldError: jest.requireActual("../../api/client").apiFieldError,
 }));
@@ -40,6 +42,23 @@ const me = {
 const categories = [
   { id: 3, name: "Bookkeeping", slug: "bookkeeping" },
   { id: 1, name: "Individual tax returns", slug: "individual-tax-returns" },
+];
+
+const policyOptions = [
+  {
+    code: "free_24h",
+    label:
+      "Full refund if cancelled at least 24 hours before the consultation. Cancellations within 24 hours are non-refundable.",
+  },
+  {
+    code: "free_48h",
+    label:
+      "Full refund if cancelled at least 48 hours before the consultation. Cancellations within 48 hours are non-refundable.",
+  },
+  {
+    code: "non_refundable",
+    label: "The consultation fee is non-refundable after booking.",
+  },
 ];
 
 function profile(overrides = {}) {
@@ -71,7 +90,9 @@ function service(overrides = {}) {
     pricing_type: "consultation_required",
     indicative_price: null,
     consultation_fee: "25.00",
-    cancellation_policy: "24h notice",
+    cancellation_policy_code: "free_24h",
+    cancellation_policy:
+      "Full refund if cancelled at least 24 hours before the consultation. Cancellations within 24 hours are non-refundable.",
     is_active: true,
     category: {
       id: 1,
@@ -115,7 +136,9 @@ beforeEach(() => {
   createMyService.mockReset();
   deactivateMyService.mockReset();
   listServiceCategories.mockReset();
+  listCancellationPolicies.mockReset();
   listServiceCategories.mockResolvedValue(categories);
+  listCancellationPolicies.mockResolvedValue(policyOptions);
   getMyServices.mockResolvedValue([]);
   getMyAccountantProfile.mockResolvedValue(profile());
 });
@@ -160,7 +183,9 @@ test("existing services load as cards with key details", async () => {
   ).toBeInTheDocument();
   expect(screen.getByText(/Pricing: Consultation required/i)).toBeInTheDocument();
   expect(screen.getByText(/Consultation fee: \$25\.00/i)).toBeInTheDocument();
-  expect(screen.getByText(/Cancellation: 24h notice/i)).toBeInTheDocument();
+  expect(
+    screen.getByText(/Cancellation: Full refund if cancelled at least 24 hours/i)
+  ).toBeInTheDocument();
   expect(screen.getByText("Active")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Deactivate" })).toBeInTheDocument();
@@ -195,6 +220,7 @@ test("can add multiple services including the same category", async () => {
   userEvent.type(screen.getByLabelText("Name"), "Business taxes");
   userEvent.type(screen.getByLabelText("Description"), "S-corp help");
   userEvent.selectOptions(categorySelect, "1");
+  userEvent.selectOptions(screen.getByLabelText("Cancellation policy"), "free_24h");
   userEvent.click(screen.getByRole("button", { name: "Create service" }));
   expect(await screen.findByText("Business taxes")).toBeInTheDocument();
 
@@ -204,12 +230,15 @@ test("can add multiple services including the same category", async () => {
   userEvent.type(screen.getByLabelText("Name"), "Personal returns plus");
   userEvent.type(screen.getByLabelText("Description"), "Another individual offering");
   userEvent.selectOptions(categorySelect2, "1");
+  userEvent.selectOptions(screen.getByLabelText("Cancellation policy"), "free_48h");
   userEvent.click(screen.getByRole("button", { name: "Create service" }));
 
   expect(await screen.findByText("Personal returns plus")).toBeInTheDocument();
   expect(createMyService).toHaveBeenCalledTimes(2);
   expect(createMyService.mock.calls[0][0].category_id).toBe(1);
+  expect(createMyService.mock.calls[0][0].cancellation_policy_code).toBe("free_24h");
   expect(createMyService.mock.calls[1][0].category_id).toBe(1);
+  expect(createMyService.mock.calls[1][0].cancellation_policy_code).toBe("free_48h");
 });
 
 test("can edit a service", async () => {
@@ -287,6 +316,7 @@ test("shows field-level validation errors from the API", async () => {
   userEvent.type(screen.getByLabelText("Name"), "Temp");
   userEvent.type(screen.getByLabelText("Description"), "Details");
   userEvent.selectOptions(categorySelect, "3");
+  userEvent.selectOptions(screen.getByLabelText("Cancellation policy"), "free_24h");
   userEvent.click(screen.getByRole("button", { name: "Create service" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Name is required.");
@@ -308,6 +338,7 @@ test("duplicate create submissions are prevented while saving", async () => {
   userEvent.type(screen.getByLabelText("Name"), "New offering");
   userEvent.type(screen.getByLabelText("Description"), "Details");
   userEvent.selectOptions(categorySelect, "3");
+  userEvent.selectOptions(screen.getByLabelText("Cancellation policy"), "non_refundable");
   userEvent.click(screen.getByRole("button", { name: "Create service" }));
 
   await waitFor(() =>

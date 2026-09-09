@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from rest_framework import viewsets
 
 from .category_assignment import public_category_queryset
+from .cancellation_policy import cancellation_policy_choices_payload
 from .serializers import ServiceCategorySerializer, ServiceSerializer
 from .models import Service
 from .permissions import IsServiceOwner
@@ -19,6 +20,15 @@ class ServiceCategoryListView(APIView):
     def get(self, request):
         categories = public_category_queryset()
         return Response(ServiceCategorySerializer(categories, many=True).data)
+
+
+class CancellationPolicyListView(APIView):
+    """Platform cancellation policy codes and customer-facing wording."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response(cancellation_policy_choices_payload())
 
 
 class ServicesViewSet(viewsets.ModelViewSet):

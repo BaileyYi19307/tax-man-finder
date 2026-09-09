@@ -112,6 +112,16 @@ export type ServiceCategory = {
   slug: string;
 };
 
+export type CancellationPolicyCode =
+  | "free_24h"
+  | "free_48h"
+  | "non_refundable";
+
+export type CancellationPolicyOption = {
+  code: CancellationPolicyCode;
+  label: string;
+};
+
 export type CatalogService = {
   id: number;
   name: string;
@@ -119,6 +129,8 @@ export type CatalogService = {
   pricing_type: "fixed" | "hourly" | "consultation_required";
   indicative_price: string | null;
   consultation_fee?: string | null;
+  cancellation_policy_code?: CancellationPolicyCode | null;
+  /** Resolved customer-facing wording from the API. */
   cancellation_policy?: string;
   accountant?: number;
   is_active?: boolean;
@@ -317,6 +329,7 @@ export type AccountantProfilePayload = {
     indicative_price?: string | null;
     consultation_fee?: string | null;
     cancellation_policy?: string;
+    cancellation_policy_code?: CancellationPolicyCode | null;
     category?: ServiceCategory | null;
   }[];
 } & AccountantPublicationState;
@@ -468,6 +481,12 @@ export async function listServiceCategories() {
   return (await res.json()) as ServiceCategory[];
 }
 
+export async function listCancellationPolicies() {
+  const res = await fetch(`${API_BASE}/services/cancellation-policies/`);
+  if (!res.ok) throw await readApiError(res, "Could not load cancellation policies");
+  return (await res.json()) as CancellationPolicyOption[];
+}
+
 export async function getMyServices() {
   const res = await apiFetch("/services/mine/");
   if (!res.ok) throw await readApiError(res, "Could not load your services");
@@ -483,6 +502,7 @@ export async function updateMyService(
     indicative_price?: string | null;
     consultation_fee?: string | null;
     consultation_is_paid?: boolean;
+    cancellation_policy_code?: CancellationPolicyCode;
     cancellation_policy?: string;
     category_id?: number;
     is_active?: boolean;
@@ -503,6 +523,7 @@ export async function createMyService(body: {
   indicative_price?: string | null;
   consultation_fee?: string | null;
   consultation_is_paid?: boolean;
+  cancellation_policy_code: CancellationPolicyCode;
   cancellation_policy?: string;
   category_id: number;
 }) {

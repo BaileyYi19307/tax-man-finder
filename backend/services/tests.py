@@ -34,6 +34,7 @@ class ServiceCreatePermissionsTest(TestCase):
             "description": "this is a test service",
             "indicative_price": 200.00,
             "category_id": cls.category.id,
+            "cancellation_policy_code": "free_24h",
         }
 
     def setUp(self):
@@ -142,6 +143,7 @@ class ServiceMineAndOwnershipTest(TestCase):
         individual = ServiceCategory.objects.get(slug="individual-tax-returns")
         bookkeeping = ServiceCategory.objects.get(slug="bookkeeping")
         cls.service_a = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=cls.accountant_a,
             name="A Returns",
             description="Owned by A",
@@ -149,6 +151,7 @@ class ServiceMineAndOwnershipTest(TestCase):
             category=individual,
         )
         cls.service_b = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=cls.accountant_b,
             name="B Bookkeeping",
             description="Owned by B",

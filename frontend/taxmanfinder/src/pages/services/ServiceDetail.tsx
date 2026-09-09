@@ -279,6 +279,11 @@ export default function ServiceDetail() {
               ? "Free"
               : `$${service.consultation_fee}`}
           </div>
+          {service.cancellation_policy?.trim() ? (
+            <div style={{ marginTop: 8, fontSize: 13, color: "#374151" }}>
+              Cancellation: {service.cancellation_policy.trim()}
+            </div>
+          ) : null}
 
           {error && !showMessageForm && !showBookingForm && (
             <div

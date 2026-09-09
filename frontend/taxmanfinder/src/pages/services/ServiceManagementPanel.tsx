@@ -7,6 +7,9 @@ import {
   createMyService,
   deactivateMyService,
   listServiceCategories,
+  listCancellationPolicies,
+  type CancellationPolicyCode,
+  type CancellationPolicyOption,
   type ServiceCategory,
 } from "../../api/client";
 import { loginPath } from "../../auth/intent";
@@ -16,6 +19,12 @@ import {
   categoryIdFromService,
   reconcileCategorySelectValue,
 } from "./serviceCategoryUi";
+import {
+  CANCELLATION_POLICY_UNSET,
+  CancellationPolicySelect,
+  cancellationPolicySelectValue,
+  hasCancellationPolicyCode,
+} from "./cancellationPolicyUi";
 
 const card = {
   background: "#fff",
@@ -86,7 +95,9 @@ export default function ServiceManagementPanel({
   const [pricingType, setPricingType] =
     useState<CatalogService["pricing_type"]>("consultation_required");
   const [consultationFee, setConsultationFee] = useState("");
-  const [cancellationPolicy, setCancellationPolicy] = useState("");
+  const [cancellationPolicyCode, setCancellationPolicyCode] = useState(
+    CANCELLATION_POLICY_UNSET
+  );
   const [consultationPaid, setConsultationPaid] = useState(false);
   const [editCategoryId, setEditCategoryId] = useState("");
   const [editCategoryError, setEditCategoryError] = useState<string | null>(null);
@@ -96,12 +107,17 @@ export default function ServiceManagementPanel({
     useState<CatalogService["pricing_type"]>("consultation_required");
   const [createPrice, setCreatePrice] = useState("");
   const [createConsultationFee, setCreateConsultationFee] = useState("");
-  const [createCancellationPolicy, setCreateCancellationPolicy] = useState("");
+  const [createCancellationPolicyCode, setCreateCancellationPolicyCode] = useState(
+    CANCELLATION_POLICY_UNSET
+  );
   const [createConsultationPaid, setCreateConsultationPaid] = useState(false);
   const [createCategoryId, setCreateCategoryId] = useState("");
   const [createCategoryError, setCreateCategoryError] = useState<string | null>(
     null
   );
+  const [policyOptions, setPolicyOptions] = useState<CancellationPolicyOption[]>([]);
+  const [policiesLoading, setPoliciesLoading] = useState(true);
+  const [policiesError, setPoliciesError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -143,6 +159,22 @@ export default function ServiceManagementPanel({
     }
   }, []);
 
+  const loadPolicies = useCallback(async () => {
+    try {
+      setPoliciesLoading(true);
+      setPoliciesError(null);
+      setPolicyOptions(await listCancellationPolicies());
+    } catch (e) {
+      console.error(e);
+      setPolicyOptions([]);
+      setPoliciesError(
+        "Could not load cancellation policies. Check your connection and try again."
+      );
+    } finally {
+      setPoliciesLoading(false);
+    }
+  }, []);
+
   const loadServices = useCallback(async () => {
     try {
       setLoading(true);
@@ -169,6 +201,11 @@ export default function ServiceManagementPanel({
     if (!token) return;
     void loadCategories();
   }, [token, loadCategories]);
+
+  useEffect(() => {
+    if (!token) return;
+    void loadPolicies();
+  }, [token, loadPolicies]);
 
   // After a successful category load, drop ids that are no longer assignable.
   // On load failure, keep editCategoryId so a retry can restore the selection.
@@ -198,12 +235,15 @@ export default function ServiceManagementPanel({
       service.consultation_fee != null && Number(service.consultation_fee) > 0;
     setConsultationPaid(paid);
     setConsultationFee(paid ? service.consultation_fee || "" : "");
-    setCancellationPolicy(service.cancellation_policy || "");
+    setCancellationPolicyCode(
+      cancellationPolicySelectValue(service.cancellation_policy_code)
+    );
     setEditCategoryId(categoryIdFromService(service.category));
     setEditCategoryError(null);
     setSaveError(null);
     setEditFieldErrors({});
     setSaveSuccess(null);
+    setRemoveError(null);
   }
 
   function cancelEdit() {
@@ -211,6 +251,7 @@ export default function ServiceManagementPanel({
     setSaveError(null);
     setEditCategoryError(null);
     setEditFieldErrors({});
+    setRemoveError(null);
   }
 
   function startCreate() {
@@ -222,7 +263,7 @@ export default function ServiceManagementPanel({
     setCreatePrice("");
     setCreateConsultationPaid(false);
     setCreateConsultationFee("");
-    setCreateCancellationPolicy("");
+    setCreateCancellationPolicyCode(CANCELLATION_POLICY_UNSET);
     setCreateCategoryId("");
     setCreateCategoryError(null);
     setCreateError(null);
@@ -249,6 +290,13 @@ export default function ServiceManagementPanel({
       setCreateError(null);
       return;
     }
+    if (!hasCancellationPolicyCode(createCancellationPolicyCode)) {
+      setCreateFieldErrors({
+        cancellation_policy_code: "Select a cancellation policy.",
+      });
+      setCreateError(null);
+      return;
+    }
     if (createConsultationPaid) {
       const fee = Number(createConsultationFee);
       if (!createConsultationFee.trim() || Number.isNaN(fee) || fee <= 0) {
@@ -272,7 +320,8 @@ export default function ServiceManagementPanel({
         consultation_fee: createConsultationPaid
           ? createConsultationFee.trim()
           : "0.00",
-        cancellation_policy: createCancellationPolicy.trim(),
+        cancellation_policy_code:
+          createCancellationPolicyCode as CancellationPolicyCode,
         category_id: Number(createCategoryId),
       };
       if (createPricingType !== "consultation_required") {
@@ -289,7 +338,7 @@ export default function ServiceManagementPanel({
       setCreatePrice("");
       setCreateConsultationPaid(false);
       setCreateConsultationFee("");
-      setCreateCancellationPolicy("");
+      setCreateCancellationPolicyCode(CANCELLATION_POLICY_UNSET);
       setCreateCategoryId("");
       setSaveSuccess("Service saved.");
     } catch (err) {
@@ -351,6 +400,13 @@ export default function ServiceManagementPanel({
 
   async function reactivateService(service: CatalogService) {
     if (reactivatingId != null) return;
+    if (!hasCancellationPolicyCode(service.cancellation_policy_code)) {
+      startEdit(service);
+      setRemoveError(
+        "Select a cancellation policy before reactivating this service."
+      );
+      return;
+    }
     setReactivatingId(service.id);
     setRemoveError(null);
     try {
@@ -382,6 +438,13 @@ export default function ServiceManagementPanel({
       setSaveError(null);
       return;
     }
+    if (!hasCancellationPolicyCode(cancellationPolicyCode)) {
+      setEditFieldErrors({
+        cancellation_policy_code: "Select a cancellation policy.",
+      });
+      setSaveError(null);
+      return;
+    }
     if (consultationPaid) {
       const fee = Number(consultationFee);
       if (!consultationFee.trim() || Number.isNaN(fee) || fee <= 0) {
@@ -404,19 +467,23 @@ export default function ServiceManagementPanel({
         indicative_price?: string | null;
         consultation_fee?: string | null;
         consultation_is_paid?: boolean;
-        cancellation_policy?: string;
+        cancellation_policy_code: CancellationPolicyCode;
         category_id: number;
+        is_active?: boolean;
       } = {
         name: name.trim(),
         description: description.trim(),
         pricing_type: pricingType,
         consultation_is_paid: consultationPaid,
         consultation_fee: consultationPaid ? consultationFee.trim() : "0.00",
-        cancellation_policy: cancellationPolicy.trim(),
+        cancellation_policy_code: cancellationPolicyCode as CancellationPolicyCode,
         category_id: Number(editCategoryId),
       };
       if (pricingType !== "consultation_required") {
         body.indicative_price = price.trim() || null;
+      }
+      if (service.is_active === false) {
+        body.is_active = true;
       }
       const updated = await updateMyService(service.id, body);
       setServicesAndNotify((rows) =>
@@ -633,15 +700,24 @@ export default function ServiceManagementPanel({
                   />
                 </label>
               )}
-              <label style={{ fontSize: 13, color: "#111827" }}>
-                Cancellation policy
-                <textarea
-                  value={createCancellationPolicy}
-                  onChange={(e) => setCreateCancellationPolicy(e.target.value)}
-                  rows={2}
-                  style={{ ...field, marginTop: 6, resize: "vertical" }}
-                />
-              </label>
+              <CancellationPolicySelect
+                id="create-cancellation-policy"
+                value={createCancellationPolicyCode}
+                options={policyOptions}
+                disabled={saving || policiesLoading || Boolean(policiesError)}
+                error={
+                  createFieldErrors.cancellation_policy_code ||
+                  policiesError ||
+                  null
+                }
+                onChange={(next) => {
+                  setCreateCancellationPolicyCode(next);
+                  setCreateFieldErrors((prev) => {
+                    const { cancellation_policy_code: _removed, ...rest } = prev;
+                    return rest;
+                  });
+                }}
+              />
               {createError && (
                 <div role="alert" style={{ color: "#b91c1c", fontSize: 13 }}>
                   {createError}
@@ -841,15 +917,25 @@ export default function ServiceManagementPanel({
                       />
                     </label>
                   )}
-                  <label style={{ fontSize: 13, color: "#111827" }}>
-                    Cancellation policy
-                    <textarea
-                      value={cancellationPolicy}
-                      onChange={(e) => setCancellationPolicy(e.target.value)}
-                      rows={2}
-                      style={{ ...field, marginTop: 6, resize: "vertical" }}
-                    />
-                  </label>
+                  <CancellationPolicySelect
+                    id={`edit-cancellation-policy-${s.id}`}
+                    value={cancellationPolicyCode}
+                    options={policyOptions}
+                    disabled={saving || policiesLoading || Boolean(policiesError)}
+                    error={
+                      editFieldErrors.cancellation_policy_code ||
+                      policiesError ||
+                      null
+                    }
+                    onChange={(next) => {
+                      setCancellationPolicyCode(next);
+                      setEditFieldErrors((prev) => {
+                        const { cancellation_policy_code: _removed, ...rest } =
+                          prev;
+                        return rest;
+                      });
+                    }}
+                  />
                   {saveError && (
                     <div role="alert" style={{ color: "#b91c1c", fontSize: 13 }}>
                       {saveError}

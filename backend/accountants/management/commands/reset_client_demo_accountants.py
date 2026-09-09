@@ -43,7 +43,11 @@ DEMO_ACCOUNTANTS = [
         "pricing_type": Service.PricingType.FIXED,
         "indicative_price": "350.00",
         "consultation_fee": "0.00",
-        "cancellation_policy": "Free consultations can be cancelled any time before the meeting.",
+        "cancellation_policy_code": "free_24h",
+        "cancellation_policy": (
+            "Full refund if cancelled at least 24 hours before the consultation. "
+            "Cancellations within 24 hours are non-refundable."
+        ),
     },
     {
         "email": "demo.acct.maya@example.com",
@@ -62,9 +66,10 @@ DEMO_ACCOUNTANTS = [
         "pricing_type": Service.PricingType.HOURLY,
         "indicative_price": "175.00",
         "consultation_fee": "50.00",
+        "cancellation_policy_code": "free_24h",
         "cancellation_policy": (
-            "Cancel at least 24 hours before the consultation for a full refund of the "
-            "consultation fee. Later cancellations are non-refundable."
+            "Full refund if cancelled at least 24 hours before the consultation. "
+            "Cancellations within 24 hours are non-refundable."
         ),
     },
     {
@@ -84,8 +89,10 @@ DEMO_ACCOUNTANTS = [
         "pricing_type": Service.PricingType.FIXED,
         "indicative_price": "225.00",
         "consultation_fee": "75.00",
+        "cancellation_policy_code": "free_48h",
         "cancellation_policy": (
-            "Consultation fee is refundable if cancelled 48 hours or more before the meeting."
+            "Full refund if cancelled at least 48 hours before the consultation. "
+            "Cancellations within 48 hours are non-refundable."
         ),
     },
     {
@@ -105,7 +112,8 @@ DEMO_ACCOUNTANTS = [
         "pricing_type": Service.PricingType.CONSULTATION_REQUIRED,
         "indicative_price": None,
         "consultation_fee": "0.00",
-        "cancellation_policy": "Introductory consultations are free; cancel anytime before the meeting.",
+        "cancellation_policy_code": "non_refundable",
+        "cancellation_policy": "The consultation fee is non-refundable after booking.",
     },
 ]
 
@@ -212,6 +220,7 @@ class Command(BaseCommand):
                 pricing_type=row["pricing_type"],
                 indicative_price=row["indicative_price"],
                 consultation_fee=row.get("consultation_fee"),
+                cancellation_policy_code=row.get("cancellation_policy_code") or "",
                 cancellation_policy=row.get("cancellation_policy") or "",
                 is_active=True,
             )

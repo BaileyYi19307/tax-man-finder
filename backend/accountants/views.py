@@ -17,6 +17,7 @@ from services.category_assignment import (
     resolve_assignable_category,
     resolve_public_category_slug,
 )
+from services.cancellation_policy import resolve_service_cancellation_policy_text
 from services.models import Service
 from services.title_uniqueness import (
     DUPLICATE_SERVICE_TITLE_MESSAGE,
@@ -64,7 +65,8 @@ def _profile_payload(profile, *, for_owner: bool = False):
                 if service.consultation_fee is not None
                 else None
             ),
-            "cancellation_policy": service.cancellation_policy or "",
+            "cancellation_policy": resolve_service_cancellation_policy_text(service),
+            "cancellation_policy_code": service.cancellation_policy_code or None,
             "category": (
                 {
                     "id": category.id,

@@ -74,6 +74,22 @@ test("renders customer-facing professional fields and service cards", () => {
   expect(screen.getByText("AL")).toBeInTheDocument();
 });
 
+test("shows cancellation policy wording on service cards", () => {
+  renderPresentation({
+    ...baseProfile,
+    services: [
+      {
+        ...baseProfile.services[0],
+        cancellation_policy:
+          "Full refund if cancelled at least 24 hours before the consultation. Cancellations within 24 hours are non-refundable.",
+      },
+    ],
+  });
+  expect(
+    screen.getByText(/Cancellation: Full refund if cancelled at least 24 hours/i)
+  ).toBeInTheDocument();
+});
+
 test("shows initials avatar fallback", () => {
   renderPresentation({
     ...baseProfile,
