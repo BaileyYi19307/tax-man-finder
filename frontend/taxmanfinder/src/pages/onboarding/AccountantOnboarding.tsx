@@ -1,12 +1,16 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import { clearPostAuthRouting, signupPath } from "../../auth/intent";
 import {
+  apiFieldError,
   createAccountantProfile,
   getMe,
   getMyAccountantProfile,
+  listServiceCategories,
+  type ServiceCategory,
 } from "../../api/client";
+import ServiceCategorySelect from "../services/ServiceCategorySelect";
 
 const page = {
   minHeight: "100vh",
@@ -39,10 +43,31 @@ export default function AccountantOnboarding() {
   const [yearsExperience, setYearsExperience] = useState("0");
   const [serviceName, setServiceName] = useState("");
   const [serviceDescription, setServiceDescription] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<ServiceCategory[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [hasExistingService, setHasExistingService] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
+
+  const loadCategories = useCallback(async () => {
+    try {
+      setCategoriesLoading(true);
+      setCategoriesError(null);
+      setCategories(await listServiceCategories());
+    } catch (e) {
+      console.error(e);
+      setCategories([]);
+      setCategoriesError(
+        "Could not load service categories. Check your connection and try again."
+      );
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");
@@ -101,11 +126,27 @@ export default function AccountantOnboarding() {
     checkExisting();
   }, [navigate]);
 
+  useEffect(() => {
+    if (checking || hasExistingService) return;
+    void loadCategories();
+  }, [checking, hasExistingService, loadCategories]);
+
+  const creatingPrimaryService = !hasExistingService && Boolean(serviceName.trim());
+  const categoryControlsBlocked =
+    creatingPrimaryService &&
+    (categoriesLoading || Boolean(categoriesError) || categories.length === 0);
+
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (loading) return;
     setError(null);
+    setCategoryError(null);
     if (!hasExistingService && !serviceName.trim()) {
       setError("Add at least one service so clients can find the work you offer.");
+      return;
+    }
+    if (creatingPrimaryService && !categoryId) {
+      setCategoryError("Select a service category.");
       return;
     }
     setLoading(true);
@@ -124,13 +165,24 @@ export default function AccountantOnboarding() {
           : {
               service_name: serviceName.trim(),
               service_description: serviceDescription.trim(),
+              category_id: Number(categoryId),
             }),
       });
       clearPostAuthRouting();
       await refreshUser();
       navigate("/dashboard/accountant", { replace: true });
-    } catch (err: any) {
-      setError(err.message || "Could not save your profile. Please try again.");
+    } catch (err: unknown) {
+      const categoryMessage = apiFieldError(err, "category_id");
+      if (categoryMessage) {
+        setCategoryError(categoryMessage);
+        setError(null);
+      } else {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Could not save your profile. Please try again."
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -252,7 +304,10 @@ export default function AccountantOnboarding() {
                 Primary service
                 <input
                   value={serviceName}
-                  onChange={(e) => setServiceName(e.target.value)}
+                  onChange={(e) => {
+                    setServiceName(e.target.value);
+                    setCategoryError(null);
+                  }}
                   placeholder="Individual tax returns"
                   required
                   style={{ ...field, marginTop: 6 }}
@@ -268,6 +323,21 @@ export default function AccountantOnboarding() {
                   style={{ ...field, marginTop: 6, resize: "vertical" }}
                 />
               </label>
+              <ServiceCategorySelect
+                selectId="onboarding-service-category"
+                categories={categories}
+                loading={categoriesLoading}
+                loadError={categoriesError}
+                onRetry={() => void loadCategories()}
+                value={categoryId}
+                onChange={(next) => {
+                  setCategoryId(next);
+                  setCategoryError(null);
+                }}
+                fieldError={categoryError}
+                disabled={loading}
+                required={creatingPrimaryService}
+              />
             </>
           )}
 
@@ -288,15 +358,15 @@ export default function AccountantOnboarding() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || categoryControlsBlocked}
             style={{
               padding: "10px 12px",
               borderRadius: 8,
               border: "none",
-              background: loading ? "#93c5fd" : "#2563eb",
+              background: loading || categoryControlsBlocked ? "#93c5fd" : "#2563eb",
               color: "#fff",
               fontWeight: 600,
-              cursor: loading ? "not-allowed" : "pointer",
+              cursor: loading || categoryControlsBlocked ? "not-allowed" : "pointer",
             }}
           >
             {loading ? "Saving..." : "Save profile and continue"}

@@ -37,9 +37,13 @@ describe("readApiError", () => {
     expect(err.message).toBe("Could not start Stripe Checkout (503)");
   });
 
-  it("uses raw text when the body is not JSON", async () => {
-    const res = new Response("Gateway timeout", { status: 504 });
+  it("attaches field errors for callers that need field-level UI", async () => {
+    const res = new Response(
+      JSON.stringify({ category_id: ["Category is not active."] }),
+      { status: 400 }
+    );
     const err = await readApiError(res);
-    expect(err.message).toBe("Gateway timeout");
+    expect(err.message).toBe("Category is not active.");
+    expect(err.fields).toEqual({ category_id: "Category is not active." });
   });
 });
