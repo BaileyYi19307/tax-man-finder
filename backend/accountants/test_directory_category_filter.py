@@ -73,7 +73,7 @@ class DirectoryCategoryFilterApiTest(TestCase):
         )
         self.payroll = _published_accountant(
             email="payroll@test.com",
-            category_slug="payroll",
+            category_slug="payroll-services",
             service_name="Payroll",
             latitude=34.05,
             longitude=-118.24,
@@ -82,7 +82,7 @@ class DirectoryCategoryFilterApiTest(TestCase):
             email="multi@test.com",
             category_slug="bookkeeping",
             service_name="Books primary",
-            extra_category_slug="payroll",
+            extra_category_slug="payroll-services",
             latitude=39.96,
             longitude=-75.17,
         )
@@ -100,7 +100,7 @@ class DirectoryCategoryFilterApiTest(TestCase):
             description="Planning",
             pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
             is_active=True,
-            category=ServiceCategory.objects.get(slug="tax-planning"),
+            category=ServiceCategory.objects.get(slug="consulting"),
         )
 
     def test_no_category_param_preserves_current_directory(self):

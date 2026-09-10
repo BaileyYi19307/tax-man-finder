@@ -43,7 +43,7 @@ class OwnerPreviewApiTest(TestCase):
         self.assertEqual(resp.data["services"][0]["id"], self.service.id)
         self.assertEqual(
             resp.data["services"][0]["category"]["slug"],
-            "individual-tax-returns",
+            "individual-tax-services",
         )
         # Customer-facing shape: no password / private account fields.
         self.assertNotIn("password", resp.data)

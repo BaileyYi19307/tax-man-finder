@@ -20,7 +20,7 @@ jest.mock("../../api/client", () => ({
 }));
 
 const categories = [
-  { id: 1, name: "Individual tax returns", slug: "individual-tax-returns" },
+  { id: 1, name: "Individual Tax Services", slug: "individual-tax-services" },
   { id: 3, name: "Bookkeeping", slug: "bookkeeping" },
 ];
 
@@ -117,7 +117,7 @@ test("onboarding with a service but no category blocks submit", async () => {
   userEvent.type(screen.getByLabelText("Last name"), "Lovelace");
   userEvent.type(screen.getByLabelText("Credentials"), "CPA");
   userEvent.type(screen.getByLabelText("Short professional bio"), "I prepare returns.");
-  userEvent.type(screen.getByLabelText("Primary service"), "Individual tax returns");
+  userEvent.type(screen.getByLabelText("Primary service"), "Individual Tax Services");
   userEvent.click(screen.getByRole("button", { name: "Save profile and continue" }));
 
   expect(await screen.findByText("Select a service category.")).toBeInTheDocument();
@@ -129,7 +129,7 @@ test("onboarding with a valid service category sends category_id", async () => {
   createAccountantProfile.mockResolvedValue({
     user_id: 9,
     profile_complete: true,
-    services: [{ id: 11, name: "Individual tax returns" }],
+    services: [{ id: 11, name: "Individual Tax Services" }],
   });
   renderOnboarding();
 
@@ -139,7 +139,7 @@ test("onboarding with a valid service category sends category_id", async () => {
   userEvent.type(screen.getByLabelText("Last name"), "Lovelace");
   userEvent.type(screen.getByLabelText("Credentials"), "CPA");
   userEvent.type(screen.getByLabelText("Short professional bio"), "I prepare returns.");
-  userEvent.type(screen.getByLabelText("Primary service"), "Individual tax returns");
+  userEvent.type(screen.getByLabelText("Primary service"), "Individual Tax Services");
   userEvent.type(
     screen.getByLabelText("Service description"),
     "Form 1040 preparation"
@@ -150,7 +150,7 @@ test("onboarding with a valid service category sends category_id", async () => {
   await waitFor(() => {
     expect(createAccountantProfile).toHaveBeenCalledWith(
       expect.objectContaining({
-        service_name: "Individual tax returns",
+        service_name: "Individual Tax Services",
         service_description: "Form 1040 preparation",
         category_id: 1,
       })

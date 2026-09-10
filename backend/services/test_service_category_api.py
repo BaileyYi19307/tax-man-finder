@@ -28,28 +28,27 @@ class ServiceCategoryListApiTest(TestCase):
         self.assertEqual(
             slugs,
             [
-                "individual-tax-returns",
-                "small-business-tax-returns",
-                "tax-planning",
                 "bookkeeping",
-                "payroll",
-                "sales-tax",
-                "business-formation",
-                "irs-notices-and-tax-resolution",
+                "individual-tax-services",
+                "company-tax-services",
+                "consulting",
+                "accounting-service",
+                "payroll-services",
+                "other",
             ],
         )
         for row in resp.data:
             self.assertEqual(set(row.keys()), {"id", "name", "slug"})
 
     def test_excludes_uncategorized_and_inactive(self):
-        inactive = ServiceCategory.objects.get(slug="payroll")
+        inactive = ServiceCategory.objects.get(slug="payroll-services")
         inactive.is_active = False
         inactive.save(update_fields=["is_active"])
 
         resp = self.client.get(self.url)
         slugs = {row["slug"] for row in resp.data}
         self.assertNotIn(UNCATEGORIZED_SLUG, slugs)
-        self.assertNotIn("payroll", slugs)
+        self.assertNotIn("payroll-services", slugs)
         self.assertIn("bookkeeping", slugs)
 
     def test_anonymous_and_authenticated_can_read(self):
@@ -88,7 +87,7 @@ class ServiceCategoryWriteApiTest(TestCase):
         )
         AccountantProfile.objects.create(user=cls.accountant)
         cls.bookkeeping = ServiceCategory.objects.get(slug="bookkeeping")
-        cls.tax_planning = ServiceCategory.objects.get(slug="tax-planning")
+        cls.tax_planning = ServiceCategory.objects.get(slug="consulting")
         cls.uncategorized = ServiceCategory.objects.get(slug="uncategorized")
 
     def setUp(self):
@@ -226,7 +225,7 @@ class ServiceCategoryWriteApiTest(TestCase):
             format="json",
         )
         self.assertEqual(fixed.status_code, status.HTTP_200_OK)
-        self.assertEqual(fixed.data["category"]["slug"], "tax-planning")
+        self.assertEqual(fixed.data["category"]["slug"], "consulting")
 
     def test_patch_uncategorized_requires_active_category(self):
         service = Service.objects.create(
@@ -296,7 +295,7 @@ class OnboardingCategoryApiTest(TestCase):
         )
         self.client.force_authenticate(user=self.user)
         self.url = reverse("create_accountant")
-        self.category = ServiceCategory.objects.get(slug="individual-tax-returns")
+        self.category = ServiceCategory.objects.get(slug="individual-tax-services")
 
     def test_onboarding_with_valid_category_creates_service(self):
         resp = self.client.post(
@@ -398,7 +397,7 @@ class BookingServiceCategoryStabilityTest(TestCase):
             reverse("service-detail", args=[service_id]),
             {
                 "name": "Books consult v2",
-                "category_id": ServiceCategory.objects.get(slug="tax-planning").id,
+                "category_id": ServiceCategory.objects.get(slug="consulting").id,
             },
             format="json",
         )

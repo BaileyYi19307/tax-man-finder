@@ -116,7 +116,7 @@ class ProfessionalDetailsApiTest(TestCase):
         self.client.force_authenticate(user=self.user)
         self.create_url = reverse("create_accountant")
         self.me_url = reverse("my-accountant-profile")
-        self.category = ServiceCategory.objects.get(slug="individual-tax-returns")
+        self.category = ServiceCategory.objects.get(slug="individual-tax-services")
 
     def test_create_and_read_expose_professional_details(self):
         resp = self.client.post(

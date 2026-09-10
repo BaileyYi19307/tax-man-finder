@@ -140,7 +140,7 @@ class ServiceMineAndOwnershipTest(TestCase):
             is_verified=True,
         )
 
-        individual = ServiceCategory.objects.get(slug="individual-tax-returns")
+        individual = ServiceCategory.objects.get(slug="individual-tax-services")
         bookkeeping = ServiceCategory.objects.get(slug="bookkeeping")
         cls.service_a = Service.objects.create(
             cancellation_policy_code="free_24h",

@@ -31,7 +31,7 @@ class ConsultationFeeServiceTests(TestCase):
             offers_remote=True,
             publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
         )
-        cls.category_id = ServiceCategory.objects.get(slug="tax-planning").id
+        cls.category_id = ServiceCategory.objects.get(slug="consulting").id
 
     def setUp(self):
         self.api = APIClient()

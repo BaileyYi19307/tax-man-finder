@@ -13,7 +13,7 @@ class ServiceTitleUniquenessApiTest(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.list_url = reverse("service-list")
-        cls.category = ServiceCategory.objects.get(slug="individual-tax-returns")
+        cls.category = ServiceCategory.objects.get(slug="individual-tax-services")
         cls.other_category = ServiceCategory.objects.get(slug="bookkeeping")
 
         cls.accountant = User.objects.create_user(
