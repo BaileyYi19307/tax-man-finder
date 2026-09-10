@@ -2,8 +2,11 @@ import { Link } from "react-router-dom";
 import type { CSSProperties, ReactNode } from "react";
 import {
   ACCOUNTANT_ONBOARDING_STEPS,
+  stepIsComplete,
+  stepNeedsAttention,
   type OnboardingStepId,
 } from "./onboardingSteps";
+import type { PublishReadinessErrors } from "../../api/client";
 
 const page = {
   minHeight: "100vh",
@@ -27,6 +30,8 @@ const card = {
 
 const muted = { color: "#6b7280", fontSize: 13, lineHeight: 1.45 };
 
+type StepVisualState = "current" | "complete" | "needs_attention" | "incomplete";
+
 type Props = {
   currentStepId: OnboardingStepId;
   title: string;
@@ -34,14 +39,34 @@ type Props = {
   children: ReactNode;
   /** When true, wizard step links are disabled (e.g. save in flight). */
   navigationLocked?: boolean;
+  /**
+   * Backend publish readiness errors. When omitted/null, do not claim
+   * completion or show “Needs attention” from route history alone.
+   */
+  publishReadinessErrors?: PublishReadinessErrors | null;
 };
 
-function stepBaseStyle(options: {
+function stepVisualState(options: {
   isCurrent: boolean;
   isComplete: boolean;
+  needsAttention: boolean;
+}): StepVisualState {
+  const { isCurrent, isComplete, needsAttention } = options;
+  if (isCurrent) return "current";
+  if (needsAttention) return "needs_attention";
+  if (isComplete) return "complete";
+  return "incomplete";
+}
+
+function stepBaseStyle(options: {
+  state: StepVisualState;
   navigationLocked: boolean;
+  isCurrent: boolean;
 }): CSSProperties {
-  const { isCurrent, isComplete, navigationLocked } = options;
+  const { state, navigationLocked, isCurrent } = options;
+  const isComplete = state === "complete";
+  const isNeedsAttention = state === "needs_attention";
+
   return {
     display: "inline-flex",
     alignItems: "center",
@@ -50,20 +75,22 @@ function stepBaseStyle(options: {
     padding: "8px 12px",
     borderRadius: 8,
     fontSize: 13,
-    fontWeight: isCurrent ? 700 : isComplete ? 600 : 500,
+    fontWeight: state === "current" ? 700 : isComplete || isNeedsAttention ? 600 : 500,
     lineHeight: 1.3,
-    border: isCurrent
-      ? "1px solid #2563eb"
-      : isComplete
-        ? "1px solid #86efac"
-        : "1px solid #e5e7eb",
-    background: isCurrent ? "#eff6ff" : isComplete ? "#f0fdf4" : "#f9fafb",
-    color: isCurrent ? "#1d4ed8" : isComplete ? "#166534" : "#6b7280",
+    border:
+      state === "current"
+        ? "1px solid #2563eb"
+        : isNeedsAttention
+          ? "1px solid #d1d5db"
+          : "1px solid #e5e7eb",
+    background:
+      state === "current" ? "#eff6ff" : isComplete || isNeedsAttention ? "#fff" : "#f9fafb",
+    color:
+      state === "current" ? "#1d4ed8" : isComplete || isNeedsAttention ? "#111827" : "#6b7280",
     textDecoration: "none",
     opacity: navigationLocked && !isCurrent ? 0.55 : 1,
     pointerEvents: navigationLocked && !isCurrent ? "none" : "auto",
-    cursor:
-      !navigationLocked && (isComplete || !isCurrent) ? "pointer" : "default",
+    cursor: !navigationLocked && !isCurrent ? "pointer" : "default",
     boxSizing: "border-box",
     whiteSpace: "normal",
   };
@@ -75,6 +102,7 @@ export default function AccountantOnboardingLayout({
   description,
   children,
   navigationLocked = false,
+  publishReadinessErrors = null,
 }: Props) {
   const currentIndex = ACCOUNTANT_ONBOARDING_STEPS.findIndex(
     (step) => step.id === currentStepId
@@ -126,42 +154,61 @@ export default function AccountantOnboardingLayout({
             >
               {ACCOUNTANT_ONBOARDING_STEPS.map((step, index) => {
                 const isCurrent = step.id === currentStepId;
-                const isComplete = currentIndex > index;
-                const visibleLabel = `${index + 1}. ${step.label}`;
-                const baseStyle = stepBaseStyle({
+                const needsAttention = stepNeedsAttention(
+                  step.id,
+                  publishReadinessErrors
+                );
+                const isComplete = stepIsComplete(step.id, publishReadinessErrors);
+                const state = stepVisualState({
                   isCurrent,
                   isComplete,
-                  navigationLocked,
+                  needsAttention,
                 });
-
-                if (step.path && isComplete && !navigationLocked) {
-                  return (
-                    <li key={step.id} style={{ maxWidth: "100%" }}>
-                      <Link
-                        to={step.path}
-                        className="onboarding-step-link onboarding-step-link--complete"
-                        style={baseStyle}
-                        aria-label={`Edit ${step.label}`}
-                      >
-                        <span>{visibleLabel}</span>
-                        <span aria-hidden="true" style={{ fontSize: 12, opacity: 0.85 }}>
-                          ✎
-                        </span>
-                      </Link>
-                    </li>
-                  );
-                }
+                const visibleLabel = `${index + 1}. ${step.label}`;
+                const baseStyle = stepBaseStyle({
+                  state,
+                  navigationLocked,
+                  isCurrent,
+                });
+                const showEditChrome = state === "complete" || state === "needs_attention";
 
                 if (step.path && !isCurrent && !navigationLocked) {
+                  const linkClass =
+                    state === "complete"
+                      ? "onboarding-step-link onboarding-step-link--complete"
+                      : state === "needs_attention"
+                        ? "onboarding-step-link onboarding-step-link--attention"
+                        : "onboarding-step-link";
                   return (
                     <li key={step.id} style={{ maxWidth: "100%" }}>
                       <Link
                         to={step.path}
-                        className="onboarding-step-link"
+                        className={linkClass}
                         style={baseStyle}
-                        aria-label={step.label}
+                        aria-label={
+                          showEditChrome ? `Edit ${step.label}` : step.label
+                        }
                       >
                         {visibleLabel}
+                        {state === "complete" ? (
+                          <span aria-hidden="true" style={{ fontSize: 12, color: "#374151" }}>
+                            {" "}
+                            ✓
+                          </span>
+                        ) : null}
+                        {state === "needs_attention" ? (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: "#6b7280",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {" "}
+                            Needs attention
+                          </span>
+                        ) : null}
                       </Link>
                     </li>
                   );
@@ -178,6 +225,25 @@ export default function AccountantOnboardingLayout({
                       }
                     >
                       {visibleLabel}
+                      {state === "complete" ? (
+                        <span aria-hidden="true" style={{ fontSize: 12, color: "#374151" }}>
+                          {" "}
+                          ✓
+                        </span>
+                      ) : null}
+                      {state === "needs_attention" ? (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: "#6b7280",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {" "}
+                          Needs attention
+                        </span>
+                      ) : null}
                     </span>
                   </li>
                 );

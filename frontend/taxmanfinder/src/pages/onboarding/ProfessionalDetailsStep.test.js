@@ -98,11 +98,11 @@ test("route shows professional details as the active wizard step", async () => {
     "href",
     "/onboarding/accountant/basic"
   );
-  expect(screen.getByRole("link", { name: "Services" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "Edit Services" })).toHaveAttribute(
     "href",
     "/onboarding/accountant/services"
   );
-  expect(screen.getByRole("link", { name: "Preview" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "Edit Preview" })).toHaveAttribute(
     "href",
     "/onboarding/accountant/preview"
   );

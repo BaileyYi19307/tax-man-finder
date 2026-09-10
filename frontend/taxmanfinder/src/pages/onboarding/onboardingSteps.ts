@@ -67,3 +67,37 @@ export function continueSetupPath(
   }
   return "/onboarding/accountant/preview";
 }
+
+/**
+ * Whether a wizard step has a publish-readiness gap from the backend.
+ * Returns false when readiness data is unavailable — do not infer gaps from visits.
+ */
+export function stepNeedsAttention(
+  stepId: OnboardingStepId,
+  errors: Record<string, string[]> | null | undefined
+): boolean {
+  if (errors == null) return false;
+  const keys = Object.keys(errors);
+  if (stepId === "basic") {
+    return keys.some((key) => BASIC_SETUP_KEYS.has(key));
+  }
+  if (stepId === "professional") {
+    return keys.some((key) => PROFESSIONAL_SETUP_KEYS.has(key));
+  }
+  if (stepId === "services") {
+    return keys.includes("services");
+  }
+  return false;
+}
+
+/**
+ * Step is complete only when backend readiness is known and reports no gap.
+ * Do not treat prior route visits as completion.
+ */
+export function stepIsComplete(
+  stepId: OnboardingStepId,
+  errors: Record<string, string[]> | null | undefined
+): boolean {
+  if (errors == null) return false;
+  return !stepNeedsAttention(stepId, errors);
+}

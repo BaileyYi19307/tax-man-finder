@@ -210,6 +210,7 @@ export default function PreviewOnboardingStep() {
       currentStepId="preview"
       title="Preview & publish"
       navigationLocked={publishing}
+      publishReadinessErrors={profile.publish_readiness_errors}
       description="This is how clients will see your profile. Fix any gaps below, then publish."
     >
       {showLiveConfirmation ? (

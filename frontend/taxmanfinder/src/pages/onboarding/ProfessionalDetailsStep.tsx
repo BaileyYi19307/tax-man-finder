@@ -8,6 +8,7 @@ import {
   type AccountantMyProfilePayload,
   type AccountantProfileDraftBody,
   type ApiError,
+  type PublishReadinessErrors,
 } from "../../api/client";
 import AccountantOnboardingLayout from "./AccountantOnboardingLayout";
 import StringListInput from "./StringListInput";
@@ -87,6 +88,8 @@ export default function ProfessionalDetailsStep() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [publishReadinessErrors, setPublishReadinessErrors] =
+    useState<PublishReadinessErrors | null>(null);
 
   const loadDraft = useCallback(async () => {
     setChecking(true);
@@ -107,6 +110,9 @@ export default function ProfessionalDetailsStep() {
         setWebsite(profile.website || "");
         setLicenseInformation(profile.license_information || "");
         setFirmName(profile.firm_name || "");
+        setPublishReadinessErrors(profile.publish_readiness_errors || {});
+      } else {
+        setPublishReadinessErrors(null);
       }
     } catch (e) {
       console.error(e);
@@ -145,6 +151,7 @@ export default function ProfessionalDetailsStep() {
     setWebsite(saved.website || "");
     setLicenseInformation(saved.license_information || "");
     setFirmName(saved.firm_name || "");
+    setPublishReadinessErrors(saved.publish_readiness_errors || {});
   }
 
   async function saveDraft(mode: "continue" | "exit") {
@@ -247,6 +254,7 @@ export default function ProfessionalDetailsStep() {
       currentStepId="professional"
       title="Professional details"
       navigationLocked={saving}
+      publishReadinessErrors={publishReadinessErrors}
       description="Drafts can be incomplete. Credentials, at least one language, and remote or in-person availability are required before publishing."
     >
       <form

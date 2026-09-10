@@ -295,14 +295,13 @@ test("Save and exit goes to the accountant dashboard", async () => {
 
 test("wizard marks previous steps as editable links and Preview active", async () => {
   renderPreview();
-  expect(await screen.findByText("4. Preview")).toHaveAttribute("aria-current", "step");
+  expect(
+    await screen.findByRole("link", { name: "Edit Basic profile" })
+  ).toHaveAttribute("href", "/onboarding/accountant/basic");
+  expect(screen.getByText("4. Preview")).toHaveAttribute("aria-current", "step");
   expect(
     screen.getByText("Select any section to review or edit it.")
   ).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Edit Basic profile" })).toHaveAttribute(
-    "href",
-    "/onboarding/accountant/basic"
-  );
   expect(
     screen.getByRole("link", { name: "Edit Professional details" })
   ).toHaveAttribute("href", "/onboarding/accountant/professional");
@@ -354,7 +353,9 @@ test("Edit profile from live confirmation navigates to the wizard", async () => 
 
 test("completed section link navigates to Professional details", async () => {
   renderPreview();
-  expect(await screen.findByText("4. Preview")).toBeInTheDocument();
+  expect(
+    await screen.findByRole("link", { name: "Edit Professional details" })
+  ).toBeInTheDocument();
   userEvent.click(screen.getByRole("link", { name: "Edit Professional details" }));
   expect(await screen.findByText("Professional step")).toBeInTheDocument();
 });

@@ -9,6 +9,7 @@ import {
   type AccountantMyProfilePayload,
   type AccountantProfileDraftBody,
   type ApiError,
+  type PublishReadinessErrors,
 } from "../../api/client";
 import AccountantOnboardingLayout from "./AccountantOnboardingLayout";
 import AccountantAvatar from "../accountants/AccountantAvatar";
@@ -60,6 +61,8 @@ export default function BasicProfileStep() {
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [hasProfile, setHasProfile] = useState(false);
+  const [publishReadinessErrors, setPublishReadinessErrors] =
+    useState<PublishReadinessErrors | null>(null);
   const [savedPhotoUrl, setSavedPhotoUrl] = useState<string | null>(null);
   const [selectedPhotoFile, setSelectedPhotoFile] = useState<File | null>(null);
   const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
@@ -86,12 +89,14 @@ export default function BasicProfileStep() {
         setBio(profile.bio || "");
         setLocation(profile.location || "");
         setSavedPhotoUrl(profile.profile_photo_url || null);
+        setPublishReadinessErrors(profile.publish_readiness_errors || {});
         setSelectedPhotoFile(null);
         setRemovePhoto(false);
         setPhotoError(null);
       } else {
         setHasProfile(false);
         setSavedPhotoUrl(null);
+        setPublishReadinessErrors(null);
       }
     } catch (e) {
       console.error(e);
@@ -188,6 +193,7 @@ export default function BasicProfileStep() {
       setBio(saved.bio || "");
       setLocation(saved.location || "");
       setSavedPhotoUrl(saved.profile_photo_url || null);
+      setPublishReadinessErrors(saved.publish_readiness_errors || {});
       clearSelectedPhoto();
       setRemovePhoto(false);
       await refreshUser();
@@ -268,6 +274,7 @@ export default function BasicProfileStep() {
       currentStepId="basic"
       title="Basic profile"
       navigationLocked={saving}
+      publishReadinessErrors={publishReadinessErrors}
       description={
         hasProfile
           ? "Update your draft. Incomplete details are fine — you can publish later."

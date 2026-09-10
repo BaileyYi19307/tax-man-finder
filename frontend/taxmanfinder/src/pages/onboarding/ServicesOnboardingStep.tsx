@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getMyAccountantProfile } from "../../api/client";
+import {
+  getMyAccountantProfile,
+  type PublishReadinessErrors,
+} from "../../api/client";
 import { signupPath } from "../../auth/intent";
 import AccountantOnboardingLayout from "./AccountantOnboardingLayout";
 import {
@@ -14,6 +17,8 @@ export default function ServicesOnboardingStep() {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [publishReadinessErrors, setPublishReadinessErrors] =
+    useState<PublishReadinessErrors | null>(null);
 
   const ensureProfile = useCallback(async () => {
     setChecking(true);
@@ -24,6 +29,7 @@ export default function ServicesOnboardingStep() {
         navigate("/onboarding/accountant/basic", { replace: true });
         return;
       }
+      setPublishReadinessErrors(profile.publish_readiness_errors || {});
     } catch (e) {
       console.error(e);
       setLoadError(
@@ -97,6 +103,7 @@ export default function ServicesOnboardingStep() {
     <AccountantOnboardingLayout
       currentStepId="services"
       title="Services"
+      publishReadinessErrors={publishReadinessErrors}
       description="List one or more services. You can use the same category more than once. Drafts can have zero services — publishing requires at least one active service."
     >
       <div style={{ marginTop: 12 }}>

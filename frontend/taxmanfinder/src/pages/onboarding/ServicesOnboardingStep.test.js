@@ -157,7 +157,7 @@ test("services route shows active wizard step with previous steps linked", async
   expect(
     screen.getByRole("link", { name: "Edit Professional details" })
   ).toHaveAttribute("href", "/onboarding/accountant/professional");
-  expect(screen.getByRole("link", { name: "Preview" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "Edit Preview" })).toHaveAttribute(
     "href",
     "/onboarding/accountant/preview"
   );
