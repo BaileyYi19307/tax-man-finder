@@ -93,7 +93,7 @@ test("loads current profile fields and links to the public listing", async () =>
   expect(screen.getByDisplayValue("MA CPA #1")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Cancel and view public profile" })).toHaveAttribute(
     "href",
-    "/accountants/22"
+    "/accountants/22?from=dashboard"
   );
   expect(screen.getByRole("link", { name: "← Dashboard" })).toHaveAttribute(
     "href",

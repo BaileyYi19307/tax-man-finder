@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
+import { Link, useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom";
 import {
   getPublicAccountantProfile,
   listMyInquiries,
@@ -11,6 +11,7 @@ import { loginPath } from "../../auth/intent";
 import { useAuth } from "../../auth/AuthProvider";
 import { getAccessToken } from "../../auth/session";
 import AccountantProfilePresentation from "./AccountantProfilePresentation";
+import { resolvePublicProfileBackNav } from "./publicProfileNav";
 
 const page = {
   minHeight: "100vh",
@@ -37,6 +38,8 @@ export default function AccountantProfilePage() {
   const { userId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const backNav = resolvePublicProfileBackNav(searchParams.get("from"));
   const [profile, setProfile] = useState<AccountantProfilePayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -233,8 +236,8 @@ export default function AccountantProfilePage() {
     return (
       <div style={page}>
         <div style={container}>
-          <Link to="/accountants" style={{ fontSize: 13, color: "#2563eb" }}>
-            ← Back to accountants
+          <Link to={backNav.to} style={{ fontSize: 13, color: "#2563eb" }}>
+            {backNav.label}
           </Link>
           <div style={{ ...muted, marginTop: 16 }}>Loading profile…</div>
         </div>
@@ -247,8 +250,8 @@ export default function AccountantProfilePage() {
       <div style={container}>
         {loadError && (
           <>
-            <Link to="/accountants" style={{ fontSize: 13, color: "#2563eb" }}>
-              ← Back to accountants
+            <Link to={backNav.to} style={{ fontSize: 13, color: "#2563eb" }}>
+              {backNav.label}
             </Link>
             <div style={{ ...card, marginTop: 16, color: "#b91c1c" }}>{loadError}</div>
           </>
@@ -259,8 +262,8 @@ export default function AccountantProfilePage() {
             profile={profile}
             showEditLink={isOwnProfile}
             header={
-              <Link to="/accountants" style={{ fontSize: 13, color: "#2563eb" }}>
-                ← Back to accountants
+              <Link to={backNav.to} style={{ fontSize: 13, color: "#2563eb" }}>
+                {backNav.label}
               </Link>
             }
             actions={

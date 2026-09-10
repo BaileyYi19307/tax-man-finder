@@ -10,6 +10,7 @@ import {
 } from "../../api/client";
 import { signupPath } from "../../auth/intent";
 import AccountantProfilePresentation from "../accountants/AccountantProfilePresentation";
+import { publicAccountantProfilePath } from "../accountants/publicProfileNav";
 import AccountantOnboardingLayout from "./AccountantOnboardingLayout";
 import {
   onboardingMuted,
@@ -233,7 +234,7 @@ export default function PreviewOnboardingStep() {
           </div>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
             <Link
-              to={`/accountants/${profile.user_id}`}
+              to={publicAccountantProfilePath(profile.user_id, "profile-editor")}
               style={{
                 ...onboardingPrimaryButton(false),
                 display: "inline-block",

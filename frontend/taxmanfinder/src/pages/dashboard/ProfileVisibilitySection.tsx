@@ -12,6 +12,7 @@ import {
   ACCOUNTANT_ONBOARDING_ENTRY,
   continueSetupPath,
 } from "../onboarding/onboardingSteps";
+import { publicAccountantProfilePath } from "../accountants/publicProfileNav";
 
 const card = {
   background: "#fff",
@@ -335,7 +336,10 @@ export default function ProfileVisibilitySection() {
       {publishedPublic ? (
         <>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            <Link to={`/accountants/${profile.user_id}`} style={primaryActionLink}>
+            <Link
+              to={publicAccountantProfilePath(profile.user_id, "dashboard")}
+              style={primaryActionLink}
+            >
               View profile
             </Link>
             <Link to={ACCOUNTANT_ONBOARDING_ENTRY} style={secondaryActionLink}>

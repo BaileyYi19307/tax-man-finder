@@ -118,7 +118,7 @@ test("published and public shows View, Edit to wizard, and unpublish", async () 
   expect(await screen.findByText("Your profile is live.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "View profile" })).toHaveAttribute(
     "href",
-    "/accountants/22"
+    "/accountants/22?from=dashboard"
   );
   expect(screen.getByRole("link", { name: "Edit profile" })).toHaveAttribute(
     "href",

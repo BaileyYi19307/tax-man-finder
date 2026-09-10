@@ -61,8 +61,8 @@ function previewProfile(overrides = {}) {
         consultation_fee: "25.00",
         category: {
           id: 1,
-          name: "Individual tax returns",
-          slug: "individual-tax-returns",
+          name: "Individual Tax Services",
+          slug: "individual-tax-services",
         },
       },
     ],
@@ -215,7 +215,7 @@ test("Publish success shows live confirmation with View, dashboard, and Edit pro
   expect(await screen.findByText("Your profile is live")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "View public profile" })).toHaveAttribute(
     "href",
-    "/accountants/42"
+    "/accountants/42?from=profile-editor"
   );
   expect(screen.getByRole("link", { name: "Go to dashboard" })).toHaveAttribute(
     "href",

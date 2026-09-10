@@ -5,6 +5,7 @@ import {
   createAccountantProfile,
   getMyAccountantProfile,
 } from "../../api/client";
+import { publicAccountantProfilePath } from "../accountants/publicProfileNav";
 import StringListInput from "../onboarding/StringListInput";
 import { normalizeStringList } from "../onboarding/onboardingFormUtils";
 
@@ -140,7 +141,7 @@ export default function AccountantProfileEdit() {
       });
       setUserId(profile.user_id);
       await refreshUser();
-      navigate(`/accountants/${profile.user_id}`);
+      navigate(publicAccountantProfilePath(profile.user_id, "dashboard"));
     } catch (err: any) {
       setError(err.message || "Could not save your profile. Please try again.");
     } finally {
@@ -172,7 +173,7 @@ export default function AccountantProfileEdit() {
           {userId && (
             <div style={{ marginTop: 10 }}>
               <Link
-                to={`/accountants/${userId}`}
+                to={publicAccountantProfilePath(userId, "dashboard")}
                 style={{ fontSize: 13, color: "#2563eb", textDecoration: "none", fontWeight: 600 }}
               >
                 Cancel and view public profile
