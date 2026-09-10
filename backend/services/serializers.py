@@ -37,8 +37,8 @@ class ServiceSerializer(serializers.ModelSerializer):
     # Resolved customer-facing wording (from code when set, else legacy text).
     cancellation_policy = serializers.SerializerMethodField()
 
-    # Write-only: Free vs Paid consultation. Maps onto consultation_fee.
-    # Paid requires a positive fee; Free stores 0.00.
+    # Write-only: Free vs Billable consultation. Maps onto consultation_fee.
+    # Billable requires a positive fee; Free stores 0.00.
     consultation_is_paid = serializers.BooleanField(
         required=False, allow_null=True, write_only=True
     )
@@ -134,7 +134,7 @@ class ServiceSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {
                         "consultation_fee": (
-                            "A positive consultation fee is required for paid consultations."
+                            "A positive consultation fee is required for billable consultations."
                         )
                     }
                 )

@@ -301,7 +301,7 @@ export default function ServiceManagementPanel({
       const fee = Number(createConsultationFee);
       if (!createConsultationFee.trim() || Number.isNaN(fee) || fee <= 0) {
         setCreateError(
-          "Enter a consultation fee greater than 0 for paid consultations."
+          "Enter a consultation fee greater than 0 for billable consultations."
         );
         return;
       }
@@ -449,7 +449,7 @@ export default function ServiceManagementPanel({
       const fee = Number(consultationFee);
       if (!consultationFee.trim() || Number.isNaN(fee) || fee <= 0) {
         setSaveError(
-          "Enter a consultation fee greater than 0 for paid consultations."
+          "Enter a consultation fee greater than 0 for billable consultations."
         );
         return;
       }
@@ -684,7 +684,7 @@ export default function ServiceManagementPanel({
                       checked={createConsultationPaid}
                       onChange={() => setCreateConsultationPaid(true)}
                     />
-                    Paid
+                    Billable
                   </label>
                 </div>
               </fieldset>
@@ -901,7 +901,7 @@ export default function ServiceManagementPanel({
                           checked={consultationPaid}
                           onChange={() => setConsultationPaid(true)}
                         />
-                        Paid
+                        Billable
                       </label>
                     </div>
                   </fieldset>
