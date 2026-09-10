@@ -41,14 +41,13 @@ class ServiceCategoryModelTest(TestCase):
 
 class ServiceCategorySeedMigrationTest(TestCase):
     EXPECTED_ACTIVE_SLUGS = (
-        "individual-tax-returns",
-        "small-business-tax-returns",
-        "tax-planning",
         "bookkeeping",
-        "payroll",
-        "sales-tax",
-        "business-formation",
-        "irs-notices-and-tax-resolution",
+        "individual-tax-services",
+        "company-tax-services",
+        "consulting",
+        "accounting-service",
+        "payroll-services",
+        "other",
     )
 
     def test_mvp_categories_are_seeded_active(self):
@@ -62,8 +61,10 @@ class ServiceCategorySeedMigrationTest(TestCase):
         self.assertFalse(uncategorized.is_active)
         self.assertEqual(uncategorized.name, "Uncategorized")
 
-    def test_no_other_category_seeded(self):
-        self.assertFalse(ServiceCategory.objects.filter(slug="other").exists())
+    def test_other_category_is_seeded_active(self):
+        other = ServiceCategory.objects.get(slug="other")
+        self.assertTrue(other.is_active)
+        self.assertEqual(other.name, "Other")
 
 
 class ServiceCategoryNullableFkTest(TestCase):
@@ -91,7 +92,7 @@ class ServiceCategoryNullableFkTest(TestCase):
             accountant=self.accountant,
         )
         original_pk = service.pk
-        category = ServiceCategory.objects.get(slug="tax-planning")
+        category = ServiceCategory.objects.get(slug="consulting")
         service.category = category
         service.save(update_fields=["category"])
         service.refresh_from_db()
@@ -118,7 +119,7 @@ class ServiceCategoryBackfillAndBookingStabilityTest(TestCase):
             pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
         )
         service_id = service.id
-        individual = ServiceCategory.objects.get(slug="individual-tax-returns")
+        individual = ServiceCategory.objects.get(slug="individual-tax-services")
         service.category = individual
         service.save(update_fields=["category"])
 

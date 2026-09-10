@@ -231,7 +231,7 @@ class CancellationPolicyBookingSnapshotTests(TestCase):
             offers_remote=True,
             publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
         )
-        cls.category = ServiceCategory.objects.get(slug="tax-planning")
+        cls.category = ServiceCategory.objects.get(slug="consulting")
 
     def setUp(self):
         self.api = APIClient()

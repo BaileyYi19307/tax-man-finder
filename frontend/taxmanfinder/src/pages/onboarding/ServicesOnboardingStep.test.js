@@ -41,7 +41,7 @@ const me = {
 
 const categories = [
   { id: 3, name: "Bookkeeping", slug: "bookkeeping" },
-  { id: 1, name: "Individual tax returns", slug: "individual-tax-returns" },
+  { id: 1, name: "Individual Tax Services", slug: "individual-tax-services" },
 ];
 
 const policyOptions = [
@@ -96,8 +96,8 @@ function service(overrides = {}) {
     is_active: true,
     category: {
       id: 1,
-      name: "Individual tax returns",
-      slug: "individual-tax-returns",
+      name: "Individual Tax Services",
+      slug: "individual-tax-services",
     },
     ...overrides,
   };
@@ -178,7 +178,7 @@ test("existing services load as cards with key details", async () => {
   expect(await screen.findByText("My Returns")).toBeInTheDocument();
   expect(screen.getByText("Owned by this accountant")).toBeInTheDocument();
   expect(
-    screen.getByText(/Category: Individual tax returns/i)
+    screen.getByText(/Category: Individual Tax Services/i)
   ).toBeInTheDocument();
   expect(screen.getByText(/Pricing: Consultation required/i)).toBeInTheDocument();
   expect(screen.getByText(/Consultation fee: \$25\.00/i)).toBeInTheDocument();
@@ -198,7 +198,7 @@ test("can add multiple services including the same category", async () => {
         id: 8,
         name: "Business taxes",
         description: "S-corp help",
-        category: { id: 1, name: "Individual tax returns", slug: "individual-tax-returns" },
+        category: { id: 1, name: "Individual Tax Services", slug: "individual-tax-services" },
       })
     )
     .mockResolvedValueOnce(
@@ -206,7 +206,7 @@ test("can add multiple services including the same category", async () => {
         id: 9,
         name: "Personal returns plus",
         description: "Another individual offering",
-        category: { id: 1, name: "Individual tax returns", slug: "individual-tax-returns" },
+        category: { id: 1, name: "Individual Tax Services", slug: "individual-tax-services" },
       })
     );
   renderServices();

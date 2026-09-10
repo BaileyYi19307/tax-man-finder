@@ -42,7 +42,7 @@ const listed = {
   latitude: null,
   longitude: null,
   map_eligible: false,
-  services: [{ id: 3, name: "Individual tax returns" }],
+  services: [{ id: 3, name: "Individual Tax Services" }],
   profile_complete: true,
 };
 

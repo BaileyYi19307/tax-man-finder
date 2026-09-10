@@ -19,7 +19,7 @@ class DraftProfileSaveApiTest(TestCase):
         )
         self.client.force_authenticate(user=self.user)
         self.create_url = reverse("create_accountant")
-        self.category = ServiceCategory.objects.get(slug="individual-tax-returns")
+        self.category = ServiceCategory.objects.get(slug="individual-tax-services")
 
     def test_create_minimal_empty_draft(self):
         resp = self.client.post(self.create_url, {}, format="json")
@@ -317,7 +317,7 @@ class DraftPublicationReadinessApiTest(TestCase):
             languages=["English"],
             offers_remote=True,
         )
-        self.category = ServiceCategory.objects.get(slug="individual-tax-returns")
+        self.category = ServiceCategory.objects.get(slug="individual-tax-services")
         self.service = Service.objects.create(
             accountant=self.user,
             name="Returns",

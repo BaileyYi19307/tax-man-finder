@@ -34,7 +34,7 @@ def _make_ready_profile(
     email,
     publish=False,
     location="Boston, MA",
-    category_slug="individual-tax-returns",
+    category_slug="individual-tax-services",
     service_active=True,
 ):
     user = User.objects.create_user(

@@ -27,7 +27,7 @@ jest.mock("../../auth/intent", () => ({
 
 const categories = [
   { id: 3, name: "Bookkeeping", slug: "bookkeeping" },
-  { id: 1, name: "Individual tax returns", slug: "individual-tax-returns" },
+  { id: 1, name: "Individual Tax Services", slug: "individual-tax-services" },
 ];
 
 const policyOptions = [
@@ -59,7 +59,7 @@ function categorizedService(overrides = {}) {
     cancellation_policy:
       "Full refund if cancelled at least 24 hours before the consultation. Cancellations within 24 hours are non-refundable.",
     is_active: true,
-    category: { id: 1, name: "Individual tax returns", slug: "individual-tax-returns" },
+    category: { id: 1, name: "Individual Tax Services", slug: "individual-tax-services" },
     ...overrides,
   };
 }

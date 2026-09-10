@@ -308,7 +308,7 @@ export default function AccountantOnboarding() {
                     setServiceName(e.target.value);
                     setCategoryError(null);
                   }}
-                  placeholder="Individual tax returns"
+                  placeholder="Individual Tax Services"
                   required
                   style={{ ...field, marginTop: 6 }}
                 />

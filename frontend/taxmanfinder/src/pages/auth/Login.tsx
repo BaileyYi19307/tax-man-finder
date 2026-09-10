@@ -62,11 +62,13 @@ export default function LoginPage() {
         })
       );
     } catch (err: any) {
-      const msg =
-        err.response?.data?.detail ||
-        err.response?.data?.message ||
-        "Login failed. Check email/password.";
-      setError(msg);
+      const detail = err.response?.data?.detail;
+      const msg = Array.isArray(detail)
+        ? detail.filter(Boolean).join(" ")
+        : detail ||
+          err.response?.data?.message ||
+          "Login failed. Check email/password.";
+      setError(typeof msg === "string" ? msg : "Login failed. Check email/password.");
       console.log("status:", err.response?.status);
       console.log("data:", err.response?.data);
     } finally {

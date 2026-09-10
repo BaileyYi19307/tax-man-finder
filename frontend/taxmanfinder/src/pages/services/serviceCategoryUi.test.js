@@ -6,7 +6,7 @@ import {
 } from "./serviceCategoryUi";
 
 const options = [
-  { id: 1, name: "Individual tax returns", slug: "individual-tax-returns" },
+  { id: 1, name: "Individual Tax Services", slug: "individual-tax-services" },
   { id: 3, name: "Bookkeeping", slug: "bookkeeping" },
 ];
 
@@ -24,7 +24,7 @@ test("selectable when category is in the active options list", () => {
 
 test("categoryIdFromService ignores whether options have loaded", () => {
   expect(
-    categoryIdFromService({ id: 1, name: "Individual tax returns", slug: "individual-tax-returns" })
+    categoryIdFromService({ id: 1, name: "Individual Tax Services", slug: "individual-tax-services" })
   ).toBe("1");
   expect(categoryIdFromService(null)).toBe("");
   expect(reconcileCategorySelectValue("1", [])).toBe("");

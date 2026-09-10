@@ -22,15 +22,15 @@ const baseProfile = {
   services: [
     {
       id: 3,
-      name: "Individual tax returns",
+      name: "Individual Tax Services",
       description: "1040 prep",
       pricing_type: "hourly",
       indicative_price: "150.00",
       consultation_fee: "0",
       category: {
         id: 1,
-        name: "Individual tax returns",
-        slug: "individual-tax-returns",
+        name: "Individual Tax Services",
+        slug: "individual-tax-services",
       },
     },
   ],
@@ -67,7 +67,7 @@ test("renders customer-facing professional fields and service cards", () => {
   expect(screen.getByText("Freelancers")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "https://lovelace.example" })).toBeInTheDocument();
   expect(screen.getByText("IRS Enrolled Agent")).toBeInTheDocument();
-  expect(screen.getByText("Individual tax returns")).toBeInTheDocument();
+  expect(screen.getByText("Individual Tax Services")).toBeInTheDocument();
   expect(screen.getByText("1040 prep")).toBeInTheDocument();
   expect(screen.getByText(/\$150\.00\/hr/)).toBeInTheDocument();
   expect(screen.queryByText("ada@test.com")).not.toBeInTheDocument();

@@ -70,7 +70,7 @@ class ProfileStatusTest(TestCase):
             name="Tax Filing",
             description="This is a tax filing",
             indicative_price=100,
-            category=ServiceCategory.objects.get(slug="individual-tax-returns"),
+            category=ServiceCategory.objects.get(slug="individual-tax-services"),
         )
         
         url = reverse("profile-status", args=[self.user.id])
@@ -109,7 +109,7 @@ class PublicAccountantProfileTest(TestCase):
             description="File taxes",
             indicative_price=100,
             is_active=True,
-            category=ServiceCategory.objects.get(slug="individual-tax-returns"),
+            category=ServiceCategory.objects.get(slug="individual-tax-services"),
         )
 
     def setUp(self):
@@ -155,7 +155,7 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
             description="Form 1040",
             pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
             is_active=True,
-            category=ServiceCategory.objects.get(slug="individual-tax-returns"),
+            category=ServiceCategory.objects.get(slug="individual-tax-services"),
         )
         cls.incomplete = User.objects.create_user(
             email="incomplete@test.com",
@@ -173,9 +173,9 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
             is_verified=True,
         )
         cls.individual_category = ServiceCategory.objects.get(
-            slug="individual-tax-returns"
+            slug="individual-tax-services"
         )
-        cls.tax_planning_category = ServiceCategory.objects.get(slug="tax-planning")
+        cls.tax_planning_category = ServiceCategory.objects.get(slug="consulting")
 
     def setUp(self):
         self.client = APIClient()
@@ -466,7 +466,7 @@ class MapDiscoveryDirectoryTest(TestCase):
             description="1040",
             pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
             is_active=True,
-            category=ServiceCategory.objects.get(slug="individual-tax-returns"),
+            category=ServiceCategory.objects.get(slug="individual-tax-services"),
         )
 
         cls.far = User.objects.create_user(
@@ -495,7 +495,7 @@ class MapDiscoveryDirectoryTest(TestCase):
             description="Biz",
             pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
             is_active=True,
-            category=ServiceCategory.objects.get(slug="small-business-tax-returns"),
+            category=ServiceCategory.objects.get(slug="company-tax-services"),
         )
 
         cls.no_coords = User.objects.create_user(
@@ -524,7 +524,7 @@ class MapDiscoveryDirectoryTest(TestCase):
             description="Zoom",
             pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
             is_active=True,
-            category=ServiceCategory.objects.get(slug="tax-planning"),
+            category=ServiceCategory.objects.get(slug="consulting"),
         )
 
         cls.incomplete = User.objects.create_user(
@@ -772,7 +772,7 @@ class MapDiscoveryDirectoryTest(TestCase):
                 "credentials": "CPA",
                 "location": "Boston, MA",
                 "service_name": "Tax planning",
-                "category_id": ServiceCategory.objects.get(slug="tax-planning").id,
+                "category_id": ServiceCategory.objects.get(slug="consulting").id,
                 "cancellation_policy_code": "free_24h",
             },
             format="json",
