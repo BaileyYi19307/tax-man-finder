@@ -5,6 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Optional, Tuple
 
+from services.cancellation_policy import resolve_service_cancellation_policy_text
 from services.models import Service
 
 ZERO = Decimal("0.00")
@@ -23,7 +24,7 @@ def snapshot_from_service(service: Optional[Service]) -> Tuple[Decimal, str]:
         return ZERO, ""
     return (
         normalize_consultation_fee(service.consultation_fee),
-        (service.cancellation_policy or "").strip(),
+        resolve_service_cancellation_policy_text(service),
     )
 
 

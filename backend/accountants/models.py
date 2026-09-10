@@ -3,6 +3,8 @@ from django.db.models import Exists, F, OuterRef, Q, Value
 from django.db.models.functions import Replace, Trim
 from django.conf import settings
 
+from .profile_photo import accountant_profile_photo_upload_to
+
 
 def _trimmed_text(field_name: str):
     """
@@ -22,8 +24,9 @@ class AccountantProfileQuerySet(models.QuerySet):
         Profiles that should appear in customer-facing discovery.
 
         Requires publication_status=published and current publish readiness
-        (bio, credentials, location, and ≥1 active service in a public category).
-        Text fields are trimmed so whitespace-only values match is_publish_ready.
+        (name, bio, credentials, location, languages, availability, and ≥1
+        active service in a public category). Text fields are trimmed so
+        whitespace-only values match is_publish_ready.
         """
         from services.category_assignment import UNCATEGORIZED_SLUG
         from services.models import Service
@@ -37,13 +40,19 @@ class AccountantProfileQuerySet(models.QuerySet):
 
         return (
             self.filter(publication_status=AccountantProfile.PublicationStatus.PUBLISHED)
+            .filter(Q(offers_remote=True) | Q(offers_in_person=True))
+            .exclude(Q(languages=[]) | Q(languages__isnull=True))
             .annotate(
                 _has_publishable_service=Exists(publishable_service),
+                _first_name_trimmed=_trimmed_text("user__first_name"),
+                _last_name_trimmed=_trimmed_text("user__last_name"),
                 _bio_trimmed=_trimmed_text("bio"),
                 _credentials_trimmed=_trimmed_text("credentials"),
                 _location_trimmed=_trimmed_text("location"),
             )
             .filter(_has_publishable_service=True)
+            .exclude(_first_name_trimmed="")
+            .exclude(_last_name_trimmed="")
             .exclude(Q(_bio_trimmed__isnull=True) | Q(_bio_trimmed=""))
             .exclude(_credentials_trimmed="")
             .exclude(_location_trimmed="")
@@ -83,6 +92,19 @@ class AccountantProfile(models.Model):
         max_length=20,
         choices=ServiceScope.choices,
         default=ServiceScope.LOCAL,
+    )
+    headline = models.CharField(max_length=160, blank=True, default="")
+    languages = models.JSONField(default=list, blank=True)
+    offers_remote = models.BooleanField(default=False)
+    offers_in_person = models.BooleanField(default=False)
+    industries = models.JSONField(default=list, blank=True)
+    website = models.URLField(max_length=500, blank=True, default="")
+    license_information = models.TextField(blank=True, default="")
+    profile_photo = models.ImageField(
+        upload_to=accountant_profile_photo_upload_to,
+        blank=True,
+        null=True,
+        max_length=512,
     )
     # Explicit publication state (independent of readiness).
     publication_status = models.CharField(
@@ -126,13 +148,8 @@ class AccountantProfile(models.Model):
 
     @property
     def is_publish_ready(self) -> bool:
-        """True when required profile fields and a valid categorized service exist."""
-        return (
-            self._has_text(self.bio)
-            and self._has_text(self.credentials)
-            and self._has_text(self.location)
-            and self.publishable_services().exists()
-        )
+        """True when all publish requirements are currently satisfied."""
+        return not self.publish_readiness_errors()
 
     @property
     def is_public(self) -> bool:
@@ -153,20 +170,40 @@ class AccountantProfile(models.Model):
         """
         return self.is_publish_ready
 
+    def _normalized_languages(self) -> list:
+        raw = self.languages
+        if not isinstance(raw, list):
+            return []
+        return [str(item).strip() for item in raw if str(item or "").strip()]
+
     def publish_readiness_errors(self) -> dict:
         """
         Field-level publish gaps as DRF-style lists.
 
         Empty dict when the profile is publish-ready. Single source of truth for
-        publish validation and owner dashboard payloads.
+        publish validation and owner dashboard payloads. Uses offers_remote /
+        offers_in_person (not legacy service_scope).
         """
         errors = {}
+        user = self.user
+        if not self._has_text(getattr(user, "first_name", "")):
+            errors["first_name"] = ["First name is required to publish."]
+        if not self._has_text(getattr(user, "last_name", "")):
+            errors["last_name"] = ["Last name is required to publish."]
         if not self._has_text(self.bio):
             errors["bio"] = ["Bio is required to publish."]
-        if not self._has_text(self.credentials):
-            errors["credentials"] = ["Credentials are required to publish."]
         if not self._has_text(self.location):
             errors["location"] = ["Location is required to publish."]
+        if not self._has_text(self.credentials):
+            errors["credentials"] = ["Credentials are required to publish."]
+        if not self._normalized_languages():
+            errors["languages"] = [
+                "At least one language is required to publish."
+            ]
+        if not (self.offers_remote or self.offers_in_person):
+            errors["availability"] = [
+                "Select remote and/or in-person availability to publish."
+            ]
         if not self.publishable_services().exists():
             errors["services"] = [
                 "At least one active service with a valid public category "

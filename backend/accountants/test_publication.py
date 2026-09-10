@@ -21,6 +21,13 @@ _backfill_mod = importlib.import_module(
 )
 backfill_publication_status = _backfill_mod.backfill_publication_status
 
+_languages_backfill_mod = importlib.import_module(
+    "accountants.migrations.0011_backfill_published_empty_languages"
+)
+backfill_published_empty_languages = (
+    _languages_backfill_mod.backfill_published_empty_languages
+)
+
 
 def _make_ready_profile(
     *,
@@ -44,6 +51,9 @@ def _make_ready_profile(
         location=location,
         years_experience=4,
         firm_name="Ready Tax",
+        languages=["English"],
+        offers_remote=True,
+        offers_in_person=False,
         publication_status=(
             AccountantProfile.PublicationStatus.PUBLISHED
             if publish
@@ -86,6 +96,52 @@ class PublishReadinessModelTest(TestCase):
 
     def test_ready_with_valid_active_categorized_service(self):
         _, profile, _ = _make_ready_profile(email="ready-ok@test.com")
+        self.assertTrue(profile.is_publish_ready)
+        self.assertEqual(profile.publish_readiness_errors(), {})
+
+    def test_missing_first_name_is_not_ready(self):
+        user, profile, _ = _make_ready_profile(email="ready-fn@test.com")
+        user.first_name = ""
+        user.save(update_fields=["first_name"])
+        profile.refresh_from_db()
+        self.assertFalse(profile.is_publish_ready)
+        self.assertIn("first_name", profile.publish_readiness_errors())
+
+    def test_missing_last_name_is_not_ready(self):
+        user, profile, _ = _make_ready_profile(email="ready-ln@test.com")
+        user.last_name = "  "
+        user.save(update_fields=["last_name"])
+        profile.refresh_from_db()
+        self.assertFalse(profile.is_publish_ready)
+        self.assertIn("last_name", profile.publish_readiness_errors())
+
+    def test_missing_languages_is_not_ready(self):
+        _, profile, _ = _make_ready_profile(email="ready-lang@test.com")
+        profile.languages = []
+        profile.save(update_fields=["languages"])
+        self.assertFalse(profile.is_publish_ready)
+        self.assertIn("languages", profile.publish_readiness_errors())
+
+    def test_missing_availability_is_not_ready(self):
+        _, profile, _ = _make_ready_profile(email="ready-avail@test.com")
+        profile.offers_remote = False
+        profile.offers_in_person = False
+        profile.save(update_fields=["offers_remote", "offers_in_person"])
+        self.assertFalse(profile.is_publish_ready)
+        self.assertIn("availability", profile.publish_readiness_errors())
+        # Legacy service_scope alone does not satisfy readiness.
+        profile.service_scope = AccountantProfile.ServiceScope.REMOTE
+        profile.save(update_fields=["service_scope"])
+        self.assertFalse(profile.is_publish_ready)
+
+    def test_optional_fields_do_not_affect_readiness(self):
+        _, profile, _ = _make_ready_profile(email="ready-optional@test.com")
+        profile.headline = ""
+        profile.industries = []
+        profile.website = ""
+        profile.license_information = ""
+        profile.years_experience = 0
+        profile.save()
         self.assertTrue(profile.is_publish_ready)
         self.assertEqual(profile.publish_readiness_errors(), {})
 
@@ -479,3 +535,51 @@ class PublicationBackfillMigrationTest(TestCase):
             uncat_profile.publication_status,
             AccountantProfile.PublicationStatus.DRAFT,
         )
+
+
+class PublishedEmptyLanguagesBackfillMigrationTest(TestCase):
+    def test_backfill_defaults_only_published_empty_languages(self):
+        _, published_empty, _ = _make_ready_profile(
+            email="lang-pub-empty@test.com", publish=True
+        )
+        published_empty.languages = []
+        published_empty.save(update_fields=["languages"])
+        self.assertFalse(published_empty.is_public)
+
+        _, published_existing, _ = _make_ready_profile(
+            email="lang-pub-existing@test.com", publish=True
+        )
+        published_existing.languages = ["Spanish", "French"]
+        published_existing.save(update_fields=["languages"])
+
+        _, draft_empty, _ = _make_ready_profile(email="lang-draft-empty@test.com")
+        draft_empty.languages = []
+        draft_empty.publication_status = AccountantProfile.PublicationStatus.DRAFT
+        draft_empty.save(update_fields=["languages", "publication_status"])
+
+        backfill_published_empty_languages(apps, connection.schema_editor())
+
+        published_empty.refresh_from_db()
+        published_existing.refresh_from_db()
+        draft_empty.refresh_from_db()
+
+        self.assertEqual(published_empty.languages, ["English"])
+        self.assertEqual(
+            published_empty.publication_status,
+            AccountantProfile.PublicationStatus.PUBLISHED,
+        )
+        self.assertTrue(published_empty.is_publish_ready)
+        self.assertTrue(published_empty.is_public)
+        self.assertTrue(
+            AccountantProfile.objects.publicly_visible()
+            .filter(pk=published_empty.pk)
+            .exists()
+        )
+
+        self.assertEqual(published_existing.languages, ["Spanish", "French"])
+        self.assertEqual(draft_empty.languages, [])
+        self.assertEqual(
+            draft_empty.publication_status,
+            AccountantProfile.PublicationStatus.DRAFT,
+        )
+

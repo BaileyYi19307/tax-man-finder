@@ -1,9 +1,20 @@
+"""Validates and creates a service."""
+
 from decimal import Decimal, InvalidOperation
 
 from rest_framework import serializers
 
+from .cancellation_policy import (
+    is_valid_cancellation_policy_code,
+    label_for_cancellation_policy_code,
+    resolve_cancellation_policy_text,
+)
 from .category_assignment import category_is_assignable, resolve_assignable_category
 from .models import Service, ServiceCategory
+from .title_uniqueness import (
+    DUPLICATE_SERVICE_TITLE_MESSAGE,
+    find_conflicting_service,
+)
 
 
 class ServiceCategorySerializer(serializers.ModelSerializer):
@@ -17,12 +28,33 @@ class ServiceSerializer(serializers.ModelSerializer):
 
     category = ServiceCategorySerializer(read_only=True)
     category_id = serializers.IntegerField(write_only=True, required=False)
+    cancellation_policy_code = serializers.ChoiceField(
+        choices=Service.CancellationPolicyCode.choices,
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+    )
+    # Resolved customer-facing wording (from code when set, else legacy text).
+    cancellation_policy = serializers.SerializerMethodField()
 
     # Write-only: Free vs Paid consultation. Maps onto consultation_fee.
     # Paid requires a positive fee; Free stores 0.00.
     consultation_is_paid = serializers.BooleanField(
         required=False, allow_null=True, write_only=True
     )
+
+    def get_cancellation_policy(self, obj):
+        return resolve_cancellation_policy_text(
+            code=obj.cancellation_policy_code,
+            legacy_text=obj.cancellation_policy,
+        )
+
+    def validate_name(self, value):
+        # Strip surrounding whitespace only; keep the accountant's capitalization.
+        cleaned = str(value or "").strip()
+        if not cleaned:
+            raise serializers.ValidationError("Name is required.")
+        return cleaned
 
     def validate_consultation_fee(self, value):
         if value is None:
@@ -39,7 +71,45 @@ class ServiceSerializer(serializers.ModelSerializer):
             )
         return amount
 
+    def validate_cancellation_policy_code(self, value):
+        if value is None or value == "":
+            return None
+        if not is_valid_cancellation_policy_code(value):
+            raise serializers.ValidationError(
+                "Select a valid cancellation policy."
+            )
+        return value
+
+    def _accountant_for_title_check(self):
+        if self.instance is not None:
+            return self.instance.accountant
+        request = self.context.get("request")
+        if request is not None and getattr(request, "user", None) is not None:
+            user = request.user
+            if getattr(user, "is_authenticated", False):
+                return user
+        return None
+
+    def _instance_has_valid_policy_code(self) -> bool:
+        if self.instance is None:
+            return False
+        return is_valid_cancellation_policy_code(
+            self.instance.cancellation_policy_code
+        )
+
     def validate(self, data):
+        # Reject unrestricted custom policy text from API clients.
+        if "cancellation_policy" in getattr(self, "initial_data", {}):
+            # SerializerMethodField is not in validated_data; check raw payload.
+            raise serializers.ValidationError(
+                {
+                    "cancellation_policy": (
+                        "Custom cancellation policy text is no longer accepted. "
+                        "Select a cancellation_policy_code."
+                    )
+                }
+            )
+
         pricing_type = data.get("pricing_type")
         if pricing_type is None and self.instance is not None:
             pricing_type = self.instance.pricing_type
@@ -94,6 +164,49 @@ class ServiceSerializer(serializers.ModelSerializer):
                     }
                 )
 
+        code = data.get("cancellation_policy_code", serializers.empty)
+        if self.instance is None:
+            if code is serializers.empty or not is_valid_cancellation_policy_code(
+                code
+            ):
+                raise serializers.ValidationError(
+                    {
+                        "cancellation_policy_code": (
+                            "Select a cancellation policy."
+                        )
+                    }
+                )
+        elif not self._is_deactivate_only_patch():
+            effective_code = (
+                code
+                if code is not serializers.empty
+                else self.instance.cancellation_policy_code
+            )
+            if not is_valid_cancellation_policy_code(effective_code):
+                raise serializers.ValidationError(
+                    {
+                        "cancellation_policy_code": (
+                            "Select a cancellation policy."
+                        )
+                    }
+                )
+
+        name = data.get("name", serializers.empty)
+        if name is serializers.empty and self.instance is not None:
+            name = self.instance.name
+        if name is not serializers.empty and name is not None:
+            accountant = self._accountant_for_title_check()
+            if accountant is not None:
+                conflict = find_conflicting_service(
+                    accountant=accountant,
+                    name=name,
+                    exclude_pk=self.instance.pk if self.instance else None,
+                )
+                if conflict is not None:
+                    raise serializers.ValidationError(
+                        {"name": DUPLICATE_SERVICE_TITLE_MESSAGE}
+                    )
+
         return data
 
     def _is_deactivate_only_patch(self) -> bool:
@@ -104,6 +217,27 @@ class ServiceSerializer(serializers.ModelSerializer):
             return False
         value = self.initial_data.get("is_active")
         return value is False
+
+    def _sync_policy_text(self, validated_data):
+        code = validated_data.get("cancellation_policy_code", serializers.empty)
+        if code is serializers.empty:
+            return validated_data
+        if is_valid_cancellation_policy_code(code):
+            validated_data["cancellation_policy"] = (
+                label_for_cancellation_policy_code(code)
+            )
+        elif code is None:
+            # Explicit clear is not used by the FE; leave text as-is.
+            pass
+        return validated_data
+
+    def create(self, validated_data):
+        validated_data = self._sync_policy_text(validated_data)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data = self._sync_policy_text(validated_data)
+        return super().update(instance, validated_data)
 
     class Meta:
         model = Service
@@ -118,6 +252,7 @@ class ServiceSerializer(serializers.ModelSerializer):
             "indicative_price",
             "consultation_fee",
             "consultation_is_paid",
+            "cancellation_policy_code",
             "cancellation_policy",
             "is_active",
             "created_at",

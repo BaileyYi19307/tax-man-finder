@@ -88,11 +88,6 @@ export default function AppHeader() {
             <Link to={dashboardPath} className="app-nav-link" style={linkStyle}>
               {isAccountant ? "Accountant Dashboard" : "Client Dashboard"}
             </Link>
-            {isAccountant && user?.accountant_profile_complete && (
-              <Link to="/dashboard/profile" className="app-nav-link" style={linkStyle}>
-                My profile
-              </Link>
-            )}
             <button type="button" className="btn btn-secondary" onClick={logout}>
               Log out
             </button>

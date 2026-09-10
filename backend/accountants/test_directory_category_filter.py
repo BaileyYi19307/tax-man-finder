@@ -34,6 +34,8 @@ def _published_accountant(
         location="Austin, TX",
         years_experience=3,
         firm_name="Dir Tax",
+        languages=["English"],
+        offers_remote=True,
         latitude=Decimal(str(latitude)) if latitude is not None else None,
         longitude=Decimal(str(longitude)) if longitude is not None else None,
         publication_status=AccountantProfile.PublicationStatus.PUBLISHED,

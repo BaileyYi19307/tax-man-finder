@@ -18,7 +18,11 @@ from django.db import transaction
 from django.db.models import Q
 
 from accountants.models import AccountantProfile
-from services.models import Service
+from services.cancellation_policy import (
+    is_valid_cancellation_policy_code,
+    label_for_cancellation_policy_code,
+)
+from services.models import Service, ServiceCategory
 from users.models import User
 
 DEMO_PASSWORD = "DemoMap123!"
@@ -37,13 +41,15 @@ DEMO_ACCOUNTANTS = [
         "latitude": 39.9526,
         "longitude": -75.1652,
         "service_scope": AccountantProfile.ServiceScope.LOCAL,
+        "languages": ["English"],
         "years_experience": 8,
         "service_name": "Individual tax returns",
         "service_description": "Form 1040 preparation and filing support.",
+        "category_slug": "individual-tax-returns",
         "pricing_type": Service.PricingType.FIXED,
         "indicative_price": "350.00",
         "consultation_fee": "0.00",
-        "cancellation_policy": "Free consultations can be cancelled any time before the meeting.",
+        "cancellation_policy_code": "free_24h",
     },
     {
         "email": "demo.acct.maya@example.com",
@@ -56,16 +62,15 @@ DEMO_ACCOUNTANTS = [
         "latitude": 40.3573,
         "longitude": -74.6672,
         "service_scope": AccountantProfile.ServiceScope.LOCAL,
+        "languages": ["English"],
         "years_experience": 6,
         "service_name": "Small business bookkeeping",
         "service_description": "Monthly books and quarterly estimated taxes.",
+        "category_slug": "bookkeeping",
         "pricing_type": Service.PricingType.HOURLY,
         "indicative_price": "175.00",
         "consultation_fee": "50.00",
-        "cancellation_policy": (
-            "Cancel at least 24 hours before the consultation for a full refund of the "
-            "consultation fee. Later cancellations are non-refundable."
-        ),
+        "cancellation_policy_code": "free_24h",
     },
     {
         "email": "demo.acct.alex@example.com",
@@ -78,15 +83,15 @@ DEMO_ACCOUNTANTS = [
         "latitude": 40.7128,
         "longitude": -74.0060,
         "service_scope": AccountantProfile.ServiceScope.REMOTE,
+        "languages": ["English"],
         "years_experience": 10,
         "service_name": "Freelance tax consult",
         "service_description": "Remote consult for 1099 income and deductions.",
+        "category_slug": "tax-planning",
         "pricing_type": Service.PricingType.FIXED,
         "indicative_price": "225.00",
         "consultation_fee": "75.00",
-        "cancellation_policy": (
-            "Consultation fee is refundable if cancelled 48 hours or more before the meeting."
-        ),
+        "cancellation_policy_code": "free_48h",
     },
     {
         "email": "demo.acct.taylor@example.com",
@@ -99,13 +104,15 @@ DEMO_ACCOUNTANTS = [
         "latitude": 38.9072,
         "longitude": -77.0369,
         "service_scope": AccountantProfile.ServiceScope.NATIONWIDE,
+        "languages": ["English"],
         "years_experience": 12,
         "service_name": "Multi-state tax filing",
         "service_description": "Returns spanning multiple state jurisdictions.",
+        "category_slug": "individual-tax-returns",
         "pricing_type": Service.PricingType.CONSULTATION_REQUIRED,
         "indicative_price": None,
         "consultation_fee": "0.00",
-        "cancellation_policy": "Introductory consultations are free; cancel anytime before the meeting.",
+        "cancellation_policy_code": "non_refundable",
     },
 ]
 
@@ -115,6 +122,17 @@ def _is_disposable_demo_email(email: str) -> bool:
     if not email.endswith(f"@{DEMO_EMAIL_DOMAIN}"):
         return False
     return any(email.startswith(prefix) for prefix in DEMO_EMAIL_PREFIXES)
+
+
+def _availability_for_service_scope(scope: str) -> tuple[bool, bool]:
+    """Return (offers_remote, offers_in_person) matching migration 0009 mapping."""
+    if scope == AccountantProfile.ServiceScope.LOCAL:
+        return False, True
+    if scope == AccountantProfile.ServiceScope.REMOTE:
+        return True, False
+    if scope == AccountantProfile.ServiceScope.NATIONWIDE:
+        return True, False
+    return False, False
 
 
 class Command(BaseCommand):
@@ -176,6 +194,19 @@ class Command(BaseCommand):
 
         # 3) Upsert the four demo accountants.
         for row in DEMO_ACCOUNTANTS:
+            policy_code = row["cancellation_policy_code"]
+            if not is_valid_cancellation_policy_code(policy_code):
+                raise CommandError(
+                    f"Demo row {row['email']} has invalid cancellation_policy_code."
+                )
+            category = ServiceCategory.objects.filter(
+                slug=row["category_slug"], is_active=True
+            ).first()
+            if category is None:
+                raise CommandError(
+                    f"Demo category slug missing or inactive: {row['category_slug']}"
+                )
+
             user, created = User.objects.get_or_create(
                 email=row["email"],
                 defaults={
@@ -193,6 +224,10 @@ class Command(BaseCommand):
             user.is_accountant = True
             user.save()
 
+            offers_remote, offers_in_person = _availability_for_service_scope(
+                row["service_scope"]
+            )
+
             profile, _ = AccountantProfile.objects.get_or_create(user=user)
             profile.credentials = row["credentials"]
             profile.bio = row["bio"]
@@ -202,6 +237,10 @@ class Command(BaseCommand):
             profile.longitude = row["longitude"]
             profile.service_scope = row["service_scope"]
             profile.years_experience = row["years_experience"]
+            profile.languages = list(row["languages"])
+            profile.offers_remote = offers_remote
+            profile.offers_in_person = offers_in_person
+            profile.publication_status = AccountantProfile.PublicationStatus.PUBLISHED
             profile.save()
 
             Service.objects.filter(accountant=user).update(is_active=False)
@@ -212,19 +251,21 @@ class Command(BaseCommand):
                 pricing_type=row["pricing_type"],
                 indicative_price=row["indicative_price"],
                 consultation_fee=row.get("consultation_fee"),
-                cancellation_policy=row.get("cancellation_policy") or "",
+                cancellation_policy_code=policy_code,
+                cancellation_policy=label_for_cancellation_policy_code(policy_code),
+                category=category,
                 is_active=True,
             )
 
+            profile.refresh_from_db()
             report.append(
                 f"{'Created' if created else 'Updated'} {row['first_name']} {row['last_name']} "
                 f"| {row['location']} | ({row['latitude']}, {row['longitude']}) "
                 f"| {row['service_name']} | complete={profile.is_complete} "
-                f"map={profile.is_map_eligible}"
+                f"publish_ready={profile.is_publish_ready} "
+                f"public={profile.is_public} map={profile.is_map_eligible}"
             )
 
-        clients = User.objects.filter(accountant_profile__isnull=True).count()
-        # Users without profile relation:
         from django.db.models import Exists, OuterRef
 
         has_profile = AccountantProfile.objects.filter(user_id=OuterRef("pk"))

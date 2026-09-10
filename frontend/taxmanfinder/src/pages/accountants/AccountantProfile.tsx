@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
+import { Link, useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom";
 import {
   getPublicAccountantProfile,
   listMyInquiries,
@@ -10,7 +10,8 @@ import {
 import { loginPath } from "../../auth/intent";
 import { useAuth } from "../../auth/AuthProvider";
 import { getAccessToken } from "../../auth/session";
-import { accountantDisplayName, accountantFirmLocationLine } from "./displayName";
+import AccountantProfilePresentation from "./AccountantProfilePresentation";
+import { resolvePublicProfileBackNav } from "./publicProfileNav";
 
 const page = {
   minHeight: "100vh",
@@ -37,6 +38,8 @@ export default function AccountantProfilePage() {
   const { userId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const backNav = resolvePublicProfileBackNav(searchParams.get("from"));
   const [profile, setProfile] = useState<AccountantProfilePayload | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -229,14 +232,12 @@ export default function AccountantProfilePage() {
     }
   }
 
-  const subtitle = profile ? accountantFirmLocationLine(profile) : null;
-
   if (!profile && !loadError) {
     return (
       <div style={page}>
         <div style={container}>
-          <Link to="/accountants" style={{ fontSize: 13, color: "#2563eb" }}>
-            ← Back to accountants
+          <Link to={backNav.to} style={{ fontSize: 13, color: "#2563eb" }}>
+            {backNav.label}
           </Link>
           <div style={{ ...muted, marginTop: 16 }}>Loading profile…</div>
         </div>
@@ -247,98 +248,55 @@ export default function AccountantProfilePage() {
   return (
     <div style={page}>
       <div style={container}>
-        <Link to="/accountants" style={{ fontSize: 13, color: "#2563eb" }}>
-          ← Back to accountants
-        </Link>
-
         {loadError && (
-          <div style={{ ...card, marginTop: 16, color: "#b91c1c" }}>{loadError}</div>
+          <>
+            <Link to={backNav.to} style={{ fontSize: 13, color: "#2563eb" }}>
+              {backNav.label}
+            </Link>
+            <div style={{ ...card, marginTop: 16, color: "#b91c1c" }}>{loadError}</div>
+          </>
         )}
 
         {profile && (
-          <div style={{ ...card, marginTop: 16 }}>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>
-              {accountantDisplayName(profile)}
-            </div>
-            {isOwnProfile && (
-              <div style={{ marginTop: 8 }}>
-                <Link
-                  to="/dashboard/profile"
-                  style={{ fontSize: 13, color: "#2563eb", textDecoration: "none", fontWeight: 600 }}
-                >
-                  Edit profile
-                </Link>
-              </div>
-            )}
-            {subtitle && (
-              <div style={{ ...muted, marginTop: 8, fontSize: 14 }}>{subtitle}</div>
-            )}
-            {(profile.service_scope === "remote" ||
-              profile.service_scope === "nationwide") && (
-              <div style={{ marginTop: 8, fontSize: 13, color: "#065f46" }}>
-                {profile.service_scope === "remote" ? "Remote" : "Nationwide"}
-              </div>
-            )}
-            <div style={{ ...muted, marginTop: subtitle ? 4 : 8, fontSize: 14 }}>
-              {profile.years_experience} years experience
-            </div>
-            {profile.credentials && (
-              <div style={{ marginTop: 12, fontSize: 14 }}>
-                <strong>Credentials</strong>
-                <div style={{ ...muted, marginTop: 4 }}>{profile.credentials}</div>
-              </div>
-            )}
-            {profile.bio && (
-              <div style={{ marginTop: 12, fontSize: 14 }}>
-                <strong>Bio</strong>
-                <div style={{ ...muted, marginTop: 4, lineHeight: 1.5 }}>{profile.bio}</div>
-              </div>
-            )}
-
-            <div style={{ marginTop: 18 }}>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>Services</div>
-              {profile.services.length === 0 ? (
-                <div style={muted}>No active services listed.</div>
-              ) : (
-                <ul style={{ margin: 0, paddingLeft: 18 }}>
-                  {profile.services.map((s) => (
-                    <li key={s.id} style={{ marginBottom: 6 }}>
-                      <Link to={`/services/${s.id}`}>{s.name}</Link>
-                      <span style={{ ...muted, marginLeft: 8, fontSize: 13 }}>
-                        {formatConsultationFeeLabel(s.consultation_fee)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div style={{ marginTop: 18, display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {!isOwnProfile &&
-                (existingInquiryId != null ? (
+          <AccountantProfilePresentation
+            profile={profile}
+            showEditLink={isOwnProfile}
+            header={
+              <Link to={backNav.to} style={{ fontSize: 13, color: "#2563eb" }}>
+                {backNav.label}
+              </Link>
+            }
+            actions={
+              !isOwnProfile ? (
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {existingInquiryId != null ? (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={continueConversation}
+                    >
+                      Continue Conversation
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={openMessageForm}
+                    >
+                      Message Accountant
+                    </button>
+                  )}
                   <button
                     type="button"
-                    className="btn btn-primary"
-                    onClick={continueConversation}
+                    className="btn btn-secondary"
+                    onClick={openBookingForm}
                   >
-                    Continue Conversation
+                    Request Consultation
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={openMessageForm}
-                  >
-                    Message Accountant
-                  </button>
-                ))}
-              {!isOwnProfile && (
-                <button type="button" className="btn btn-secondary" onClick={openBookingForm}>
-                  Request Consultation
-                </button>
-              )}
-            </div>
-          </div>
+                </div>
+              ) : null
+            }
+          />
         )}
 
         {showMessageForm && profile && (

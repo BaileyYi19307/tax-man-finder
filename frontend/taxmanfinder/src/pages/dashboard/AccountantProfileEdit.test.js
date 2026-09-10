@@ -26,8 +26,19 @@ const profile = {
   years_experience: 5,
   firm_name: "Pro Tax",
   location: "Boston, MA",
+  headline: "Tax help for founders",
+  languages: ["English", "Spanish"],
+  offers_remote: true,
+  offers_in_person: false,
+  industries: ["Startups"],
+  website: "https://protax.example",
+  license_information: "MA CPA #1",
   services: [{ id: 3, name: "Individual returns" }],
+  publication_status: "published",
+  is_publish_ready: true,
+  is_public: true,
   profile_complete: true,
+  publish_readiness_errors: {},
 };
 
 const me = {
@@ -72,9 +83,17 @@ test("loads current profile fields and links to the public listing", async () =>
   expect(screen.getByDisplayValue("Pro Tax")).toBeInTheDocument();
   expect(screen.getByDisplayValue("Boston, MA")).toBeInTheDocument();
   expect(screen.getByDisplayValue("Helps with taxes")).toBeInTheDocument();
+  expect(screen.getByDisplayValue("Tax help for founders")).toBeInTheDocument();
+  expect(screen.getByText("English")).toBeInTheDocument();
+  expect(screen.getByText("Spanish")).toBeInTheDocument();
+  expect(screen.getByRole("checkbox", { name: "Remote" })).toBeChecked();
+  expect(screen.getByRole("checkbox", { name: "In person" })).not.toBeChecked();
+  expect(screen.getByText("Startups")).toBeInTheDocument();
+  expect(screen.getByDisplayValue("https://protax.example")).toBeInTheDocument();
+  expect(screen.getByDisplayValue("MA CPA #1")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Cancel and view public profile" })).toHaveAttribute(
     "href",
-    "/accountants/22"
+    "/accountants/22?from=dashboard"
   );
   expect(screen.getByRole("link", { name: "← Dashboard" })).toHaveAttribute(
     "href",
@@ -106,11 +125,62 @@ test("saving updates the profile and opens the public listing", async () => {
       credentials: "CPA",
       firm_name: "Pro Tax",
       location: "Boston, MA",
+      headline: "Tax help for founders",
+      languages: ["English", "Spanish"],
+      offers_remote: true,
+      offers_in_person: false,
+      industries: ["Startups"],
+      website: "https://protax.example",
+      license_information: "MA CPA #1",
       service_scope: "local",
     })
   );
   expect(createAccountantProfile.mock.calls[0][0].service_name).toBeUndefined();
   expect(await screen.findByText("Public profile")).toBeInTheDocument();
+});
+
+test("edit form exposes all new professional fields for save", async () => {
+  getMyAccountantProfile.mockResolvedValue({
+    ...profile,
+    headline: "",
+    languages: [],
+    offers_remote: false,
+    offers_in_person: false,
+    industries: [],
+    website: "",
+    license_information: "",
+  });
+  createAccountantProfile.mockResolvedValue(profile);
+  renderPage();
+
+  expect(await screen.findByLabelText("Headline")).toBeInTheDocument();
+  userEvent.type(screen.getByLabelText("Headline"), "New headline");
+  const languagesInput = screen.getByRole("textbox", { name: "Languages" });
+  userEvent.type(languagesInput, "French");
+  userEvent.click(screen.getByRole("button", { name: "Add Languages" }));
+  userEvent.click(screen.getByRole("checkbox", { name: "Remote" }));
+  const industriesInput = screen.getByRole("textbox", {
+    name: "Industries / client types",
+  });
+  userEvent.type(industriesInput, "Nonprofits");
+  userEvent.click(screen.getByRole("button", { name: "Add Industries / client types" }));
+  userEvent.type(screen.getByLabelText("Website"), "https://new.example");
+  userEvent.type(screen.getByLabelText("License information"), "EA #2");
+  userEvent.click(screen.getByRole("button", { name: "Save profile" }));
+
+  await waitFor(() => {
+    expect(createAccountantProfile).toHaveBeenCalledTimes(1);
+  });
+  expect(createAccountantProfile).toHaveBeenCalledWith(
+    expect.objectContaining({
+      headline: "New headline",
+      languages: ["French"],
+      offers_remote: true,
+      industries: ["Nonprofits"],
+      website: "https://new.example",
+      license_information: "EA #2",
+    })
+  );
 });
 
 test("missing profile resumes onboarding", async () => {

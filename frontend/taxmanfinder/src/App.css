@@ -185,6 +185,46 @@ a.app-nav-link {
   color: #61dafb;
 }
 
+/* Onboarding wizard: section links should read as editable controls (green reserved for live/publish) */
+.onboarding-step-link {
+  text-decoration: none;
+}
+
+.onboarding-step-link:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.onboarding-step-link--complete,
+.onboarding-step-link--attention {
+  text-decoration: none;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease,
+    color 0.12s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .onboarding-step-link--complete:hover,
+  .onboarding-step-link--attention:hover {
+    background: #f3f4f6 !important;
+    border-color: #9ca3af !important;
+    color: #111827 !important;
+  }
+}
+
+.onboarding-step-link--complete:focus-visible,
+.onboarding-step-link--attention:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.onboarding-step-link--complete:active,
+.onboarding-step-link--attention:active {
+  background: #e5e7eb !important;
+}
+
 @keyframes App-logo-spin {
   from {
     transform: rotate(0deg);

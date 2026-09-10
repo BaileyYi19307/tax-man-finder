@@ -30,10 +30,12 @@ export function authBearerHeaders(): HeadersInit {
 }
 
 export async function apiFetch(path: string, init: RequestInit = {}) {
+  const isFormData =
+    typeof FormData !== "undefined" && init.body instanceof FormData;
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
-      ...authHeaders(),
+      ...(isFormData ? authBearerHeaders() : authHeaders()),
       ...(init.headers || {}),
     },
   });
@@ -112,6 +114,16 @@ export type ServiceCategory = {
   slug: string;
 };
 
+export type CancellationPolicyCode =
+  | "free_24h"
+  | "free_48h"
+  | "non_refundable";
+
+export type CancellationPolicyOption = {
+  code: CancellationPolicyCode;
+  label: string;
+};
+
 export type CatalogService = {
   id: number;
   name: string;
@@ -119,6 +131,8 @@ export type CatalogService = {
   pricing_type: "fixed" | "hourly" | "consultation_required";
   indicative_price: string | null;
   consultation_fee?: string | null;
+  cancellation_policy_code?: CancellationPolicyCode | null;
+  /** Resolved customer-facing wording from the API. */
   cancellation_policy?: string;
   accountant?: number;
   is_active?: boolean;
@@ -298,6 +312,15 @@ export type AccountantProfilePayload = {
   years_experience: number;
   firm_name: string;
   location: string;
+  headline?: string;
+  languages?: string[];
+  offers_remote?: boolean;
+  offers_in_person?: boolean;
+  industries?: string[];
+  website?: string;
+  license_information?: string;
+  /** Absolute or site-relative media URL; never a filesystem path. */
+  profile_photo_url?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   service_scope?: AccountantServiceScope;
@@ -305,12 +328,37 @@ export type AccountantProfilePayload = {
   services: {
     id: number;
     name: string;
+    description?: string;
     pricing_type?: "fixed" | "hourly" | "consultation_required";
     indicative_price?: string | null;
     consultation_fee?: string | null;
     cancellation_policy?: string;
+    cancellation_policy_code?: CancellationPolicyCode | null;
+    category?: ServiceCategory | null;
   }[];
 } & AccountantPublicationState;
+
+/** Partial owner profile create/update body (draft-safe; omit unchanged fields). */
+export type AccountantProfileDraftBody = {
+  first_name?: string;
+  last_name?: string;
+  bio?: string;
+  credentials?: string;
+  years_experience?: number;
+  firm_name?: string;
+  location?: string;
+  headline?: string;
+  service_scope?: AccountantServiceScope;
+  service_name?: string;
+  service_description?: string;
+  category_id?: number;
+  languages?: string[];
+  offers_remote?: boolean;
+  offers_in_person?: boolean;
+  industries?: string[];
+  website?: string;
+  license_information?: string;
+};
 
 /** Authenticated accountant profile/dashboard payload. */
 export type AccountantMyProfilePayload = AccountantProfilePayload & {
@@ -397,23 +445,56 @@ export async function getMyAccountantProfile() {
   return (await res.json()) as AccountantMyProfilePayload;
 }
 
-export async function createAccountantProfile(body: {
-  first_name: string;
-  last_name: string;
-  bio: string;
-  credentials: string;
-  years_experience: number;
-  firm_name: string;
-  location: string;
-  service_scope?: AccountantServiceScope;
-  service_name?: string;
-  service_description?: string;
-  category_id?: number;
-}) {
-  const res = await apiFetch("/accountants/create/", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+export async function getMyAccountantPreview() {
+  const res = await apiFetch("/accountants/me/preview/");
+  if (res.status === 404) return null;
+  if (!res.ok) throw await readApiError(res, "Could not load profile preview");
+  return (await res.json()) as AccountantMyProfilePayload;
+}
+
+export type AccountantProfilePhotoOptions = {
+  photoFile?: File | null;
+  removePhoto?: boolean;
+};
+
+export async function createAccountantProfile(
+  body: AccountantProfileDraftBody,
+  photoOptions?: AccountantProfilePhotoOptions
+) {
+  const wantsMultipart = Boolean(
+    photoOptions?.photoFile || photoOptions?.removePhoto
+  );
+  let res: Response;
+  if (wantsMultipart) {
+    const form = new FormData();
+    Object.entries(body).forEach(([key, value]) => {
+      if (value === undefined) return;
+      if (typeof value === "boolean" || typeof value === "number") {
+        form.append(key, String(value));
+      } else if (Array.isArray(value)) {
+        form.append(key, JSON.stringify(value));
+      } else if (value === null) {
+        form.append(key, "");
+      } else {
+        form.append(key, String(value));
+      }
+    });
+    if (photoOptions?.photoFile) {
+      form.append("profile_photo", photoOptions.photoFile);
+    }
+    if (photoOptions?.removePhoto) {
+      form.append("remove_profile_photo", "true");
+    }
+    res = await apiFetch("/accountants/create/", {
+      method: "POST",
+      body: form,
+    });
+  } else {
+    res = await apiFetch("/accountants/create/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
   if (!res.ok) throw await readApiError(res, "Failed to save accountant profile");
   return (await res.json()) as AccountantMyProfilePayload;
 }
@@ -442,6 +523,12 @@ export async function listServiceCategories() {
   return (await res.json()) as ServiceCategory[];
 }
 
+export async function listCancellationPolicies() {
+  const res = await fetch(`${API_BASE}/services/cancellation-policies/`);
+  if (!res.ok) throw await readApiError(res, "Could not load cancellation policies");
+  return (await res.json()) as CancellationPolicyOption[];
+}
+
 export async function getMyServices() {
   const res = await apiFetch("/services/mine/");
   if (!res.ok) throw await readApiError(res, "Could not load your services");
@@ -457,6 +544,7 @@ export async function updateMyService(
     indicative_price?: string | null;
     consultation_fee?: string | null;
     consultation_is_paid?: boolean;
+    cancellation_policy_code?: CancellationPolicyCode;
     cancellation_policy?: string;
     category_id?: number;
     is_active?: boolean;
@@ -477,6 +565,7 @@ export async function createMyService(body: {
   indicative_price?: string | null;
   consultation_fee?: string | null;
   consultation_is_paid?: boolean;
+  cancellation_policy_code: CancellationPolicyCode;
   cancellation_policy?: string;
   category_id: number;
 }) {

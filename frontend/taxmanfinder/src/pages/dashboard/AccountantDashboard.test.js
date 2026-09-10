@@ -77,17 +77,65 @@ test("My Services routes to the accountant-owned services page", async () => {
   );
 });
 
-test("My profile routes to the accountant profile editor", async () => {
+test("separate Continue setup / My profile dashboard card is removed", async () => {
   localStorage.setItem(ACCESS_TOKEN_KEY, "token");
   localStorage.setItem(USER_ID_KEY, "22");
   listMyInquiries.mockResolvedValue([]);
   renderDashboard();
 
-  expect(await screen.findByText("My profile")).toBeInTheDocument();
-  expect(screen.getByText("My profile").closest("a")).toHaveAttribute(
-    "href",
-    "/dashboard/profile"
+  expect(
+    await screen.findByRole("link", { name: "Preview and publish" })
+  ).toBeInTheDocument();
+  expect(screen.queryByText("My profile")).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("link", { name: "Continue profile setup" })
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Preview and publish" }).closest("section")).toHaveAttribute(
+    "aria-label",
+    "Profile visibility"
   );
+  expect(screen.getByText("My Services")).toBeInTheDocument();
+  expect(screen.getByText("Inbox")).toBeInTheDocument();
+  expect(screen.getByText("Consultations")).toBeInTheDocument();
+});
+
+test("incomplete draft shows Continue profile setup inside Profile Visibility", async () => {
+  localStorage.setItem(ACCESS_TOKEN_KEY, "token");
+  localStorage.setItem(USER_ID_KEY, "22");
+  getMe.mockResolvedValue({
+    id: 22,
+    email: "pro@test.com",
+    first_name: "Pat",
+    last_name: "Pro",
+    has_accountant_profile: true,
+    accountant_profile_complete: false,
+  });
+  getMyAccountantProfile.mockResolvedValue({
+    user_id: 22,
+    email: "pro@test.com",
+    first_name: "Pat",
+    last_name: "Pro",
+    bio: "",
+    credentials: "",
+    years_experience: 0,
+    firm_name: "",
+    location: "",
+    services: [],
+    publication_status: "draft",
+    is_publish_ready: false,
+    is_public: false,
+    profile_complete: false,
+    publish_readiness_errors: {
+      bio: ["Add a bio."],
+    },
+  });
+  listMyInquiries.mockResolvedValue([]);
+  renderDashboard();
+
+  expect(
+    await screen.findByRole("link", { name: "Continue profile setup" })
+  ).toHaveAttribute("href", "/onboarding/accountant/basic");
+  expect(screen.getByText("Profile visibility")).toBeInTheDocument();
 });
 
 test("dashboard includes profile visibility controls", async () => {
@@ -100,6 +148,10 @@ test("dashboard includes profile visibility controls", async () => {
   expect(
     await screen.findByText("Your profile is ready to publish.")
   ).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Preview and publish" })).toHaveAttribute(
+    "href",
+    "/onboarding/accountant/preview"
+  );
 });
 
 test("empty inquiry list is not treated as an error", async () => {

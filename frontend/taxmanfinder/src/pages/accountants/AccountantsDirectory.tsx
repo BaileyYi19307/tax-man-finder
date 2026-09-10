@@ -6,6 +6,7 @@ import {
   type AccountantProfilePayload,
 } from "../../api/client";
 import { accountantDisplayName, accountantFirmLocationLine } from "./displayName";
+import AccountantAvatar from "./AccountantAvatar";
 import DirectoryMap, { type SearchMapFocus } from "./DirectoryMap";
 import { pinEligibleAccountants } from "./mapPins";
 
@@ -339,6 +340,9 @@ export default function AccountantsDirectory() {
                           : card.boxShadow,
                       }}
                     >
+                      <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                        <AccountantAvatar person={accountant} size={48} />
+                        <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontSize: 16, fontWeight: 700, color: "#111827" }}>
                         {accountantDisplayName(accountant)}
                       </div>
@@ -347,6 +351,8 @@ export default function AccountantsDirectory() {
                           {subtitle}
                         </div>
                       )}
+                        </div>
+                      </div>
                       {scope && (
                         <div style={{ marginTop: 8 }}>
                           <span

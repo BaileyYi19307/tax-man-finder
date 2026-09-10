@@ -4,7 +4,6 @@ import userEvent from "@testing-library/user-event";
 import ProfileVisibilitySection from "./ProfileVisibilitySection";
 import {
   getMyAccountantProfile,
-  publishMyAccountantProfile,
   unpublishMyAccountantProfile,
 } from "../../api/client";
 
@@ -46,11 +45,10 @@ function renderSection() {
 
 beforeEach(() => {
   getMyAccountantProfile.mockReset();
-  publishMyAccountantProfile.mockReset();
   unpublishMyAccountantProfile.mockReset();
 });
 
-test("draft and not ready shows private status, errors, links, and no publish button", async () => {
+test("incomplete draft shows only Continue profile setup routed by readiness errors", async () => {
   getMyAccountantProfile.mockResolvedValue(
     ownerProfile({
       is_publish_ready: false,
@@ -70,24 +68,19 @@ test("draft and not ready shows private status, errors, links, and no publish bu
   expect(await screen.findByText("Your profile is private.")).toBeInTheDocument();
   expect(screen.getByText("Location is required to publish.")).toBeInTheDocument();
   expect(
-    screen.getByText(
-      "At least one active service with a valid public category is required to publish."
-    )
-  ).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Edit profile" })).toHaveAttribute(
-    "href",
-    "/dashboard/profile"
-  );
-  expect(screen.getByRole("link", { name: "Manage services" })).toHaveAttribute(
-    "href",
-    "/dashboard/services"
-  );
+    screen.getByRole("link", { name: "Continue profile setup" })
+  ).toHaveAttribute("href", "/onboarding/accountant/basic");
+  expect(screen.queryByRole("link", { name: "View profile" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Edit profile" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Manage services" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Preview and publish" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Fix profile" })).not.toBeInTheDocument();
   expect(
-    screen.queryByRole("button", { name: "Publish profile" })
+    screen.queryByRole("button", { name: "Unpublish profile" })
   ).not.toBeInTheDocument();
 });
 
-test("draft and ready shows publish button", async () => {
+test("ready draft shows Preview and publish to the preview step", async () => {
   getMyAccountantProfile.mockResolvedValue(ownerProfile());
 
   renderSection();
@@ -95,15 +88,24 @@ test("draft and ready shows publish button", async () => {
   expect(
     await screen.findByText("Your profile is ready to publish.")
   ).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Preview and publish" })).toHaveAttribute(
+    "href",
+    "/onboarding/accountant/preview"
+  );
   expect(
-    screen.getByRole("button", { name: "Publish profile" })
-  ).toBeEnabled();
+    screen.queryByRole("link", { name: "Continue profile setup" })
+  ).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "View profile" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Edit profile" })).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Publish profile" })
+  ).not.toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: "Unpublish profile" })
   ).not.toBeInTheDocument();
 });
 
-test("published and ready shows live status and unpublish", async () => {
+test("published and public shows View, Edit to wizard, and unpublish", async () => {
   getMyAccountantProfile.mockResolvedValue(
     ownerProfile({
       publication_status: "published",
@@ -114,15 +116,22 @@ test("published and ready shows live status and unpublish", async () => {
   renderSection();
 
   expect(await screen.findByText("Your profile is live.")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "View profile" })).toHaveAttribute(
+    "href",
+    "/accountants/22?from=dashboard"
+  );
+  expect(screen.getByRole("link", { name: "Edit profile" })).toHaveAttribute(
+    "href",
+    "/onboarding/accountant/basic"
+  );
   expect(
-    screen.getByRole("button", { name: "Unpublish profile" })
-  ).toBeEnabled();
-  expect(
-    screen.queryByRole("button", { name: "Publish profile" })
+    screen.queryByRole("link", { name: "Continue profile setup" })
   ).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Fix profile" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Unpublish profile" })).toBeEnabled();
 });
 
-test("published but not ready explains hidden status and allows unpublish", async () => {
+test("published but hidden shows Fix profile routed by readiness errors and Unpublish", async () => {
   getMyAccountantProfile.mockResolvedValue(
     ownerProfile({
       publication_status: "published",
@@ -144,72 +153,57 @@ test("published but not ready explains hidden status and allows unpublish", asyn
       "Your profile is currently hidden because information is missing."
     )
   ).toBeInTheDocument();
+  expect(screen.getByText(/remains marked as published/i)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Fix profile" })).toHaveAttribute(
+    "href",
+    "/onboarding/accountant/services"
+  );
   expect(
-    screen.getByText(/remains marked as published/i)
-  ).toBeInTheDocument();
-  expect(
-    screen.getByText(
-      "At least one active service with a valid public category is required to publish."
-    )
-  ).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Edit profile" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Manage services" })).toBeInTheDocument();
-  expect(
-    screen.getByRole("button", { name: "Unpublish profile" })
-  ).toBeEnabled();
+    screen.queryByRole("link", { name: "Continue profile setup" })
+  ).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "View profile" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Edit profile" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Unpublish profile" })).toBeEnabled();
 });
 
-test("publish success updates status from the API response", async () => {
-  getMyAccountantProfile.mockResolvedValue(ownerProfile());
-  publishMyAccountantProfile.mockResolvedValue(
+test("professional readiness errors route Continue setup to Professional Details", async () => {
+  getMyAccountantProfile.mockResolvedValue(
     ownerProfile({
-      publication_status: "published",
-      is_public: true,
-      publish_readiness_errors: {},
+      is_publish_ready: false,
+      profile_complete: false,
+      publish_readiness_errors: {
+        credentials: ["Credentials are required to publish."],
+        languages: ["At least one language is required to publish."],
+      },
     })
   );
 
   renderSection();
-  userEvent.click(await screen.findByRole("button", { name: "Publish profile" }));
 
-  expect(await screen.findByText("Your profile is live.")).toBeInTheDocument();
-  expect(publishMyAccountantProfile).toHaveBeenCalledTimes(1);
   expect(
-    screen.getByRole("button", { name: "Unpublish profile" })
-  ).toBeInTheDocument();
+    await screen.findByRole("link", { name: "Continue profile setup" })
+  ).toHaveAttribute("href", "/onboarding/accountant/professional");
 });
 
-test("publish failure shows actionable validation errors", async () => {
-  getMyAccountantProfile.mockResolvedValue(ownerProfile());
-  const err = Object.assign(new Error("Location is required to publish."), {
-    fields: { location: "Location is required to publish." },
-  });
-  publishMyAccountantProfile.mockRejectedValue(err);
+test("availability readiness errors route Continue setup to Professional Details", async () => {
+  getMyAccountantProfile.mockResolvedValue(
+    ownerProfile({
+      is_publish_ready: false,
+      profile_complete: false,
+      publish_readiness_errors: {
+        availability: ["Select remote and/or in-person availability to publish."],
+      },
+    })
+  );
 
   renderSection();
-  userEvent.click(await screen.findByRole("button", { name: "Publish profile" }));
 
-  expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Location is required to publish."
-  );
   expect(
-    screen.getByRole("button", { name: "Publish profile" })
-  ).toBeEnabled();
+    await screen.findByRole("link", { name: "Continue profile setup" })
+  ).toHaveAttribute("href", "/onboarding/accountant/professional");
 });
 
-test("publish network failure shows retryable error", async () => {
-  getMyAccountantProfile.mockResolvedValue(ownerProfile());
-  publishMyAccountantProfile.mockRejectedValue(new Error("network down"));
-
-  renderSection();
-  userEvent.click(await screen.findByRole("button", { name: "Publish profile" }));
-
-  expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Could not publish your profile. Check your connection and try again."
-  );
-});
-
-test("unpublish success updates status from the API response", async () => {
+test("unpublish requires confirmation that preserves profile, services, bookings, and messages", async () => {
   getMyAccountantProfile.mockResolvedValue(
     ownerProfile({
       publication_status: "published",
@@ -226,10 +220,51 @@ test("unpublish success updates status from the API response", async () => {
   renderSection();
   userEvent.click(await screen.findByRole("button", { name: "Unpublish profile" }));
 
+  expect(unpublishMyAccountantProfile).not.toHaveBeenCalled();
+  expect(
+    await screen.findByRole("group", { name: "Confirm unpublish" })
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/hides your listing from customer discovery/i)
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/profile, services, bookings, and messages are preserved/i)
+  ).toBeInTheDocument();
+
+  userEvent.click(screen.getByRole("button", { name: "Confirm unpublish" }));
+
   expect(
     await screen.findByText("Your profile is ready to publish.")
   ).toBeInTheDocument();
   expect(unpublishMyAccountantProfile).toHaveBeenCalledTimes(1);
+});
+
+test("cancelling unpublish confirmation does not call the API", async () => {
+  getMyAccountantProfile.mockResolvedValue(
+    ownerProfile({
+      publication_status: "published",
+      is_public: true,
+    })
+  );
+
+  renderSection();
+  userEvent.click(await screen.findByRole("button", { name: "Unpublish profile" }));
+  expect(
+    await screen.findByRole("group", { name: "Confirm unpublish" })
+  ).toBeInTheDocument();
+
+  userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+  expect(unpublishMyAccountantProfile).not.toHaveBeenCalled();
+  expect(screen.getByText("Your profile is live.")).toBeInTheDocument();
+  await waitFor(() => {
+    expect(
+      screen.queryByRole("group", { name: "Confirm unpublish" })
+    ).not.toBeInTheDocument();
+  });
+  expect(
+    screen.getByRole("button", { name: "Unpublish profile" })
+  ).toBeInTheDocument();
 });
 
 test("unpublish failure shows retryable error", async () => {
@@ -243,71 +278,15 @@ test("unpublish failure shows retryable error", async () => {
 
   renderSection();
   userEvent.click(await screen.findByRole("button", { name: "Unpublish profile" }));
+  userEvent.click(await screen.findByRole("button", { name: "Confirm unpublish" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Could not unpublish your profile. Check your connection and try again."
   );
+  expect(screen.getByRole("group", { name: "Confirm unpublish" })).toBeInTheDocument();
 });
 
-test("publish button disables while request is pending", async () => {
-  getMyAccountantProfile.mockResolvedValue(ownerProfile());
-  let resolvePublish;
-  publishMyAccountantProfile.mockImplementation(
-    () =>
-      new Promise((resolve) => {
-        resolvePublish = resolve;
-      })
-  );
-
-  renderSection();
-  const button = await screen.findByRole("button", { name: "Publish profile" });
-  userEvent.click(button);
-
-  expect(await screen.findByRole("button", { name: "Publishing…" })).toBeDisabled();
-
-  await act(async () => {
-    resolvePublish(
-      ownerProfile({
-        publication_status: "published",
-        is_public: true,
-      })
-    );
-  });
-
-  expect(await screen.findByText("Your profile is live.")).toBeInTheDocument();
-});
-
-test("duplicate publish clicks do not start a second request", async () => {
-  getMyAccountantProfile.mockResolvedValue(ownerProfile());
-  let resolvePublish;
-  publishMyAccountantProfile.mockImplementation(
-    () =>
-      new Promise((resolve) => {
-        resolvePublish = resolve;
-      })
-  );
-
-  renderSection();
-  const button = await screen.findByRole("button", { name: "Publish profile" });
-  userEvent.click(button);
-  userEvent.click(await screen.findByRole("button", { name: "Publishing…" }));
-  userEvent.click(screen.getByRole("button", { name: "Publishing…" }));
-
-  await waitFor(() => {
-    expect(publishMyAccountantProfile).toHaveBeenCalledTimes(1);
-  });
-
-  await act(async () => {
-    resolvePublish(
-      ownerProfile({
-        publication_status: "published",
-        is_public: true,
-      })
-    );
-  });
-});
-
-test("unpublish button disables while request is pending and blocks duplicates", async () => {
+test("confirm unpublish disables while request is pending and blocks duplicates", async () => {
   getMyAccountantProfile.mockResolvedValue(
     ownerProfile({
       publication_status: "published",
@@ -324,6 +303,7 @@ test("unpublish button disables while request is pending and blocks duplicates",
 
   renderSection();
   userEvent.click(await screen.findByRole("button", { name: "Unpublish profile" }));
+  userEvent.click(await screen.findByRole("button", { name: "Confirm unpublish" }));
   expect(
     await screen.findByRole("button", { name: "Unpublishing…" })
   ).toBeDisabled();

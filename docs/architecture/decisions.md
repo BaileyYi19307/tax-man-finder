@@ -12,6 +12,26 @@ Related domain detail: [domain-model.md](./domain-model.md). Product status: [..
 
 ## Accepted
 
+### Per-accountant service title uniqueness (application-level)
+
+**Status:** Accepted (implemented)  
+**Date:** 2026-09-09
+
+**Context**
+
+Accountants can offer multiple services in the same category, but duplicate titles that differ only by capitalization or whitespace confuse clients and create messy historical rows when inactive services are left behind.
+
+**Decision**
+
+Enforce case-insensitive, whitespace-normalized title uniqueness per accountant in `ServiceSerializer` (and the optional onboarding primary-service path). Inactive services are included in the conflict check. Display capitalization is preserved.
+
+**Consequences**
+
+- No database unique constraint yet — existing deployed data has not been audited for duplicates.
+- Database-level enforcement (normalized title key per accountant) is a post-audit hardening task.
+
+---
+
 ### Inquiry as the engagement workspace
 
 **Status:** Accepted (implemented)  

@@ -1,6 +1,6 @@
 import "./App.css";
 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Navigate, Routes, Route } from "react-router-dom";
 import LoginPage from "./pages/auth/Login.tsx";
 import SignUpPage from "./pages/auth/Signup.tsx";
 import ChatEmptyState from "./pages/chat/ChatLayout/ChatEmptyState.tsx";
@@ -12,12 +12,15 @@ import ServiceDetail from "./pages/services/ServiceDetail";
 import AccountantProfilePage from "./pages/accountants/AccountantProfile.tsx";
 import AccountantsDirectory from "./pages/accountants/AccountantsDirectory.tsx";
 import AccountantDashboard from "./pages/dashboard/AccountantDashboard";
-import AccountantProfileEdit from "./pages/dashboard/AccountantProfileEdit.tsx";
 import ClientDashboard from "./pages/dashboard/ClientDashboard.tsx";
 import BookingsPage from "./pages/bookings/BookingsPage.tsx";
 import DemoPaymentPage from "./pages/bookings/DemoPaymentPage.tsx";
 import Home from "./pages/Home.tsx";
-import AccountantOnboarding from "./pages/onboarding/AccountantOnboarding.tsx";
+import BasicProfileStep from "./pages/onboarding/BasicProfileStep.tsx";
+import ProfessionalDetailsStep from "./pages/onboarding/ProfessionalDetailsStep.tsx";
+import ServicesOnboardingStep from "./pages/onboarding/ServicesOnboardingStep.tsx";
+import PreviewOnboardingStep from "./pages/onboarding/PreviewOnboardingStep.tsx";
+import { ACCOUNTANT_ONBOARDING_ENTRY } from "./pages/onboarding/onboardingSteps";
 import MyServices from "./pages/services/MyServices.tsx";
 import { AuthProvider } from "./auth/AuthProvider.tsx";
 import { AppLayout } from "./components/AppHeader.tsx";
@@ -30,7 +33,23 @@ const AppRoutes = () => {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignUpPage />} />
-          <Route path="/onboarding/accountant" element={<AccountantOnboarding />} />
+          <Route
+            path="/onboarding/accountant"
+            element={<Navigate to={ACCOUNTANT_ONBOARDING_ENTRY} replace />}
+          />
+          <Route path="/onboarding/accountant/basic" element={<BasicProfileStep />} />
+          <Route
+            path="/onboarding/accountant/professional"
+            element={<ProfessionalDetailsStep />}
+          />
+          <Route
+            path="/onboarding/accountant/services"
+            element={<ServicesOnboardingStep />}
+          />
+          <Route
+            path="/onboarding/accountant/preview"
+            element={<PreviewOnboardingStep />}
+          />
 
           <Route element={<AppLayout />}>
             <Route path="/" element={<Home />} />
@@ -45,7 +64,10 @@ const AppRoutes = () => {
               <Route path="/dashboard/services" element={<MyServices />} />
               <Route element={<RequireAccountantDashboard />}>
                 <Route path="/dashboard/accountant" element={<AccountantDashboard />} />
-                <Route path="/dashboard/profile" element={<AccountantProfileEdit />} />
+                <Route
+                  path="/dashboard/profile"
+                  element={<Navigate to={ACCOUNTANT_ONBOARDING_ENTRY} replace />}
+                />
               </Route>
               <Route path="/chat" element={<ChatLayout />}>
                 <Route index element={<ChatEmptyState />} />

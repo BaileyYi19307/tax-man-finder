@@ -102,6 +102,7 @@ class ServiceCategoryWriteApiTest(TestCase):
                 "name": "Freelance books",
                 "description": "Monthly bookkeeping",
                 "pricing_type": Service.PricingType.CONSULTATION_REQUIRED,
+                "cancellation_policy_code": "free_24h",
                 "category_id": self.bookkeeping.id,
             },
             format="json",
@@ -141,6 +142,7 @@ class ServiceCategoryWriteApiTest(TestCase):
                 "name": "Bad id",
                 "description": "Missing category",
                 "pricing_type": Service.PricingType.CONSULTATION_REQUIRED,
+                "cancellation_policy_code": "free_24h",
                 "category_id": 999999,
             },
             format="json",
@@ -162,6 +164,7 @@ class ServiceCategoryWriteApiTest(TestCase):
                 "name": "Inactive cat",
                 "description": "Nope",
                 "pricing_type": Service.PricingType.CONSULTATION_REQUIRED,
+                "cancellation_policy_code": "free_24h",
                 "category_id": inactive.id,
             },
             format="json",
@@ -177,6 +180,7 @@ class ServiceCategoryWriteApiTest(TestCase):
                 "name": "Legacy bucket",
                 "description": "Nope",
                 "pricing_type": Service.PricingType.CONSULTATION_REQUIRED,
+                "cancellation_policy_code": "free_24h",
                 "category_id": self.uncategorized.id,
             },
             format="json",
@@ -187,6 +191,7 @@ class ServiceCategoryWriteApiTest(TestCase):
 
     def test_patch_without_category_when_already_valid(self):
         service = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=self.accountant,
             name="Valid offering",
             description="Has category",
@@ -203,6 +208,7 @@ class ServiceCategoryWriteApiTest(TestCase):
 
     def test_patch_null_category_requires_category_id(self):
         service = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=self.accountant,
             name="Null category",
             description="Legacy",
@@ -224,6 +230,7 @@ class ServiceCategoryWriteApiTest(TestCase):
 
     def test_patch_uncategorized_requires_active_category(self):
         service = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=self.accountant,
             name="Was uncategorized",
             description="Legacy",
@@ -258,6 +265,7 @@ class ServiceCategoryWriteApiTest(TestCase):
             sort_order=600,
         )
         service = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=self.accountant,
             name="On inactive",
             description="Legacy",
@@ -299,6 +307,7 @@ class OnboardingCategoryApiTest(TestCase):
                 "service_name": "Individual tax returns",
                 "service_description": "1040 help",
                 "category_id": self.category.id,
+                "cancellation_policy_code": "free_24h",
             },
             format="json",
         )
@@ -314,12 +323,14 @@ class OnboardingCategoryApiTest(TestCase):
                 "bio": "I prepare returns.",
                 "credentials": "CPA",
                 "service_name": "Individual tax returns",
+                "cancellation_policy_code": "free_24h",
             },
             format="json",
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("category_id", resp.data)
-        self.assertTrue(AccountantProfile.objects.filter(user=self.user).exists())
+        # Invalid primary-service payload fails before writes.
+        self.assertFalse(AccountantProfile.objects.filter(user=self.user).exists())
         self.assertEqual(Service.objects.filter(accountant=self.user).count(), 0)
 
     def test_onboarding_invalid_category_does_not_create_service(self):
@@ -330,11 +341,13 @@ class OnboardingCategoryApiTest(TestCase):
                 "credentials": "CPA",
                 "service_name": "Individual tax returns",
                 "category_id": 999999,
+                "cancellation_policy_code": "free_24h",
             },
             format="json",
         )
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("category_id", resp.data)
+        self.assertFalse(AccountantProfile.objects.filter(user=self.user).exists())
         self.assertEqual(Service.objects.filter(accountant=self.user).count(), 0)
 
 
@@ -355,6 +368,7 @@ class BookingServiceCategoryStabilityTest(TestCase):
         )
         category = ServiceCategory.objects.get(slug="bookkeeping")
         service = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=accountant,
             name="Books consult",
             description="Consult",
@@ -425,6 +439,7 @@ class LegacyServiceDeactivateApiTest(TestCase):
 
     def test_active_uncategorized_can_be_deactivated_without_category_id(self):
         service = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=self.accountant,
             name="Uncat active",
             description="Legacy",
@@ -442,6 +457,7 @@ class LegacyServiceDeactivateApiTest(TestCase):
 
     def test_already_inactive_legacy_can_be_deactivated_again(self):
         service = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=self.accountant,
             name="Uncat inactive",
             description="Legacy",
@@ -458,6 +474,7 @@ class LegacyServiceDeactivateApiTest(TestCase):
 
     def test_null_category_can_be_deactivated(self):
         service = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=self.accountant,
             name="Null cat",
             description="Legacy",
@@ -475,6 +492,7 @@ class LegacyServiceDeactivateApiTest(TestCase):
 
     def test_inactive_category_service_can_be_deactivated(self):
         service = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=self.accountant,
             name="Inactive cat svc",
             description="Legacy",
@@ -491,6 +509,7 @@ class LegacyServiceDeactivateApiTest(TestCase):
 
     def test_legacy_cannot_reactivate_without_valid_category(self):
         service = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=self.accountant,
             name="Needs reclass",
             description="Legacy",
@@ -508,6 +527,7 @@ class LegacyServiceDeactivateApiTest(TestCase):
 
     def test_legacy_cannot_edit_ordinary_fields_without_category(self):
         service = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=self.accountant,
             name="Legacy title",
             description="Legacy",
@@ -528,6 +548,7 @@ class LegacyServiceDeactivateApiTest(TestCase):
 
     def test_legacy_can_reclassify_and_reactivate_with_valid_category(self):
         service = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=self.accountant,
             name="Reclass me",
             description="Legacy",
@@ -553,6 +574,7 @@ class LegacyServiceDeactivateApiTest(TestCase):
 
     def test_valid_categorized_service_update_behavior_unchanged(self):
         service = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=self.accountant,
             name="Valid books",
             description="Has category",

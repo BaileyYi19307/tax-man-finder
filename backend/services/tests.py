@@ -34,6 +34,7 @@ class ServiceCreatePermissionsTest(TestCase):
             "description": "this is a test service",
             "indicative_price": 200.00,
             "category_id": cls.category.id,
+            "cancellation_policy_code": "free_24h",
         }
 
     def setUp(self):
@@ -105,24 +106,32 @@ class ServiceMineAndOwnershipTest(TestCase):
             email="acct-a@example.com",
             password="testpassword",
             is_verified=True,
+            first_name="Acct",
+            last_name="A",
         )
         AccountantProfile.objects.create(
             user=cls.accountant_a,
             bio="Accountant A",
             credentials="CPA",
             location="Boston, MA",
+            languages=["English"],
+            offers_remote=True,
             publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
         )
         cls.accountant_b = User.objects.create_user(
             email="acct-b@example.com",
             password="testpassword",
             is_verified=True,
+            first_name="Acct",
+            last_name="B",
         )
         AccountantProfile.objects.create(
             user=cls.accountant_b,
             bio="Accountant B",
             credentials="EA",
             location="Boston, MA",
+            languages=["English"],
+            offers_remote=True,
             publication_status=AccountantProfile.PublicationStatus.PUBLISHED,
         )
         cls.client_user = User.objects.create_user(
@@ -134,6 +143,7 @@ class ServiceMineAndOwnershipTest(TestCase):
         individual = ServiceCategory.objects.get(slug="individual-tax-returns")
         bookkeeping = ServiceCategory.objects.get(slug="bookkeeping")
         cls.service_a = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=cls.accountant_a,
             name="A Returns",
             description="Owned by A",
@@ -141,6 +151,7 @@ class ServiceMineAndOwnershipTest(TestCase):
             category=individual,
         )
         cls.service_b = Service.objects.create(
+            cancellation_policy_code="free_24h",
             accountant=cls.accountant_b,
             name="B Bookkeeping",
             description="Owned by B",
