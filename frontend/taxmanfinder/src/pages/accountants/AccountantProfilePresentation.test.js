@@ -99,6 +99,20 @@ test("shows initials avatar fallback", () => {
   expect(screen.getByText("GH")).toBeInTheDocument();
 });
 
+test("shows saved profile photo when profile_photo_url is present", () => {
+  renderPresentation({
+    ...baseProfile,
+    profile_photo_url: "http://127.0.0.1:8000/media/accountant_profiles/12/profile.jpg",
+  });
+  expect(
+    screen.getByRole("img", { name: "Profile photo of Ada Lovelace" })
+  ).toHaveAttribute(
+    "src",
+    "http://127.0.0.1:8000/media/accountant_profiles/12/profile.jpg"
+  );
+  expect(screen.queryByText("AL")).not.toBeInTheDocument();
+});
+
 test("omits empty optional sections and inactive-style empty services list", () => {
   renderPresentation({
     ...baseProfile,

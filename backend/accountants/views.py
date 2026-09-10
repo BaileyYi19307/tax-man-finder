@@ -27,6 +27,8 @@ from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from django.db.models import Exists, OuterRef
 
+from .profile_photo import apply_profile_photo_update, profile_photo_url
+
 
 def _float_or_none(value):
     if value is None:
@@ -34,7 +36,7 @@ def _float_or_none(value):
     return float(value)
 
 
-def _profile_payload(profile, *, for_owner: bool = False):
+def _profile_payload(profile, *, for_owner: bool = False, request=None):
     """
     Profile payload with explicit publication fields.
 
@@ -98,6 +100,7 @@ def _profile_payload(profile, *, for_owner: bool = False):
         "industries": profile.industries or [],
         "website": profile.website or "",
         "license_information": profile.license_information,
+        "profile_photo_url": profile_photo_url(profile, request),
         "map_eligible": profile.is_map_eligible,
         "services": services,
         "publication_status": profile.publication_status,
@@ -115,8 +118,8 @@ def _profile_payload(profile, *, for_owner: bool = False):
 _profile_public_payload = _profile_payload
 
 
-def _owner_profile_payload(profile):
-    return _profile_payload(profile, for_owner=True)
+def _owner_profile_payload(profile, request=None):
+    return _profile_payload(profile, for_owner=True, request=request)
 
 
 def _apply_location_coordinates(profile, location_text):
@@ -218,7 +221,10 @@ class CreateAccountantProfile(APIView):
                 {"detail": "No accountant profile."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        return Response(_owner_profile_payload(profile), status=status.HTTP_200_OK)
+        return Response(
+            _owner_profile_payload(profile, request=request),
+            status=status.HTTP_200_OK,
+        )
 
     def post(self, request):
         try:
@@ -282,6 +288,37 @@ class CreateAccountantProfile(APIView):
             )
         serializer.is_valid(raise_exception=True)
 
+        # Validate photo before mutating so bad uploads do not leave half-saved state.
+        try:
+            from .profile_photo import validate_profile_photo
+
+            uploaded = request.FILES.get("profile_photo")
+            if uploaded is not None:
+                validate_profile_photo(uploaded)
+            remove_flag = str(request.data.get("remove_profile_photo") or "").lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
+            if remove_flag and uploaded is not None:
+                return Response(
+                    {
+                        "profile_photo": [
+                            "Cannot upload and remove a photo in the same request."
+                        ]
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except DRFValidationError as exc:
+            detail = exc.detail
+            if isinstance(detail, dict):
+                return Response(detail, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"profile_photo": detail},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         with transaction.atomic():
             if created:
                 profile = serializer.save(user=request.user)
@@ -315,9 +352,20 @@ class CreateAccountantProfile(APIView):
                     category=category,
                 )
 
+        try:
+            apply_profile_photo_update(profile, request)
+        except DRFValidationError as exc:
+            detail = exc.detail
+            if isinstance(detail, dict):
+                return Response(detail, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"profile_photo": detail},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         profile.refresh_from_db()
         profile.user.refresh_from_db()
-        body = _owner_profile_payload(profile)
+        body = _owner_profile_payload(profile, request=request)
         return Response(
             body,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
@@ -343,7 +391,7 @@ class PublishAccountantProfileView(APIView):
             profile.publication_status = AccountantProfile.PublicationStatus.PUBLISHED
             profile.save(update_fields=["publication_status", "updated_at"])
         profile.refresh_from_db()
-        return Response(_owner_profile_payload(profile), status=status.HTTP_200_OK)
+        return Response(_owner_profile_payload(profile, request=request), status=status.HTTP_200_OK)
 
 
 class OwnerAccountantPreviewView(APIView):
@@ -368,7 +416,7 @@ class OwnerAccountantPreviewView(APIView):
                 {"detail": "No accountant profile."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        return Response(_owner_profile_payload(profile), status=status.HTTP_200_OK)
+        return Response(_owner_profile_payload(profile, request=request), status=status.HTTP_200_OK)
 
 
 class UnpublishAccountantProfileView(APIView):
@@ -387,7 +435,7 @@ class UnpublishAccountantProfileView(APIView):
             profile.publication_status = AccountantProfile.PublicationStatus.DRAFT
             profile.save(update_fields=["publication_status", "updated_at"])
         profile.refresh_from_db()
-        return Response(_owner_profile_payload(profile), status=status.HTTP_200_OK)
+        return Response(_owner_profile_payload(profile, request=request), status=status.HTTP_200_OK)
 
 
 class CheckProfileStatus(APIView):
@@ -497,7 +545,7 @@ class PublicAccountantDirectoryView(APIView):
                     radius_miles=radius,
                 ):
                     continue
-            listed.append(_profile_payload(profile))
+            listed.append(_profile_payload(profile, request=request))
 
         return Response(listed, status=status.HTTP_200_OK)
 
@@ -538,4 +586,4 @@ class PublicAccountantProfileView(APIView):
                 {"detail": "Not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        return Response(_profile_payload(profile), status=status.HTTP_200_OK)
+        return Response(_profile_payload(profile, request=request), status=status.HTTP_200_OK)

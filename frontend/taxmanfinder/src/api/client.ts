@@ -30,10 +30,12 @@ export function authBearerHeaders(): HeadersInit {
 }
 
 export async function apiFetch(path: string, init: RequestInit = {}) {
+  const isFormData =
+    typeof FormData !== "undefined" && init.body instanceof FormData;
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
-      ...authHeaders(),
+      ...(isFormData ? authBearerHeaders() : authHeaders()),
       ...(init.headers || {}),
     },
   });
@@ -317,6 +319,8 @@ export type AccountantProfilePayload = {
   industries?: string[];
   website?: string;
   license_information?: string;
+  /** Absolute or site-relative media URL; never a filesystem path. */
+  profile_photo_url?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   service_scope?: AccountantServiceScope;
@@ -448,11 +452,49 @@ export async function getMyAccountantPreview() {
   return (await res.json()) as AccountantMyProfilePayload;
 }
 
-export async function createAccountantProfile(body: AccountantProfileDraftBody) {
-  const res = await apiFetch("/accountants/create/", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+export type AccountantProfilePhotoOptions = {
+  photoFile?: File | null;
+  removePhoto?: boolean;
+};
+
+export async function createAccountantProfile(
+  body: AccountantProfileDraftBody,
+  photoOptions?: AccountantProfilePhotoOptions
+) {
+  const wantsMultipart = Boolean(
+    photoOptions?.photoFile || photoOptions?.removePhoto
+  );
+  let res: Response;
+  if (wantsMultipart) {
+    const form = new FormData();
+    Object.entries(body).forEach(([key, value]) => {
+      if (value === undefined) return;
+      if (typeof value === "boolean" || typeof value === "number") {
+        form.append(key, String(value));
+      } else if (Array.isArray(value)) {
+        form.append(key, JSON.stringify(value));
+      } else if (value === null) {
+        form.append(key, "");
+      } else {
+        form.append(key, String(value));
+      }
+    });
+    if (photoOptions?.photoFile) {
+      form.append("profile_photo", photoOptions.photoFile);
+    }
+    if (photoOptions?.removePhoto) {
+      form.append("remove_profile_photo", "true");
+    }
+    res = await apiFetch("/accountants/create/", {
+      method: "POST",
+      body: form,
+    });
+  } else {
+    res = await apiFetch("/accountants/create/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  }
   if (!res.ok) throw await readApiError(res, "Failed to save accountant profile");
   return (await res.json()) as AccountantMyProfilePayload;
 }

@@ -11,6 +11,7 @@ import {
   type ApiError,
 } from "../../api/client";
 import AccountantOnboardingLayout from "./AccountantOnboardingLayout";
+import AccountantAvatar from "../accountants/AccountantAvatar";
 import {
   FieldError,
   onboardingFieldErrorStyle,
@@ -19,12 +20,8 @@ import {
   onboardingSecondaryButton,
 } from "./onboardingFormUtils";
 
-function initialsFor(firstName: string, lastName: string) {
-  const first = firstName.trim().charAt(0);
-  const last = lastName.trim().charAt(0);
-  const initials = `${first}${last}`.toUpperCase();
-  return initials || "?";
-}
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+const ACCEPTED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 function buildBasicProfilePayload(values: {
   firstName: string;
@@ -63,6 +60,12 @@ export default function BasicProfileStep() {
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [hasProfile, setHasProfile] = useState(false);
+  const [savedPhotoUrl, setSavedPhotoUrl] = useState<string | null>(null);
+  const [selectedPhotoFile, setSelectedPhotoFile] = useState<File | null>(null);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadDraft = useCallback(async () => {
     setChecking(true);
@@ -82,8 +85,13 @@ export default function BasicProfileStep() {
         setHeadline(profile.headline || "");
         setBio(profile.bio || "");
         setLocation(profile.location || "");
+        setSavedPhotoUrl(profile.profile_photo_url || null);
+        setSelectedPhotoFile(null);
+        setRemovePhoto(false);
+        setPhotoError(null);
       } else {
         setHasProfile(false);
+        setSavedPhotoUrl(null);
       }
     } catch (e) {
       console.error(e);
@@ -110,14 +118,59 @@ export default function BasicProfileStep() {
     void loadDraft();
   }, [navigate, loadDraft]);
 
+  useEffect(() => {
+    if (!selectedPhotoFile) {
+      setLocalPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(selectedPhotoFile);
+    setLocalPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [selectedPhotoFile]);
+
+  function onPickPhoto(file: File | null) {
+    setPhotoError(null);
+    if (!file) return;
+    if (!ACCEPTED_PHOTO_TYPES.includes(file.type)) {
+      setPhotoError("Use a JPEG, PNG, or WebP image.");
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setPhotoError("Profile photo must be 5 MB or smaller.");
+      return;
+    }
+    setSelectedPhotoFile(file);
+    setRemovePhoto(false);
+  }
+
+  function clearSelectedPhoto() {
+    setSelectedPhotoFile(null);
+    setPhotoError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function markRemovePhoto() {
+    clearSelectedPhoto();
+    setRemovePhoto(true);
+    setSavedPhotoUrl(null);
+  }
+
   async function saveDraft(mode: "continue" | "exit") {
     if (savingRef.current) return;
     savingRef.current = true;
     setSaving(true);
     setFormError(null);
     setFieldErrors({});
+    setPhotoError(null);
 
     try {
+      const photoOptions =
+        selectedPhotoFile || removePhoto
+          ? {
+              photoFile: selectedPhotoFile,
+              removePhoto: Boolean(removePhoto && !selectedPhotoFile),
+            }
+          : undefined;
       const saved: AccountantMyProfilePayload = await createAccountantProfile(
         buildBasicProfilePayload({
           firstName,
@@ -125,7 +178,8 @@ export default function BasicProfileStep() {
           headline,
           bio,
           location,
-        })
+        }),
+        photoOptions
       );
       setHasProfile(true);
       setFirstName(saved.first_name || firstName);
@@ -133,6 +187,9 @@ export default function BasicProfileStep() {
       setHeadline(saved.headline || "");
       setBio(saved.bio || "");
       setLocation(saved.location || "");
+      setSavedPhotoUrl(saved.profile_photo_url || null);
+      clearSelectedPhoto();
+      setRemovePhoto(false);
       await refreshUser();
 
       if (mode === "exit") {
@@ -145,6 +202,9 @@ export default function BasicProfileStep() {
       const apiErr = err as ApiError;
       if (apiErr?.fields && Object.keys(apiErr.fields).length > 0) {
         setFieldErrors(apiErr.fields);
+        if (apiErr.fields.profile_photo) {
+          setPhotoError(apiErr.fields.profile_photo);
+        }
       }
       setFormError(
         err instanceof Error
@@ -201,7 +261,7 @@ export default function BasicProfileStep() {
     );
   }
 
-  const initials = initialsFor(firstName, lastName);
+  const hasVisiblePhoto = Boolean(localPreviewUrl || (!removePhoto && savedPhotoUrl));
 
   return (
     <AccountantOnboardingLayout
@@ -221,26 +281,55 @@ export default function BasicProfileStep() {
         }}
         style={{ display: "grid", gap: 14, marginTop: 12 }}
       >
-        <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-          <div
-            aria-hidden="true"
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: "50%",
-              background: "#e5e7eb",
-              color: "#374151",
-              display: "grid",
-              placeItems: "center",
-              fontWeight: 700,
-              fontSize: 20,
-              flexShrink: 0,
+        <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+          <AccountantAvatar
+            person={{
+              first_name: firstName,
+              last_name: lastName,
+              profile_photo_url: removePhoto ? null : savedPhotoUrl,
             }}
-          >
-            {initials}
-          </div>
-          <div style={onboardingMuted}>
-            Photo upload comes later. Clients will see these initials for now.
+            previewSrc={localPreviewUrl}
+            size={64}
+          />
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ ...onboardingMuted, marginBottom: 8 }}>
+              Optional profile photo. JPEG, PNG, or WebP up to 5 MB.
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              aria-label="Profile photo"
+              style={{ display: "none" }}
+              onChange={(e) => onPickPhoto(e.target.files?.[0] || null)}
+            />
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => fileInputRef.current?.click()}
+                style={onboardingSecondaryButton(saving)}
+              >
+                {hasVisiblePhoto ? "Change photo" : "Upload photo"}
+              </button>
+              {hasVisiblePhoto || selectedPhotoFile ? (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => {
+                    if (selectedPhotoFile) {
+                      clearSelectedPhoto();
+                      return;
+                    }
+                    markRemovePhoto();
+                  }}
+                  style={onboardingSecondaryButton(saving)}
+                >
+                  Remove photo
+                </button>
+              ) : null}
+            </div>
+            {photoError ? <FieldError message={photoError} /> : null}
           </div>
         </div>
 

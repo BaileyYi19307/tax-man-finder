@@ -3,6 +3,8 @@ from django.db.models import Exists, F, OuterRef, Q, Value
 from django.db.models.functions import Replace, Trim
 from django.conf import settings
 
+from .profile_photo import accountant_profile_photo_upload_to
+
 
 def _trimmed_text(field_name: str):
     """
@@ -98,6 +100,12 @@ class AccountantProfile(models.Model):
     industries = models.JSONField(default=list, blank=True)
     website = models.URLField(max_length=500, blank=True, default="")
     license_information = models.TextField(blank=True, default="")
+    profile_photo = models.ImageField(
+        upload_to=accountant_profile_photo_upload_to,
+        blank=True,
+        null=True,
+        max_length=512,
+    )
     # Explicit publication state (independent of readiness).
     publication_status = models.CharField(
         max_length=20,

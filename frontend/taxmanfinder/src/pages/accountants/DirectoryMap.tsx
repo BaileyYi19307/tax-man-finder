@@ -10,6 +10,7 @@ import {
 } from "react-leaflet";
 import type { CircleMarker as LeafletCircleMarker } from "leaflet";
 import type { AccountantProfilePayload } from "../../api/client";
+import AccountantAvatar from "./AccountantAvatar";
 import { accountantDisplayName } from "./displayName";
 import "leaflet/dist/leaflet.css";
 
@@ -116,31 +117,11 @@ function AccountantPreviewCard({
         : null;
   const service = accountant.services?.[0];
   const priceLabel = formatServicePrice(service);
-  const initials = `${(accountant.first_name || "").slice(0, 1)}${(
-    accountant.last_name || ""
-  ).slice(0, 1)}`.toUpperCase() || "TP";
 
   return (
     <div style={{ width: 240, fontFamily: "inherit", color: "#111827" }}>
       <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-        <div
-          aria-hidden
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 999,
-            background: "#dbeafe",
-            color: "#1d4ed8",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontWeight: 700,
-            fontSize: 13,
-            flexShrink: 0,
-          }}
-        >
-          {initials}
-        </div>
+        <AccountantAvatar person={accountant} size={40} />
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>{name}</div>
           {credentials ? (

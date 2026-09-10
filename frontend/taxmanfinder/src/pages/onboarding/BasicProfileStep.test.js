@@ -154,13 +154,14 @@ test("creates a first profile from an empty draft", async () => {
   userEvent.click(screen.getByRole("button", { name: "Save and continue" }));
 
   await waitFor(() => expect(createAccountantProfile).toHaveBeenCalledTimes(1));
-  expect(createAccountantProfile).toHaveBeenCalledWith({
+  expect(createAccountantProfile.mock.calls[0][0]).toEqual({
     first_name: "Ada",
     last_name: "Lovelace",
     bio: "New bio",
     location: "Austin, TX",
     headline: "",
   });
+  expect(createAccountantProfile.mock.calls[0][1]).toBeUndefined();
   expect(await screen.findByText("Professional details step")).toBeInTheDocument();
   expect(screen.queryByText("Accountant dash")).not.toBeInTheDocument();
 });
@@ -262,4 +263,87 @@ test("save and exit navigates to accountant dashboard", async () => {
 
   expect(await screen.findByText("Accountant dash")).toBeInTheDocument();
   expect(createAccountantProfile).toHaveBeenCalledTimes(1);
+});
+
+test("shows initials fallback and optional photo controls", async () => {
+  getMyAccountantProfile.mockResolvedValue(null);
+  renderBasic();
+  expect(await screen.findByText("A")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Upload photo" })).toBeInTheDocument();
+  expect(
+    screen.getByText(/Optional profile photo\. JPEG, PNG, or WebP up to 5 MB/i)
+  ).toBeInTheDocument();
+});
+
+test("selecting a photo shows local preview before save", async () => {
+  getMyAccountantProfile.mockResolvedValue(null);
+  createAccountantProfile.mockResolvedValue(
+    draftProfile({
+      profile_photo_url: "http://127.0.0.1:8000/media/accountant_profiles/9/profile.jpg",
+    })
+  );
+  const createObjectURL = jest.fn(() => "blob:preview-photo");
+  const revokeObjectURL = jest.fn();
+  global.URL.createObjectURL = createObjectURL;
+  global.URL.revokeObjectURL = revokeObjectURL;
+
+  renderBasic();
+  expect(await screen.findByLabelText("Profile photo")).toBeInTheDocument();
+  const file = new File([new Uint8Array([1, 2, 3])], "avatar.png", {
+    type: "image/png",
+  });
+  Object.defineProperty(file, "size", { value: 12 });
+  await act(async () => {
+    userEvent.upload(screen.getByLabelText("Profile photo"), file);
+  });
+  expect(await screen.findByRole("img", { name: /Profile photo of Ada/i })).toHaveAttribute(
+    "src",
+    "blob:preview-photo"
+  );
+  expect(screen.getByRole("button", { name: "Change photo" })).toBeInTheDocument();
+
+  userEvent.click(screen.getByRole("button", { name: "Save and continue" }));
+  await waitFor(() => expect(createAccountantProfile).toHaveBeenCalledTimes(1));
+  expect(createAccountantProfile.mock.calls[0][1]).toEqual({
+    photoFile: file,
+    removePhoto: false,
+  });
+});
+
+test("saved photo renders and remove sends removePhoto flag", async () => {
+  getMyAccountantProfile.mockResolvedValue(
+    draftProfile({
+      profile_photo_url: "http://127.0.0.1:8000/media/accountant_profiles/9/profile.jpg",
+    })
+  );
+  createAccountantProfile.mockResolvedValue(
+    draftProfile({ profile_photo_url: null })
+  );
+  renderBasic();
+  expect(
+    await screen.findByRole("img", { name: "Profile photo of Ada Lovelace" })
+  ).toBeInTheDocument();
+  userEvent.click(screen.getByRole("button", { name: "Remove photo" }));
+  expect(await screen.findByText("AL")).toBeInTheDocument();
+  userEvent.click(screen.getByRole("button", { name: "Save and continue" }));
+  await waitFor(() => expect(createAccountantProfile).toHaveBeenCalledTimes(1));
+  expect(createAccountantProfile.mock.calls[0][1]).toEqual({
+    photoFile: null,
+    removePhoto: true,
+  });
+});
+
+test("rejects oversized local photo before upload", async () => {
+  getMyAccountantProfile.mockResolvedValue(null);
+  renderBasic();
+  expect(await screen.findByLabelText("Profile photo")).toBeInTheDocument();
+  const big = new File([new Uint8Array([1])], "big.jpg", { type: "image/jpeg" });
+  Object.defineProperty(big, "size", { value: 6 * 1024 * 1024 });
+  await act(async () => {
+    userEvent.upload(screen.getByLabelText("Profile photo"), big);
+  });
+  expect(
+    await screen.findByText("Profile photo must be 5 MB or smaller.")
+  ).toBeInTheDocument();
+  expect(createAccountantProfile).not.toHaveBeenCalled();
 });

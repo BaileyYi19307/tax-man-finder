@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { AccountantProfilePayload } from "../../api/client";
+import AccountantAvatar from "./AccountantAvatar";
 import { accountantDisplayName, accountantFirmLocationLine } from "./displayName";
 
 const card = {
@@ -12,12 +13,6 @@ const card = {
 };
 
 const muted = { color: "#6b7280", fontSize: 14, lineHeight: 1.45 };
-
-function initialsFor(profile: AccountantProfilePayload) {
-  const first = (profile.first_name || "").trim().charAt(0);
-  const last = (profile.last_name || "").trim().charAt(0);
-  return `${first}${last}`.toUpperCase() || "?";
-}
 
 function availabilityLabel(profile: AccountantProfilePayload) {
   const parts: string[] = [];
@@ -79,23 +74,7 @@ export default function AccountantProfilePresentation({
       {header}
       <div style={{ ...card, marginTop: header ? 16 : 0 }}>
         <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-          <div
-            aria-hidden="true"
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: "50%",
-              background: "#e5e7eb",
-              color: "#374151",
-              display: "grid",
-              placeItems: "center",
-              fontWeight: 700,
-              fontSize: 20,
-              flexShrink: 0,
-            }}
-          >
-            {initialsFor(profile)}
-          </div>
+          <AccountantAvatar person={profile} size={64} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 22, fontWeight: 700, color: "#111827" }}>
               {accountantDisplayName(profile)}
