@@ -178,6 +178,7 @@ class DraftProfileSaveApiTest(TestCase):
                 "last_name": "Lovelace",
                 "bio": "Bio",
                 "service_name": "Individual returns",
+                "cancellation_policy_code": "free_24h",
                 # missing category_id
             },
             format="json",
@@ -189,6 +190,63 @@ class DraftProfileSaveApiTest(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.first_name, "")
         self.assertEqual(self.user.last_name, "")
+
+    def test_service_name_without_cancellation_policy_code_rejects_before_writes(self):
+        resp = self.client.post(
+            self.create_url,
+            {
+                "first_name": "Ada",
+                "last_name": "Lovelace",
+                "bio": "Bio",
+                "service_name": "Individual returns",
+                "category_id": self.category.id,
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("cancellation_policy_code", resp.data)
+        self.assertFalse(AccountantProfile.objects.filter(user=self.user).exists())
+        self.assertEqual(Service.objects.filter(accountant=self.user).count(), 0)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, "")
+        self.assertEqual(self.user.last_name, "")
+
+    def test_service_name_with_unknown_cancellation_policy_code_rejects(self):
+        resp = self.client.post(
+            self.create_url,
+            {
+                "first_name": "Ada",
+                "last_name": "Lovelace",
+                "bio": "Bio",
+                "service_name": "Individual returns",
+                "category_id": self.category.id,
+                "cancellation_policy_code": "flexible_forever",
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("cancellation_policy_code", resp.data)
+        self.assertFalse(AccountantProfile.objects.filter(user=self.user).exists())
+        self.assertEqual(Service.objects.filter(accountant=self.user).count(), 0)
+
+    def test_service_name_with_valid_cancellation_policy_creates_service(self):
+        resp = self.client.post(
+            self.create_url,
+            {
+                "first_name": "Ada",
+                "last_name": "Lovelace",
+                "bio": "Bio",
+                "credentials": "CPA",
+                "service_name": "Individual returns",
+                "category_id": self.category.id,
+                "cancellation_policy_code": "free_48h",
+            },
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        service = Service.objects.get(accountant=self.user)
+        self.assertEqual(service.cancellation_policy_code, "free_48h")
+        self.assertIn("48 hours", service.cancellation_policy)
 
     def test_invalid_service_category_rolls_back_name_and_profile_changes(self):
         # Existing draft so we can assert names are not updated on failure.
@@ -205,6 +263,7 @@ class DraftProfileSaveApiTest(TestCase):
                 "bio": "Updated bio",
                 "service_name": "New offering",
                 "category_id": 999999,
+                "cancellation_policy_code": "free_24h",
             },
             format="json",
         )
@@ -229,6 +288,7 @@ class DraftProfileSaveApiTest(TestCase):
                     "bio": "Bio",
                     "service_name": "Returns",
                     "category_id": self.category.id,
+                    "cancellation_policy_code": "free_24h",
                 },
                 format="json",
             )

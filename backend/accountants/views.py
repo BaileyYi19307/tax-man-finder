@@ -17,7 +17,11 @@ from services.category_assignment import (
     resolve_assignable_category,
     resolve_public_category_slug,
 )
-from services.cancellation_policy import resolve_service_cancellation_policy_text
+from services.cancellation_policy import (
+    is_valid_cancellation_policy_code,
+    label_for_cancellation_policy_code,
+    resolve_service_cancellation_policy_text,
+)
 from services.models import Service
 from services.title_uniqueness import (
     DUPLICATE_SERVICE_TITLE_MESSAGE,
@@ -251,6 +255,7 @@ class CreateAccountantProfile(APIView):
         ).strip()
         create_primary_service = False
         category = None
+        cancellation_policy_code = None
 
         profile = AccountantProfile.objects.filter(user=request.user).first()
         created = profile is None
@@ -258,6 +263,28 @@ class CreateAccountantProfile(APIView):
         # Validate optional primary-service payload before any writes.
         if service_name:
             create_primary_service = profile is None or not profile.has_services
+            raw_policy_code = request.data.get("cancellation_policy_code")
+            cancellation_policy_code = (
+                str(raw_policy_code).strip() if raw_policy_code is not None else ""
+            )
+            if not is_valid_cancellation_policy_code(cancellation_policy_code):
+                if not cancellation_policy_code:
+                    return Response(
+                        {
+                            "cancellation_policy_code": [
+                                "Select a cancellation policy."
+                            ]
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                return Response(
+                    {
+                        "cancellation_policy_code": [
+                            "Select a valid cancellation policy."
+                        ]
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             if create_primary_service:
                 try:
                     category = resolve_assignable_category(
@@ -350,6 +377,10 @@ class CreateAccountantProfile(APIView):
                     description=service_description or service_name,
                     pricing_type=Service.PricingType.CONSULTATION_REQUIRED,
                     category=category,
+                    cancellation_policy_code=cancellation_policy_code,
+                    cancellation_policy=label_for_cancellation_policy_code(
+                        cancellation_policy_code
+                    ),
                 )
 
         try:

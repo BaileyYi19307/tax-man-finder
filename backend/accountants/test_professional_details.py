@@ -137,6 +137,7 @@ class ProfessionalDetailsApiTest(TestCase):
                 "service_name": "Individual returns",
                 "service_description": "1040 prep",
                 "category_id": self.category.id,
+                "cancellation_policy_code": "free_24h",
             },
             format="json",
         )

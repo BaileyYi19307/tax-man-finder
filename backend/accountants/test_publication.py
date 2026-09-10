@@ -21,6 +21,13 @@ _backfill_mod = importlib.import_module(
 )
 backfill_publication_status = _backfill_mod.backfill_publication_status
 
+_languages_backfill_mod = importlib.import_module(
+    "accountants.migrations.0011_backfill_published_empty_languages"
+)
+backfill_published_empty_languages = (
+    _languages_backfill_mod.backfill_published_empty_languages
+)
+
 
 def _make_ready_profile(
     *,
@@ -528,3 +535,51 @@ class PublicationBackfillMigrationTest(TestCase):
             uncat_profile.publication_status,
             AccountantProfile.PublicationStatus.DRAFT,
         )
+
+
+class PublishedEmptyLanguagesBackfillMigrationTest(TestCase):
+    def test_backfill_defaults_only_published_empty_languages(self):
+        _, published_empty, _ = _make_ready_profile(
+            email="lang-pub-empty@test.com", publish=True
+        )
+        published_empty.languages = []
+        published_empty.save(update_fields=["languages"])
+        self.assertFalse(published_empty.is_public)
+
+        _, published_existing, _ = _make_ready_profile(
+            email="lang-pub-existing@test.com", publish=True
+        )
+        published_existing.languages = ["Spanish", "French"]
+        published_existing.save(update_fields=["languages"])
+
+        _, draft_empty, _ = _make_ready_profile(email="lang-draft-empty@test.com")
+        draft_empty.languages = []
+        draft_empty.publication_status = AccountantProfile.PublicationStatus.DRAFT
+        draft_empty.save(update_fields=["languages", "publication_status"])
+
+        backfill_published_empty_languages(apps, connection.schema_editor())
+
+        published_empty.refresh_from_db()
+        published_existing.refresh_from_db()
+        draft_empty.refresh_from_db()
+
+        self.assertEqual(published_empty.languages, ["English"])
+        self.assertEqual(
+            published_empty.publication_status,
+            AccountantProfile.PublicationStatus.PUBLISHED,
+        )
+        self.assertTrue(published_empty.is_publish_ready)
+        self.assertTrue(published_empty.is_public)
+        self.assertTrue(
+            AccountantProfile.objects.publicly_visible()
+            .filter(pk=published_empty.pk)
+            .exists()
+        )
+
+        self.assertEqual(published_existing.languages, ["Spanish", "French"])
+        self.assertEqual(draft_empty.languages, [])
+        self.assertEqual(
+            draft_empty.publication_status,
+            AccountantProfile.PublicationStatus.DRAFT,
+        )
+

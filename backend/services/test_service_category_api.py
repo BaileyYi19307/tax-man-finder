@@ -307,6 +307,7 @@ class OnboardingCategoryApiTest(TestCase):
                 "service_name": "Individual tax returns",
                 "service_description": "1040 help",
                 "category_id": self.category.id,
+                "cancellation_policy_code": "free_24h",
             },
             format="json",
         )
@@ -322,6 +323,7 @@ class OnboardingCategoryApiTest(TestCase):
                 "bio": "I prepare returns.",
                 "credentials": "CPA",
                 "service_name": "Individual tax returns",
+                "cancellation_policy_code": "free_24h",
             },
             format="json",
         )
@@ -339,6 +341,7 @@ class OnboardingCategoryApiTest(TestCase):
                 "credentials": "CPA",
                 "service_name": "Individual tax returns",
                 "category_id": 999999,
+                "cancellation_policy_code": "free_24h",
             },
             format="json",
         )

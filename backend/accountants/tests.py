@@ -313,6 +313,7 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
                 "service_name": "Individual tax returns",
                 "service_description": "Form 1040 preparation",
                 "category_id": self.individual_category.id,
+                "cancellation_policy_code": "free_24h",
                 "user": self.listed.id,
             },
             format="json",
@@ -357,6 +358,7 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
             "years_experience": 4,
             "service_name": "Individual tax returns",
             "category_id": self.individual_category.id,
+            "cancellation_policy_code": "free_24h",
         }
         first = self.client.post(reverse("create_accountant"), payload, format="json")
         second = self.client.post(
@@ -404,6 +406,7 @@ class AccountantDirectoryAndOnboardingTest(TestCase):
                     "offers_in_person": True,
                     "service_name": "Tax planning",
                     "category_id": self.tax_planning_category.id,
+                    "cancellation_policy_code": "free_24h",
                 },
                 format="json",
             )
@@ -770,6 +773,7 @@ class MapDiscoveryDirectoryTest(TestCase):
                 "location": "Boston, MA",
                 "service_name": "Tax planning",
                 "category_id": ServiceCategory.objects.get(slug="tax-planning").id,
+                "cancellation_policy_code": "free_24h",
             },
             format="json",
         )
